@@ -1,0 +1,83 @@
+You are an expert full-stack developer specializing in blockchain, Solana, and Telegram bots. Your task is to generate a fully working Solana-based Telegram trading bot named **Zinobot** that can be deployed on Replit. Follow these requirements exactly:
+
+---
+
+1. **Project Requirements**
+- Name: Zinobot
+- Language: Node.js (TypeScript preferred)
+- Bot Framework: grammY or Telegraf
+- Host: Replit (include Replit-compatible file structure)
+- Database: Supabase or Postgres (include schema creation scripts)
+- Scheduler: node-cron for recurring jobs
+- Secure storage: encrypt wallet private keys and environment variables
+- APIs to integrate: Solana RPC, Jupiter Aggregator, CoinGecko, OpenAI (optional)
+
+---
+
+2. **Telegram Bot Features**
+- `/start` → Welcome message introducing Zinobot
+- `/create_wallet` → Generate a new Solana wallet, display secret key only once, store encrypted
+- `/buy <token> <amount>` → Instant swap via Jupiter
+- `/sell <token> <amount>` → Sell token
+- `/setlimit <token> <price>` → Create a limit order
+- `/dca <token> daily <amount>` → Schedule recurring token purchases
+- `/portfolio` → Show balances, profit/loss, and token performance
+- Notifications for executed trades, limit hits, and DCA events
+
+---
+
+3. **Wallet & Trading Engine**
+- Generate non-custodial Solana wallets using @solana/web3.js
+- Integrate Jupiter API for swaps
+- Implement limit orders and DCA with node-cron
+- Include slippage handling and transaction retries
+- Log all transactions in the database
+- Support multiple wallets per user
+
+---
+
+4. **Market Data**
+- Fetch token prices and metadata from CoinGecko
+- Retrieve transaction history from Solana RPC
+- Calculate portfolio analytics: balances, PnL, token performance
+
+---
+
+5. **Advanced Features**
+- Sniping: detect new token listings on Raydium/Jupiter and buy instantly
+- Copy-trading: mirror trades from selected Solana wallets
+- AI advisory (optional): OpenAI GPT API for risk scoring or trade suggestions
+
+---
+
+6. **Database Structure**
+- Tables: users, wallets, orders, dca_jobs, transactions, copy_subscriptions, token_scores, audit_logs
+- Store wallet secrets encrypted (AES-256)
+- Example SQL for Supabase/Postgres schema
+
+---
+
+7. **Architecture**
+- Telegram Bot (Zinobot) → Backend API → Wallet Manager / Trade Engine → Jupiter API → Solana RPC → Database
+- AI advisory module integrates via API calls
+- Include modular code structure: bot/, wallet/, trading/, scheduler/, ai/
+
+---
+
+8. **Replit Deployment**
+- Include a `.replit` file or instruction for running Zinobot
+- Include `.env.example` with placeholders for API keys
+- Instructions for enabling Replit “Always On”
+
+---
+
+9. **Code Requirements**
+- Fully functional, ready-to-run Node.js project
+- Clear, modular code with comments
+- Example scripts for running on Devnet first
+- Security best practices (no plaintext keys, secure API handling)
+- Error handling and logging
+
+---
+
+**Instruction for AI:** Generate the complete project structure with all modules, code files, database schema, and example Replit configuration. Include comments and instructions for testing Zinobot on Solana Devnet. Output should be directly usable on Replit without modifications.
