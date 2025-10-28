@@ -1,0 +1,35 @@
+{
+  "name": "zinobot",
+  "version": "1.0.0",
+  "description": "Solana-based Telegram trading bot",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "db:init": "ts-node src/database/init.ts"
+  },
+  "keywords": ["telegram", "bot", "solana", "trading", "jupiter"],
+  "author": "Zinobot",
+  "license": "MIT",
+  "dependencies": {
+    "grammy": "^1.21.1",
+    "@solana/web3.js": "^1.91.1",
+    "@solana/spl-token": "^0.4.1",
+    "pg": "^8.11.3",
+    "dotenv": "^16.4.1",
+    "axios": "^1.6.7",
+    "bs58": "^5.0.0",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "@types/pg": "^8.11.0",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
