@@ -1,5 +1,5 @@
 import { Keypair, PublicKey, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
+import { getAssociatedTokenAddress, getAccount, getMint, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import bs58 from 'bs58';
 import { query } from '../database/db';
 import { encrypt, decrypt } from '../utils/encryption';
@@ -102,11 +102,33 @@ export class WalletManager {
 
   async getPortfolio(publicKey: string): Promise<any> {
     const solBalance = await this.getBalance(publicKey);
+    const walletPubKey = new PublicKey(publicKey);
+    
+    const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
+      walletPubKey,
+      { programId: TOKEN_PROGRAM_ID }
+    );
+
+    const tokens: any[] = [];
+    for (const account of tokenAccounts.value) {
+      const parsedInfo = account.account.data.parsed.info;
+      const mintAddress = parsedInfo.mint;
+      const balance = parsedInfo.tokenAmount.uiAmount;
+      const decimals = parsedInfo.tokenAmount.decimals;
+
+      if (balance > 0) {
+        tokens.push({
+          mint: mintAddress,
+          balance,
+          decimals
+        });
+      }
+    }
     
     return {
       publicKey,
       solBalance,
-      tokens: []
+      tokens
     };
   }
 

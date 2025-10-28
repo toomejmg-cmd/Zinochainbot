@@ -192,6 +192,18 @@ export function registerCommands(
       }
       
       message += `\n\n`;
+
+      if (portfolio.tokens && portfolio.tokens.length > 0) {
+        message += `🪙 *Token Holdings:*\n`;
+        for (const token of portfolio.tokens) {
+          const shortMint = `${token.mint.substring(0, 6)}...${token.mint.substring(token.mint.length - 4)}`;
+          message += `• ${token.balance.toFixed(4)} tokens (\`${shortMint}\`)\n`;
+        }
+        message += `\n`;
+      } else {
+        message += `No token holdings yet.\n\n`;
+      }
+
       message += `Use /buy to purchase tokens.`;
 
       await ctx.reply(message, { parse_mode: 'Markdown' });
@@ -319,12 +331,15 @@ export function registerCommands(
       await ctx.reply(`🔄 Executing swap: ${tokenAmount} Token → SOL...\nThis may take a moment...`);
 
       const keypair = await walletManager.getKeypair(wallet.id);
+      
+      const decimals = await jupiterService.getTokenDecimals(tokenMint);
+      const amountInSmallestUnit = Math.floor(tokenAmount * Math.pow(10, decimals));
 
       const signature = await jupiterService.swap(
         keypair,
         tokenMint,
         NATIVE_SOL_MINT,
-        Math.floor(tokenAmount),
+        amountInSmallestUnit,
         100
       );
 

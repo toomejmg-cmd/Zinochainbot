@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { Connection, Keypair, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, Keypair, VersionedTransaction, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
+import { getMint } from '@solana/spl-token';
 
 const JUPITER_API = process.env.JUPITER_API_URL || 'https://quote-api.jup.ag/v6';
 
@@ -98,6 +99,21 @@ export class JupiterService {
     const quote = await this.getQuote(inputMint, outputMint, amount, slippageBps);
     const signature = await this.executeSwap(keypair, quote);
     return signature;
+  }
+
+  async getTokenDecimals(mintAddress: string): Promise<number> {
+    try {
+      if (mintAddress === NATIVE_SOL_MINT) {
+        return 9;
+      }
+      
+      const mintPubKey = new PublicKey(mintAddress);
+      const mintInfo = await getMint(this.connection, mintPubKey);
+      return mintInfo.decimals;
+    } catch (error) {
+      console.error('Error fetching token decimals:', error);
+      return 9;
+    }
   }
 }
 

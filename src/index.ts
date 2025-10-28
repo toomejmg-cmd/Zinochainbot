@@ -41,7 +41,12 @@ async function main() {
     console.log('✅ Zinobot is ready!');
     console.log('📱 Open Telegram and start chatting with your bot\n');
 
-    await bot.start();
+    await bot.start({
+      drop_pending_updates: true,
+      onStart: (botInfo) => {
+        console.log(`🤖 Bot @${botInfo.username} started successfully!`);
+      }
+    });
   } catch (error) {
     console.error('❌ Fatal error starting bot:', error);
     process.exit(1);
