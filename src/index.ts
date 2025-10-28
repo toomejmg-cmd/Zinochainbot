@@ -3,7 +3,10 @@ import dotenv from 'dotenv';
 import { WalletManager } from './wallet/walletManager';
 import { JupiterService } from './services/jupiter';
 import { CoinGeckoService } from './services/coingecko';
-import { registerCommands } from './bot/commands';
+import { AdminService } from './services/admin';
+import { FeeService } from './services/fees';
+import { ReferralService } from './services/referral';
+import { registerCommands } from './bot/commandsNew';
 
 dotenv.config();
 
@@ -31,8 +34,14 @@ async function main() {
     const walletManager = new WalletManager(rpcUrl);
     const jupiterService = new JupiterService(walletManager.getConnection());
     const coinGeckoService = new CoinGeckoService(process.env.COINGECKO_API_KEY);
+    
+    const adminService = new AdminService();
+    const feeWallet = process.env.FEE_WALLET || '';
+    const tradingFeeBps = parseInt(process.env.TRADING_FEE_BPS || '50');
+    const feeService = new FeeService({ tradingFeeBps, feeWallet });
+    const referralService = new ReferralService();
 
-    registerCommands(bot, walletManager, jupiterService, coinGeckoService);
+    registerCommands(bot, walletManager, jupiterService, coinGeckoService, adminService, feeService, referralService);
 
     bot.catch((err) => {
       console.error('❌ Bot error:', err);
