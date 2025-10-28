@@ -62,6 +62,8 @@ Swap SOL for tokens using Jupiter:
 /buy EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v 0.1
 ```
 
+The bot automatically converts SOL to the smallest unit (lamports) before executing the swap.
+
 ### Sell Tokens
 Swap tokens back to SOL:
 ```
@@ -72,6 +74,8 @@ Swap tokens back to SOL:
 ```
 /sell EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v 100
 ```
+
+The bot automatically fetches the token's decimal places and converts your amount to the smallest unit (e.g., USDC uses 6 decimals, so 100 USDC = 100,000,000 base units).
 
 ### View Transaction History
 ```
