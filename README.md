@@ -1,15 +1,39 @@
 # Zinobot - Solana Trading Bot for Telegram
 
-A powerful Telegram bot for trading on Solana blockchain with Jupiter aggregator integration.
+A comprehensive, production-ready Telegram trading bot for Solana blockchain, featuring non-custodial wallet management, token swaps via Jupiter Aggregator, admin controls, fee collection, and referral system.
 
-## Features
+**Bot Status**: ✅ Running as @Zinochainbot  
+**Network**: Solana Devnet (for testing)  
+**Version**: 1.0.0
 
-- 🔐 **Secure Wallet Management**: Create and manage Solana wallets with AES-256 encryption
-- 💱 **Token Swaps**: Buy and sell tokens instantly via Jupiter Aggregator
-- 📊 **Portfolio Tracking**: Real-time balance and token holdings
-- 💰 **Market Data**: Live token prices from CoinGecko
-- 📝 **Transaction History**: Complete audit trail of all trades
-- 🔒 **Non-custodial**: You control your private keys
+## ✨ Features
+
+### Core Trading
+- 🔐 **Non-Custodial Wallets**: Users control their own wallets with AES-256 encrypted private keys
+- 💱 **Token Swaps**: Buy and sell tokens via Jupiter Aggregator v6 with optimal routing
+- 📊 **Portfolio Tracking**: Real-time SOL and SPL token balances with USD values
+- 💰 **Fee Collection**: Automated 0.5% trading fee (configurable by admins)
+- 📝 **Transaction History**: Complete audit trail with Solscan links
+
+### User Experience
+- 🎮 **Interactive Menus**: Button-based interface for easy navigation
+- ⚙️ **Settings**: Customize slippage tolerance, notifications, and auto-approve
+- 👥 **Referral System**: Earn rewards by inviting friends to the platform
+- 📤 **Withdraw**: Send SOL and tokens to external wallets
+- 🔄 **Real-time Updates**: Refresh portfolio and balances on demand
+
+### Admin Panel
+- 👑 **Admin Dashboard**: View total users, wallets, transactions, and fees
+- 💵 **Fee Management**: Dynamically adjust trading fees
+- 🔑 **Admin Control**: Add/remove administrators
+- 📊 **Statistics**: Track platform growth and revenue
+
+### Coming Soon
+- ⏰ **Limit Orders**: Auto-execute trades at target prices
+- 🔄 **DCA Orders**: Schedule recurring token purchases
+- 🎯 **Token Sniper**: Auto-buy new listings instantly
+- 🔔 **Price Alerts**: Get notified when tokens hit targets
+- 🎁 **Rewards Program**: Earn from trading activity
 
 ## Quick Start on Replit
 
@@ -43,16 +67,28 @@ npm run db:init
 npm run dev
 ```
 
-## Bot Commands
+## 🎮 User Commands
 
-- `/start` - Welcome message and bot introduction
+### For All Users
+- `/start` - Show main menu with interactive buttons
 - `/create_wallet` - Generate a new Solana wallet
-- `/wallet` - View your wallet address
-- `/portfolio` - Check your token balances
-- `/buy <token_mint> <sol_amount>` - Buy tokens (e.g., `/buy EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v 0.1`)
-- `/sell <token_mint> <token_amount>` - Sell tokens
-- `/history` - View recent transactions
-- `/help` - Show all available commands
+- `/wallet` - View wallet address and balance
+- `/history` - View transaction history
+- `/applyreferral <code>` - Apply a friend's referral code
+
+### Admin Commands
+- `/admin` - Open admin panel with statistics
+- `/setfee <percentage>` - Set trading fee (e.g., `/setfee 0.75` for 0.75%)
+- `/addadmin <telegram_id>` - Add new administrator
+- `/removeadmin <telegram_id>` - Remove administrator
+
+## 🎯 Using the Bot
+
+1. **Start**: Send `/start` to initialize and see the main menu
+2. **Create Wallet**: Click "Create Wallet" or use `/create_wallet`
+3. **Fund Wallet**: Get devnet SOL from https://faucet.solana.com
+4. **Trade**: Use the menu buttons to buy/sell tokens
+5. **Track**: View your portfolio and transaction history anytime
 
 ## Testing on Devnet
 
@@ -90,21 +126,75 @@ Command Handlers
 └─ Database (PostgreSQL)
 ```
 
-## Database Schema
+## 🗂️ Database Schema
 
-- **users**: Telegram user information
-- **wallets**: Encrypted Solana wallet data
-- **transactions**: Trade history and logs
-- **token_cache**: Cached token metadata
+### Core Tables
+- **users**: User accounts with referral tracking
+- **wallets**: Encrypted wallet private keys (AES-256-GCM)
+- **transactions**: Complete trade history with fees
+- **token_cache**: Token metadata caching
 
-## Future Features
+### Feature Tables
+- **admin_users**: Administrator authentication
+- **user_settings**: User preferences (slippage, notifications)
+- **fees_collected**: Fee tracking and reporting
+- **referrals**: Referral relationships and rewards
+- **orders**: Limit orders (coming soon)
+- **dca_jobs**: DCA schedules (coming soon)
 
-- ⏰ Limit orders with price monitoring
-- 🔄 DCA (Dollar Cost Averaging) scheduling
-- 📈 Advanced portfolio analytics
-- 🤖 AI-powered trade suggestions
-- 👥 Copy-trading functionality
-- 🎯 Token sniping for new listings
+## 💰 Fee Structure
+
+- **Trading Fee**: 0.5% per trade (configurable)
+- **Collection**: Automatically transferred to fee wallet
+- **Transparency**: All fees tracked in database
+- **Referral Rewards**: Earn from referred users (coming soon)
+
+## 🔐 Security
+
+- ✅ Private keys encrypted with AES-256-GCM
+- ✅ Non-custodial - users control their wallets
+- ✅ Admin authentication for sensitive operations
+- ✅ Fee transfer verification before recording
+- ✅ Input validation and sanitization
+- ⚠️ Never share your ENCRYPTION_KEY or bot token
+
+## 🚀 Production Deployment
+
+To deploy to mainnet:
+
+1. Update environment variables:
+   ```env
+   SOLANA_NETWORK=mainnet-beta
+   SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+   FEE_WALLET=your_mainnet_wallet
+   ```
+
+2. Test thoroughly on devnet first!
+3. Set up monitoring and alerts
+4. Configure proper RPC endpoint with rate limits
+5. Add yourself as first admin in database
+
+## 📊 Current Status
+
+### Implemented ✅
+- Non-custodial wallet management
+- Token swaps via Jupiter v6
+- Portfolio tracking with USD values
+- Transaction history
+- Fee collection system
+- Referral program structure
+- Admin panel with statistics
+- Interactive button menus
+- User settings management
+
+### Coming Soon ⏳
+- Limit order execution
+- DCA scheduler
+- Token sniping
+- Copy trading
+- Advanced analytics
+- Price alerts
+- Reward distribution
 
 ## Support
 
