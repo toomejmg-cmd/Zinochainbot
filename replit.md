@@ -3,9 +3,9 @@
 ## Overview
 Zinobot is a Solana-based Telegram trading bot built with Node.js and TypeScript. It enables users to create wallets, trade tokens via Jupiter Aggregator, and track their portfolio directly through Telegram.
 
-**Current Status:** MVP implementation complete
+**Current Status:** MVP implementation complete with Admin Dashboard
 **Network:** Solana Devnet (default)
-**Last Updated:** October 28, 2025
+**Last Updated:** November 7, 2025
 
 ## Architecture
 
@@ -21,7 +21,7 @@ Zinobot is a Solana-based Telegram trading bot built with Node.js and TypeScript
 ### Project Structure
 ```
 zinobot/
-├── src/
+├── src/                          # Main Telegram bot
 │   ├── bot/
 │   │   └── commands.ts          # Telegram command handlers
 │   ├── database/
@@ -30,12 +30,28 @@ zinobot/
 │   │   └── schema.sql           # Database schema
 │   ├── services/
 │   │   ├── jupiter.ts           # Jupiter swap integration
+│   │   ├── fees.ts              # Fee collection service
 │   │   └── coingecko.ts         # Price data service
 │   ├── utils/
 │   │   └── encryption.ts        # AES-256 encryption
 │   ├── wallet/
 │   │   └── walletManager.ts     # Wallet operations
 │   └── index.ts                 # Main entry point
+├── admin-api/                    # REST API for admin dashboard
+│   ├── src/
+│   │   ├── routes/
+│   │   │   ├── auth.ts          # JWT authentication
+│   │   │   └── admin.ts         # Admin data endpoints
+│   │   ├── middleware/
+│   │   │   └── auth.ts          # JWT verification
+│   │   └── index.ts             # Express server (port 3001)
+│   └── scripts/
+│       └── create-admin.ts      # Admin account utility
+├── admin-dashboard/              # Web admin interface
+│   ├── public/
+│   │   ├── index.html           # SPA dashboard
+│   │   └── js/app.js            # Frontend logic
+│   └── server.js                # Static server (port 5000)
 ├── package.json
 ├── tsconfig.json
 └── .env.example
@@ -61,7 +77,22 @@ zinobot/
 - `/buy <mint> <amount>` - Buy tokens with SOL
 - `/sell <mint> <amount>` - Sell tokens for SOL
 - `/history` - View transaction history
+- `/refer` - Generate referral code and track earnings
 - `/help` - Command reference
+
+### Admin Dashboard
+**Access:** Web interface on port 5000
+**Features:**
+- Real-time bot statistics and analytics
+- User management and activity monitoring
+- Transaction history and fee tracking
+- Referral system analytics
+- Secure JWT authentication with bcrypt
+
+**Setup:**
+1. Create admin account: `cd admin-api && npm run create-admin`
+2. Login with Telegram ID and password
+3. Monitor all bot activities in real-time
 
 ## Database Schema
 
@@ -92,6 +123,9 @@ zinobot/
 - `SOLANA_NETWORK` - devnet/mainnet-beta
 - `COINGECKO_API_KEY` - For higher rate limits
 - `JUPITER_API_URL` - Custom Jupiter endpoint
+- `JWT_SECRET` - Admin dashboard JWT secret (change in production)
+- `ADMIN_API_PORT` - Admin API port (default: 3001)
+- `ADMIN_DASHBOARD_PORT` - Dashboard port (default: 5000)
 
 ## Next Phase Features
 
@@ -126,6 +160,21 @@ zinobot/
 None specified yet.
 
 ## Recent Changes
+
+### November 7, 2025
+- **Admin Dashboard Implementation**
+  - Built REST API with Express.js on port 3001
+  - Created web-based admin interface on port 5000
+  - Added JWT authentication with bcrypt password hashing
+  - Implemented real-time statistics and monitoring
+  - User management with search and filtering
+  - Transaction history with detailed analytics
+  - Referral tracking and analytics
+  - Secure admin account creation utility
+  - Auto-refresh functionality for live data
+  - Fixed critical navigation bug in frontend
+  - Added proxy trust configuration for Replit deployment
+  - Comprehensive documentation in admin-dashboard/README.md
 
 ### October 28, 2025
 - Initial project setup
