@@ -1,0 +1,15 @@
+{
+  "name": "zinobot-admin-api",
+  "version": "1.0.0",
+  "description": "Admin API for Zinobot Telegram Bot",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "create-admin": "ts-node scripts/create-admin.ts"
+  },
+  "keywords": ["admin", "api", "telegram", "bot"],
+  "author": "",
+  "license": "MIT"
+}

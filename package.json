@@ -9,25 +9,40 @@
     "dev": "ts-node src/index.ts",
     "db:init": "ts-node src/database/init.ts"
   },
-  "keywords": ["telegram", "bot", "solana", "trading", "jupiter"],
+  "keywords": [
+    "telegram",
+    "bot",
+    "solana",
+    "trading",
+    "jupiter"
+  ],
   "author": "Zinobot",
   "license": "MIT",
   "dependencies": {
-    "grammy": "^1.21.1",
-    "@solana/web3.js": "^1.91.1",
     "@solana/spl-token": "^0.4.1",
-    "pg": "^8.11.3",
-    "dotenv": "^16.4.1",
+    "@solana/web3.js": "^1.91.1",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/jsonwebtoken": "^9.0.10",
     "axios": "^1.6.7",
+    "bcrypt": "^6.0.0",
     "bs58": "^5.0.0",
-    "node-cron": "^3.0.3"
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "grammy": "^1.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
-    "@types/pg": "^8.11.0",
     "@types/node-cron": "^3.0.11",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2"
+    "@types/pg": "^8.11.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -1,4 +1,4 @@
-modules = ["nodejs-20"]
+modules = ["nodejs-20", "postgresql-16"]
 [agent]
 expertMode = true
 integrations = ["javascript_database:1.0.0"]
@@ -15,6 +15,14 @@ author = "agent"
 task = "workflow.run"
 args = "Zinobot"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin API"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Dashboard"
+
 [[workflows.workflow]]
 name = "Zinobot"
 author = "agent"
@@ -25,3 +33,42 @@ args = "npm run dev"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "Admin API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd admin-api && npm run dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Admin Dashboard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd admin-dashboard && npm start"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[nix]
+channel = "stable-25_05"
+
+[[ports]]
+localPort = 3001
+externalPort = 80
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 46801
+externalPort = 3000
