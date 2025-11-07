@@ -65,6 +65,10 @@ export class FeeService {
     this.config.tradingFeeBps = bps;
   }
 
+  setFeePercentage(percentage: number): void {
+    this.config.tradingFeeBps = Math.floor(percentage * 100);
+  }
+
   getTradingFeeBps(): number {
     return this.config.tradingFeeBps;
   }

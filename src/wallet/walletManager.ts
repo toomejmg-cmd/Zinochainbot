@@ -132,6 +132,34 @@ export class WalletManager {
     };
   }
 
+  async transferSOL(fromKeypair: Keypair, toPublicKey: string, amountSOL: number): Promise<string> {
+    const {
+      SystemProgram,
+      Transaction,
+      sendAndConfirmTransaction
+    } = await import('@solana/web3.js');
+    
+    const toPubKey = new PublicKey(toPublicKey);
+    const lamports = Math.floor(amountSOL * LAMPORTS_PER_SOL);
+    
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: fromKeypair.publicKey,
+        toPubkey: toPubKey,
+        lamports
+      })
+    );
+    
+    const signature = await sendAndConfirmTransaction(
+      this.connection,
+      transaction,
+      [fromKeypair],
+      { commitment: 'confirmed' }
+    );
+    
+    return signature;
+  }
+
   getConnection(): Connection {
     return this.connection;
   }

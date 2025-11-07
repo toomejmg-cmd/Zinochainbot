@@ -267,10 +267,11 @@ export function registerCommands(
 
     await ctx.answerCallbackQuery();
 
-    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    const userResult = await query(`SELECT id, referred_by FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
+    const hasReferrer = userResult.rows[0].referred_by;
     const referralCode = await referralService.getReferralCode(dbUserId);
     const stats = await referralService.getReferralStats(dbUserId);
 
@@ -283,6 +284,7 @@ export function registerCommands(
       `💰 Total Rewards: ${stats.totalRewards} SOL\n` +
       `✅ Paid: ${stats.paidRewards} SOL\n` +
       `⏳ Pending: ${stats.pendingRewards} SOL\n\n` +
+      `${!hasReferrer ? '🔗 Use /applyreferral <code> to apply a referral code\n\n' : ''}` +
       `Share your code with friends to earn rewards!`,
       {
         parse_mode: 'Markdown',
@@ -404,6 +406,158 @@ export function registerCommands(
         reply_markup: getBackToMainMenu()
       }
     );
+  });
+
+  bot.callbackQuery('admin_setfee', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || !(await adminService.isAdmin(userId))) {
+      await ctx.answerCallbackQuery('⛔ Admin access required');
+      return;
+    }
+
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `💵 *Set Trading Fee*\n\n` +
+      `Current fee: ${feeService.getFeePercentage()}%\n\n` +
+      `To change the fee, use the command:\n` +
+      `/setfee <percentage>\n\n` +
+      `Example: /setfee 0.75\n` +
+      `(This sets the fee to 0.75%)`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: getBackToMainMenu()
+      }
+    );
+  });
+
+  bot.callbackQuery('admin_manage', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || !(await adminService.isAdmin(userId))) {
+      await ctx.answerCallbackQuery('⛔ Admin access required');
+      return;
+    }
+
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `👑 *Manage Admins*\n\n` +
+      `Current admins can:\n` +
+      `• View bot statistics\n` +
+      `• Manage trading fees\n` +
+      `• Add/remove admins\n\n` +
+      `To add an admin:\n/addadmin <telegram_id>\n\n` +
+      `To remove an admin:\n/removeadmin <telegram_id>`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: getBackToMainMenu()
+      }
+    );
+  });
+
+  bot.command('setfee', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || !(await adminService.isAdmin(userId))) {
+      await ctx.reply('⛔ Admin access required.');
+      return;
+    }
+
+    const args = ctx.message?.text?.split(' ');
+    if (!args || args.length !== 2) {
+      await ctx.reply('Usage: /setfee <percentage>\nExample: /setfee 0.75');
+      return;
+    }
+
+    const newFeePercent = parseFloat(args[1]);
+    if (isNaN(newFeePercent) || newFeePercent < 0 || newFeePercent > 10) {
+      await ctx.reply('❌ Fee must be between 0 and 10%');
+      return;
+    }
+
+    feeService.setFeePercentage(newFeePercent);
+    await ctx.reply(`✅ Trading fee updated to ${newFeePercent}%`);
+  });
+
+  bot.command('addadmin', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || !(await adminService.isAdmin(userId))) {
+      await ctx.reply('⛔ Admin access required.');
+      return;
+    }
+
+    const args = ctx.message?.text?.split(' ');
+    if (!args || args.length !== 2) {
+      await ctx.reply('Usage: /addadmin <telegram_id>');
+      return;
+    }
+
+    const newAdminId = parseInt(args[1]);
+    if (isNaN(newAdminId)) {
+      await ctx.reply('❌ Invalid Telegram ID');
+      return;
+    }
+
+    await adminService.addAdmin(newAdminId);
+    await ctx.reply(`✅ Admin added: ${newAdminId}`);
+  });
+
+  bot.command('removeadmin', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId || !(await adminService.isAdmin(userId))) {
+      await ctx.reply('⛔ Admin access required.');
+      return;
+    }
+
+    const args = ctx.message?.text?.split(' ');
+    if (!args || args.length !== 2) {
+      await ctx.reply('Usage: /removeadmin <telegram_id>');
+      return;
+    }
+
+    const adminToRemove = parseInt(args[1]);
+    if (isNaN(adminToRemove)) {
+      await ctx.reply('❌ Invalid Telegram ID');
+      return;
+    }
+
+    await adminService.removeAdmin(adminToRemove);
+    await ctx.reply(`✅ Admin removed: ${adminToRemove}`);
+  });
+
+  bot.command('applyreferral', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const args = ctx.message?.text?.split(' ');
+    if (!args || args.length !== 2) {
+      await ctx.reply('Usage: /applyreferral <code>\nExample: /applyreferral ABC123');
+      return;
+    }
+
+    const referralCode = args[1].trim().toUpperCase();
+
+    try {
+      const userResult = await query(`SELECT id, referred_by FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const dbUserId = userResult.rows[0].id;
+      if (userResult.rows[0].referred_by) {
+        await ctx.reply('❌ You have already used a referral code.');
+        return;
+      }
+
+      const result = await referralService.applyReferral(dbUserId, referralCode);
+      
+      if (result) {
+        await ctx.reply(`✅ Referral code applied successfully! Welcome to Zinobot!`);
+      } else {
+        await ctx.reply(`❌ Invalid referral code or you cannot refer yourself.`);
+      }
+    } catch (error: any) {
+      console.error('Apply referral error:', error);
+      await ctx.reply('❌ Failed to apply referral code. Please try again.');
+    }
   });
 
   bot.command('create_wallet', async (ctx) => {
@@ -587,6 +741,20 @@ export function registerCommands(
         const amountAfterFee = solAmount - feeAmount;
         const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
 
+        const feeWallet = feeService.getFeeWallet();
+        let feeTransferSuccess = false;
+        if (feeWallet && feeAmount > 0) {
+          try {
+            await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+            feeTransferSuccess = true;
+          } catch (feeError) {
+            console.error('Fee transfer failed:', feeError);
+            throw new Error('Fee collection failed. Transaction aborted.');
+          }
+        } else {
+          feeTransferSuccess = true;
+        }
+
         const signature = await jupiterService.swap(
           keypair,
           NATIVE_SOL_MINT,
@@ -599,10 +767,12 @@ export function registerCommands(
           `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
            VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
            RETURNING id`,
-          [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenMint, solAmount, feeAmount]
+          [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenMint, solAmount, feeTransferSuccess ? feeAmount : 0]
         );
 
-        await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+        if (feeTransferSuccess && feeAmount > 0) {
+          await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+        }
 
         await ctx.reply(
           `✅ *Swap Successful!*\n\n` +
@@ -649,6 +819,8 @@ export function registerCommands(
         const decimals = await jupiterService.getTokenDecimals(tokenMint);
         const amountInSmallestUnit = Math.floor(tokenAmount * Math.pow(10, decimals));
 
+        const balanceBefore = await walletManager.getBalance(wallet.publicKey);
+
         const signature = await jupiterService.swap(
           keypair,
           tokenMint,
@@ -657,14 +829,39 @@ export function registerCommands(
           100
         );
 
-        await query(
-          `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, status)
-           VALUES ($1, $2, 'sell', $3, $4, $5, $6, 'confirmed')`,
-          [wallet.id, dbUserId, signature, tokenMint, NATIVE_SOL_MINT, tokenAmount]
+        const balanceAfter = await walletManager.getBalance(wallet.publicKey);
+        const solReceived = balanceAfter - balanceBefore;
+        const feeAmount = feeService.calculateFee(solReceived > 0 ? solReceived : 0);
+        
+        const feeWallet = feeService.getFeeWallet();
+        let feeTransferSuccess = false;
+        if (feeWallet && feeAmount > 0 && balanceAfter > feeAmount) {
+          try {
+            await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+            feeTransferSuccess = true;
+          } catch (feeError) {
+            console.error('Fee transfer failed:', feeError);
+            await ctx.reply(`⚠️ Swap completed but fee collection failed. Please contact support. Tx: ${signature}`);
+          }
+        } else {
+          feeTransferSuccess = true;
+        }
+
+        const txResult = await query(
+          `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
+           VALUES ($1, $2, 'sell', $3, $4, $5, $6, $7, 'confirmed')
+           RETURNING id`,
+          [wallet.id, dbUserId, signature, tokenMint, NATIVE_SOL_MINT, tokenAmount, feeTransferSuccess ? feeAmount : 0]
         );
+
+        if (feeTransferSuccess && feeAmount > 0) {
+          await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+        }
 
         await ctx.reply(
           `✅ *Swap Successful!*\n\n` +
+          `💰 Amount: ${tokenAmount} tokens\n` +
+          `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
           `📝 Signature: \`${signature}\`\n\n` +
           `🔗 View: https://solscan.io/tx/${signature}?cluster=${process.env.SOLANA_NETWORK}`,
           { parse_mode: 'Markdown', reply_markup: getMainMenu() }
