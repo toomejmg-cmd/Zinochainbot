@@ -1,7 +1,12 @@
 import { InlineKeyboard } from 'grammy';
 
-export function getMainMenu(): InlineKeyboard {
+export function getMainMenu(currentChain?: 'solana' | 'ethereum' | 'bsc'): InlineKeyboard {
+  const chainEmoji = currentChain === 'ethereum' ? '🔷' : currentChain === 'bsc' ? '🟡' : '⚡';
+  const chainName = currentChain === 'ethereum' ? 'Ethereum' : currentChain === 'bsc' ? 'BSC' : 'Solana';
+  
   return new InlineKeyboard()
+    .text(`${chainEmoji} Switch Chain (${chainName})`, 'menu_switch_chain')
+    .row()
     .text('💰 Buy', 'menu_buy').text('💸 Sell', 'menu_sell')
     .row()
     .text('⏰ Limit Orders', 'menu_limit').text('🔄 DCA Orders', 'menu_dca')
@@ -15,6 +20,14 @@ export function getMainMenu(): InlineKeyboard {
     .text('⚙️ Settings', 'menu_settings').text('❓ Help', 'menu_help')
     .row()
     .text('🔄 Refresh', 'menu_refresh');
+}
+
+export function getChainSelectorMenu(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text('⚡ Solana', 'switch_chain_solana').row()
+    .text('🔷 Ethereum', 'switch_chain_ethereum').row()
+    .text('🟡 Binance Smart Chain', 'switch_chain_bsc').row()
+    .text('🏠 Main Menu', 'menu_main');
 }
 
 export function getBackToMainMenu(): InlineKeyboard {

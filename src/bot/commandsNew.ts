@@ -10,6 +10,8 @@ import { query } from '../database/db';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import * as path from 'path';
 import bs58 from 'bs58';
+import { MultiChainWalletService } from '../services/multiChainWallet';
+import { ChainType } from '../adapters/IChainAdapter';
 import {
   getMainMenu,
   getBackToMainMenu,
@@ -18,7 +20,8 @@ import {
   getSettingsMenu,
   getAdminMenu,
   getWithdrawMenu,
-  getConfirmMenu
+  getConfirmMenu,
+  getChainSelectorMenu
 } from './menus';
 
 const TERMS_MESSAGE = `🚀 *Welcome to Zinobot!*
@@ -96,6 +99,8 @@ export function registerCommands(
   referralService: ReferralService,
   transferService: TransferService
 ) {
+  
+  const multiChainWalletService = new MultiChainWalletService();
   
   bot.command('start', async (ctx) => {
     const userId = ctx.from?.id;
@@ -194,36 +199,24 @@ Which chain would you like to use?
     // Store selected chain for wallet creation
     const state = userStates.get(userId) || {};
     state.selectedChain = selectedChain;
+    state.currentChain = selectedChain;
     userStates.set(userId, state);
-    
-    let existingWallet = await query(
-      `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true ORDER BY created_at DESC LIMIT 1`,
-      [dbUserId, selectedChain]
-    );
     
     let secretKey = '';
     let publicKey = '';
-    let walletChain = selectedChain;
 
-    if (existingWallet.rows.length === 0) {
-      // Create new wallet using adapter pattern (to be implemented)
-      if (selectedChain === 'solana') {
-        const newWallet = await walletManager.createWallet(dbUserId);
-        secretKey = newWallet.secretKey;
-        publicKey = newWallet.publicKey;
-      } else {
-        // For now, create Solana wallet as placeholder
-        // TODO: Implement multi-chain wallet creation
-        const newWallet = await walletManager.createWallet(dbUserId);
-        secretKey = newWallet.secretKey;
-        publicKey = newWallet.publicKey;
-        walletChain = 'solana'; // Force solana for now
-      }
+    // Check if wallet already exists for this chain
+    const existingWallet = await multiChainWalletService.getWallet(dbUserId, selectedChain);
+
+    if (!existingWallet) {
+      // Create new wallet for the selected chain
+      const newWallet = await multiChainWalletService.createWallet(dbUserId, selectedChain);
+      secretKey = newWallet.privateKey;
+      publicKey = newWallet.publicKey;
     } else {
-      const wallet = existingWallet.rows[0];
-      publicKey = wallet.public_key;
-      const keypair = await walletManager.getKeypair(wallet.id);
-      secretKey = bs58.encode(keypair.secretKey);
+      // Get existing wallet credentials
+      publicKey = existingWallet.publicKey;
+      secretKey = await multiChainWalletService.getPrivateKey(existingWallet.id);
     }
 
     const chainEmoji = selectedChain === 'solana' ? '⚡' : selectedChain === 'ethereum' ? '🔷' : '🟡';
@@ -287,6 +280,9 @@ Once you've safely backed up your private key, tap Continue! 👇
 
     await query(`UPDATE users SET onboarding_completed = TRUE WHERE id = $1`, [dbUserId]);
 
+    const state = userStates.get(userId) || {};
+    const currentChain = state.currentChain || 'solana';
+
     const wallet = await walletManager.getActiveWallet(dbUserId);
     if (!wallet) return;
 
@@ -295,8 +291,168 @@ Once you've safely backed up your private key, tap Continue! 👇
 
     await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
       parse_mode: 'Markdown',
-      reply_markup: getMainMenu()
+      reply_markup: getMainMenu(currentChain)
     });
+  });
+
+  // Chain switching callbacks
+  bot.callbackQuery('menu_switch_chain', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const chainSelectionMessage = `
+🌐 *Select Blockchain*
+
+Choose which blockchain you want to trade on:
+
+⚡ *Solana* - Fast, low-cost transactions
+🔷 *Ethereum* - Most established DeFi ecosystem  
+🟡 *BSC* - Low fees, high speed
+
+Your wallets are saved - you can switch between chains anytime!
+`;
+
+    await ctx.editMessageText(chainSelectionMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: getChainSelectorMenu()
+    });
+  });
+
+  bot.callbackQuery(/^switch_chain_(solana|ethereum|bsc)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^switch_chain_(solana|ethereum|bsc)$/);
+    if (!match) return;
+
+    const selectedChain = match[1] as ChainType;
+
+    await ctx.answerCallbackQuery(`Switching to ${selectedChain.toUpperCase()}...`);
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+
+    // Update user's current chain in state
+    const state = userStates.get(userId) || {};
+    state.currentChain = selectedChain;
+    userStates.set(userId, state);
+
+    // Check if user has a wallet on this chain
+    const wallet = await multiChainWalletService.getWallet(dbUserId, selectedChain);
+
+    if (!wallet) {
+      // User doesn't have a wallet on this chain yet
+      const createWalletMessage = `
+⚠️ *No ${selectedChain.toUpperCase()} Wallet Found*
+
+You don't have a wallet on ${selectedChain} yet.
+
+Would you like to create one now?
+`;
+
+      const createKeyboard = new InlineKeyboard()
+        .text('✅ Create Wallet', `create_wallet_${selectedChain}`)
+        .row()
+        .text('🏠 Main Menu', 'menu_main');
+
+      await ctx.editMessageText(createWalletMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: createKeyboard
+      });
+      return;
+    }
+
+    // Load dashboard for the selected chain
+    const balance = await multiChainWalletService.getBalance(dbUserId, selectedChain);
+    const chainInfo = multiChainWalletService.getChainManager().getChainInfo(selectedChain);
+
+    const dashboardMessage = `
+${chainInfo.icon} *${chainInfo.name} Dashboard*
+
+📍 *Wallet Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+💰 *Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+🌐 *Network:* ${chainInfo.name}
+
+Choose an action below! 👇
+`;
+
+    await ctx.editMessageText(dashboardMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenu(selectedChain)
+    });
+  });
+
+  bot.callbackQuery(/^create_wallet_(solana|ethereum|bsc)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^create_wallet_(solana|ethereum|bsc)$/);
+    if (!match) return;
+
+    const selectedChain = match[1] as ChainType;
+
+    await ctx.answerCallbackQuery(`Creating ${selectedChain.toUpperCase()} wallet...`);
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+
+    // Create new wallet for this chain
+    const newWallet = await multiChainWalletService.createWallet(dbUserId, selectedChain);
+
+    const chainEmoji = selectedChain === 'solana' ? '⚡' : selectedChain === 'ethereum' ? '🔷' : '🟡';
+    const chainName = selectedChain === 'solana' ? 'Solana' : selectedChain === 'ethereum' ? 'Ethereum' : 'BSC';
+
+    const walletCreatedMessage = `
+🔐 *Your ${chainEmoji} ${chainName} Wallet Created!*
+
+📍 *Wallet Address:*
+\`${newWallet.publicKey}\`
+_(Tap to copy)_
+
+🔑 *Private Key:*
+||${newWallet.privateKey}||
+_(Tap to reveal - KEEP SECRET!)_
+
+⚠️ *CRITICAL SECURITY WARNING:*
+🔴 NEVER share your private key with ANYONE
+🔴 Screenshot and store it OFFLINE immediately
+🔴 We will NEVER ask for your private key
+🔴 This message will auto-delete in 10 minutes
+
+✅ *Secure Backup Tips:*
+• Write it down on paper (best practice)
+• Store in a password manager (encrypted)
+• Keep multiple secure backups
+
+⏰ *This sensitive information will be automatically deleted in 10 minutes.*
+
+Tap Continue when ready! 👇
+`;
+
+    const continueKeyboard = new InlineKeyboard().text('✅ Continue', 'menu_main');
+
+    await ctx.editMessageText(walletCreatedMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: continueKeyboard
+    });
+
+    setTimeout(async () => {
+      try {
+        await ctx.deleteMessage();
+      } catch (error) {
+        console.log('Could not delete wallet credentials message');
+      }
+    }, 10 * 60 * 1000);
   });
 
   bot.callbackQuery('menu_main', async (ctx) => {
@@ -316,6 +472,9 @@ Once you've safely backed up your private key, tap Continue! 👇
       return;
     }
 
+    const state = userStates.get(userId) || {};
+    const currentChain = state.currentChain || 'solana';
+
     const wallet = await walletManager.getActiveWallet(dbUserId);
     if (!wallet) return;
 
@@ -324,7 +483,7 @@ Once you've safely backed up your private key, tap Continue! 👇
 
     await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
       parse_mode: 'Markdown',
-      reply_markup: getMainMenu()
+      reply_markup: getMainMenu(currentChain)
     });
   });
 
@@ -338,6 +497,10 @@ Once you've safely backed up your private key, tap Continue! 👇
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
+    
+    const state = userStates.get(userId) || {};
+    const currentChain = state.currentChain || 'solana';
+
     const wallet = await walletManager.getActiveWallet(dbUserId);
     if (!wallet) return;
 
@@ -346,7 +509,7 @@ Once you've safely backed up your private key, tap Continue! 👇
 
     await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
       parse_mode: 'Markdown',
-      reply_markup: getMainMenu()
+      reply_markup: getMainMenu(currentChain)
     });
   });
 
