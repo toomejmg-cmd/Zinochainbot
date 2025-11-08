@@ -90,6 +90,15 @@ export function registerCommands(
       await referralService.setReferralCode(dbUserId, referralCode);
     }
 
+    const existingWallet = await walletManager.getActiveWallet(dbUserId);
+    if (!existingWallet) {
+      try {
+        await walletManager.createWallet(dbUserId);
+      } catch (error) {
+        console.error('Error creating wallet:', error);
+      }
+    }
+
     await ctx.reply(WELCOME_MESSAGE, {
       parse_mode: 'Markdown',
       reply_markup: getMainMenu()
