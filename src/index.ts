@@ -1,5 +1,6 @@
-import { Bot } from 'grammy';
+import { Bot, InputFile } from 'grammy';
 import dotenv from 'dotenv';
+import * as path from 'path';
 import { WalletManager } from './wallet/walletManager';
 import { JupiterService } from './services/jupiter';
 import { CoinGeckoService } from './services/coingecko';
@@ -84,6 +85,7 @@ Tap /start to begin or /help for commands!`;
     } catch (error) {
       console.error('⚠️  Failed to set bot description:', error);
     }
+
 
     console.log('✅ Bot commands and callbacks registered');
     console.log('✅ Zinobot is ready!');
