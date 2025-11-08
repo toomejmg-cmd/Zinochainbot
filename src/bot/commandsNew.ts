@@ -20,41 +20,26 @@ import {
   getConfirmMenu
 } from './menus';
 
-const WELCOME_MESSAGE = `
-🚀 *Welcome to Zinobot!*
+const WELCOME_MESSAGE = `🚀 *Welcome to Zinobot!*
+_Your AI-Powered Solana Trading Companion_
 
-*Your AI-Powered Solana Trading Companion*
+⚡️ *Features:*
+💰 Instant swaps via Jupiter
+📤 P2P transfers
+📊 Portfolio tracking
+🎁 Referral rewards
+🔐 AES-256 encrypted
 
-Trade smarter, not harder! Zinobot brings the power of decentralized trading directly to your fingertips. Swap tokens instantly, transfer assets peer-to-peer, and manage your entire Solana portfolio - all without leaving Telegram.
+🌟 *Why Zinobot?*
+✅ Best DEX rates
+✅ Ultra-low fees
+✅ Military-grade security
+✅ 24/7 trading
 
-*⚡️ Lightning-Fast Features:*
-━━━━━━━━━━━━━━━━━━━━━━
-💰 *Instant Swaps* - Powered by Jupiter Aggregator
-📤 *P2P Transfers* - Send SOL & tokens to anyone  
-📊 *Portfolio Tracker* - Real-time balance & holdings
-🎁 *Referral Rewards* - Earn from every friend you bring
-🔐 *Bank-Grade Security* - Non-custodial, AES-256 encrypted
+🌐 [zinochain.com](https://zinochain.com) | 🐦 [@zinochain](https://x.com/zinochain)
+📧 hi@zinochain.com
 
-*🌟 Why Traders Choose Zinobot:*
-━━━━━━━━━━━━━━━━━━━━━━
-✅ Best swap rates across Solana DEXs
-✅ Ultra-low fees (fully transparent)
-✅ Military-grade wallet encryption
-✅ Zero learning curve - just tap & trade
-✅ Available 24/7 - Never miss an opportunity
-
-*🌐 Connect With Us:*
-━━━━━━━━━━━━━━━━━━━━━━
-🌐 Website: [zinochain.com](https://zinochain.com)
-🐦 X (Twitter): [@zinochain](https://x.com/zinochain)
-📧 Email: hi@zinochain.com
-
-*🎯 Ready to start?*
-Tap */start* to create your wallet or */help* for commands!
-
-━━━━━━━━━━━━━━━━━━━━━━
-*Network:* ${process.env.SOLANA_NETWORK || 'devnet'} | *Status:* 🟢 Online
-`;
+*Network:* ${process.env.SOLANA_NETWORK || 'devnet'} 🟢`;
 
 interface UserState {
   awaitingBuyAmount?: boolean;
