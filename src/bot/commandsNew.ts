@@ -80,6 +80,8 @@ interface UserState {
   awaitingReferralCode?: boolean;
   currentToken?: string;
   withdrawType?: 'sol' | 'token';
+  selectedChain?: 'solana' | 'ethereum' | 'bsc';
+  currentChain?: 'solana' | 'ethereum' | 'bsc';
 }
 
 const userStates = new Map<number, UserState>();
@@ -146,29 +148,89 @@ export function registerCommands(
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    await ctx.answerCallbackQuery('Creating your wallet...');
+    await ctx.answerCallbackQuery('Terms accepted!');
+
+    const chainSelectionMessage = `
+🌐 *Select Your Blockchain*
+
+Choose which blockchain you'd like to start with:
+
+⚡ *Solana* - Fast, low-cost transactions
+🔷 *Ethereum* - Most established DeFi ecosystem  
+🟡 *Binance Smart Chain* - Low fees, high speed
+
+You can add wallets on other chains later from Settings!
+
+Which chain would you like to use?
+`;
+
+    const chainKeyboard = new InlineKeyboard()
+      .text('⚡ Solana', 'onboarding_chain_solana').row()
+      .text('🔷 Ethereum', 'onboarding_chain_ethereum').row()
+      .text('🟡 BSC', 'onboarding_chain_bsc');
+
+    await ctx.editMessageText(chainSelectionMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: chainKeyboard
+    });
+  });
+
+  bot.callbackQuery(/^onboarding_chain_(solana|ethereum|bsc)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^onboarding_chain_(solana|ethereum|bsc)$/);
+    if (!match) return;
+
+    const selectedChain = match[1] as 'solana' | 'ethereum' | 'bsc';
+    
+    await ctx.answerCallbackQuery(`Creating your ${selectedChain.toUpperCase()} wallet...`);
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
     
-    let existingWallet = await walletManager.getActiveWallet(dbUserId);
+    // Store selected chain for wallet creation
+    const state = userStates.get(userId) || {};
+    state.selectedChain = selectedChain;
+    userStates.set(userId, state);
+    
+    let existingWallet = await query(
+      `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true ORDER BY created_at DESC LIMIT 1`,
+      [dbUserId, selectedChain]
+    );
+    
     let secretKey = '';
     let publicKey = '';
+    let walletChain = selectedChain;
 
-    if (!existingWallet) {
-      const newWallet = await walletManager.createWallet(dbUserId);
-      secretKey = newWallet.secretKey;
-      publicKey = newWallet.publicKey;
+    if (existingWallet.rows.length === 0) {
+      // Create new wallet using adapter pattern (to be implemented)
+      if (selectedChain === 'solana') {
+        const newWallet = await walletManager.createWallet(dbUserId);
+        secretKey = newWallet.secretKey;
+        publicKey = newWallet.publicKey;
+      } else {
+        // For now, create Solana wallet as placeholder
+        // TODO: Implement multi-chain wallet creation
+        const newWallet = await walletManager.createWallet(dbUserId);
+        secretKey = newWallet.secretKey;
+        publicKey = newWallet.publicKey;
+        walletChain = 'solana'; // Force solana for now
+      }
     } else {
-      publicKey = existingWallet.publicKey;
-      const keypair = await walletManager.getKeypair(existingWallet.id);
+      const wallet = existingWallet.rows[0];
+      publicKey = wallet.public_key;
+      const keypair = await walletManager.getKeypair(wallet.id);
       secretKey = bs58.encode(keypair.secretKey);
     }
 
+    const chainEmoji = selectedChain === 'solana' ? '⚡' : selectedChain === 'ethereum' ? '🔷' : '🟡';
+    const chainName = selectedChain === 'solana' ? 'Solana' : selectedChain === 'ethereum' ? 'Ethereum' : 'BSC';
+
     const walletCredentialsMessage = `
-🔐 *Your Wallet Credentials*
+🔐 *Your ${chainEmoji} ${chainName} Wallet Credentials*
 
 📍 *Wallet Address:*
 \`${publicKey}\`
