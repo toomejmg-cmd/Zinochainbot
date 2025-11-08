@@ -14,12 +14,11 @@ app.use('/api', async (req, res) => {
   try {
     const url = `${API_BASE_URL}${req.originalUrl}`;
     
-    const headers = {
-      'Content-Type': 'application/json',
-      ...req.headers
-    };
-    delete headers.host;
-    delete headers['content-length'];
+    const headers = {};
+    
+    // Copy important headers
+    if (req.headers.authorization) headers.authorization = req.headers.authorization;
+    if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'];
 
     const options = {
       method: req.method,
@@ -28,12 +27,19 @@ app.use('/api', async (req, res) => {
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       options.body = JSON.stringify(req.body);
+      headers['content-type'] = 'application/json';
     }
 
     const response = await fetch(url, options);
-    const data = await response.json();
-
-    res.status(response.status).json(data);
+    
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } else {
+      const text = await response.text();
+      res.status(response.status).send(text);
+    }
   } catch (error) {
     console.error('API Proxy Error:', error);
     res.status(500).json({ error: 'Proxy error' });
