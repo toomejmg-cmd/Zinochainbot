@@ -105,7 +105,7 @@ export function registerCommands(
       await referralService.setReferralCode(dbUserId, referralCode);
     }
 
-    const logoPath = path.join(__dirname, '../../assets/zinobot-logo.png');
+    const logoPath = path.join(__dirname, '../../assets/zinobot-logo-original.png');
     
     try {
       await ctx.replyWithPhoto(new InputFile(logoPath), {
