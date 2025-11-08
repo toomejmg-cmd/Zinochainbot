@@ -276,9 +276,134 @@ function showPage(pageName, clickEvent = null) {
         case 'transactions':
             loadTransactions();
             break;
+        case 'transfers':
+            loadTransfers();
+            break;
         case 'referrals':
             loadReferrals();
             break;
+        case 'settings':
+            loadSettings();
+            break;
+    }
+}
+
+// Load Transfers
+async function loadTransfers() {
+    try {
+        const response = await fetch(`${API_URL}/admin/transfers`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Failed to load transfers');
+        
+        const data = await response.json();
+        const tbody = document.getElementById('transfersTable');
+
+        if (data.transfers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">No transfers yet</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.transfers.map(transfer => `
+            <tr class="border-b hover:bg-gray-50">
+                <td class="px-4 py-3">
+                    <p class="font-semibold">${transfer.sender_username || 'Unknown'}</p>
+                    <p class="text-xs text-gray-500">ID: ${transfer.sender_telegram_id || 'N/A'}</p>
+                </td>
+                <td class="px-4 py-3">
+                    ${transfer.recipient_username ? `
+                        <p class="font-semibold">${transfer.recipient_username}</p>
+                        <p class="text-xs text-gray-500">ID: ${transfer.recipient_telegram_id}</p>
+                    ` : `
+                        <p class="text-xs text-gray-500">${transfer.recipient_wallet.slice(0, 8)}...${transfer.recipient_wallet.slice(-8)}</p>
+                    `}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+                        ${transfer.token_symbol}
+                    </span>
+                </td>
+                <td class="px-4 py-3 font-semibold">${transfer.amount}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${formatTime(transfer.created_at)}</td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 rounded text-xs font-semibold ${
+                        transfer.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                        transfer.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                        'bg-yellow-100 text-yellow-800'
+                    }">
+                        ${transfer.status}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load transfers:', error);
+    }
+}
+
+// Settings Management
+async function loadSettings() {
+    try {
+        const response = await fetch(`${API_URL}/admin/settings`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Failed to load settings');
+        
+        const data = await response.json();
+        const settings = data.settings;
+
+        document.getElementById('feeWalletAddress').value = settings.fee_wallet_address || '';
+        document.getElementById('feePercentage').value = settings.fee_percentage || 0;
+        document.getElementById('referralPercentage').value = settings.referral_percentage || 0;
+        document.getElementById('minTradeAmount').value = settings.min_trade_amount || 0;
+        document.getElementById('maxTradeAmount').value = settings.max_trade_amount || '';
+        document.getElementById('botEnabled').checked = settings.enabled;
+        document.getElementById('maintenanceMode').checked = settings.maintenance_mode;
+    } catch (error) {
+        console.error('Failed to load settings:', error);
+        alert('Failed to load settings. Please try again.');
+    }
+}
+
+async function saveSettings(event) {
+    event.preventDefault();
+
+    const settings = {
+        fee_wallet_address: document.getElementById('feeWalletAddress').value.trim(),
+        fee_percentage: parseFloat(document.getElementById('feePercentage').value),
+        referral_percentage: parseFloat(document.getElementById('referralPercentage').value),
+        min_trade_amount: parseFloat(document.getElementById('minTradeAmount').value),
+        max_trade_amount: document.getElementById('maxTradeAmount').value ? parseFloat(document.getElementById('maxTradeAmount').value) : null,
+        enabled: document.getElementById('botEnabled').checked,
+        maintenance_mode: document.getElementById('maintenanceMode').checked
+    };
+
+    try {
+        const response = await fetch(`${API_URL}/admin/settings`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(settings)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update settings');
+        }
+
+        alert('Settings updated successfully!');
+        loadSettings();
+    } catch (error) {
+        console.error('Failed to save settings:', error);
+        alert(error.message || 'Failed to save settings. Please try again.');
     }
 }
 
@@ -348,6 +473,10 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUsers(e.target.value);
         }, 300);
     });
+
+    // Settings form
+    document.getElementById('settingsForm')?.addEventListener('submit', saveSettings);
+    document.getElementById('cancelSettings')?.addEventListener('click', loadSettings);
 
     // Check if already logged in
     if (authToken) {

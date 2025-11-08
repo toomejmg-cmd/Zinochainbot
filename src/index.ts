@@ -6,6 +6,7 @@ import { CoinGeckoService } from './services/coingecko';
 import { AdminService } from './services/admin';
 import { FeeService } from './services/fees';
 import { ReferralService } from './services/referral';
+import { TransferService } from './services/transfer';
 import { registerCommands } from './bot/commandsNew';
 
 dotenv.config();
@@ -38,10 +39,22 @@ async function main() {
     const adminService = new AdminService();
     const feeWallet = process.env.FEE_WALLET || '';
     const tradingFeeBps = parseInt(process.env.TRADING_FEE_BPS || '50');
-    const feeService = new FeeService({ tradingFeeBps, feeWallet });
+    const feeService = new FeeService({ 
+      tradingFeeBps, 
+      feeWallet,
+      referralPercentage: 0.5,
+      minTradeAmount: 0.01,
+      enabled: true,
+      maintenanceMode: false
+    });
+    
+    await feeService.loadSettingsFromDatabase();
+    console.log('⚙️  Bot settings loaded from database');
+    
     const referralService = new ReferralService();
+    const transferService = new TransferService(walletManager.getConnection());
 
-    registerCommands(bot, walletManager, jupiterService, coinGeckoService, adminService, feeService, referralService);
+    registerCommands(bot, walletManager, jupiterService, coinGeckoService, adminService, feeService, referralService, transferService);
 
     bot.catch((err) => {
       console.error('❌ Bot error:', err);

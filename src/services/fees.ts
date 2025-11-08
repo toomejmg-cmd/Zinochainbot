@@ -3,6 +3,11 @@ import { query } from '../database/db';
 export interface FeeConfig {
   tradingFeeBps: number;
   feeWallet: string;
+  referralPercentage: number;
+  minTradeAmount: number;
+  maxTradeAmount?: number;
+  enabled: boolean;
+  maintenanceMode: boolean;
 }
 
 export class FeeService {
@@ -12,12 +17,53 @@ export class FeeService {
     this.config = config;
   }
 
+  async loadSettingsFromDatabase(): Promise<void> {
+    try {
+      const result = await query('SELECT * FROM bot_settings ORDER BY id DESC LIMIT 1');
+      
+      if (result.rows.length > 0) {
+        const settings = result.rows[0];
+        this.config = {
+          tradingFeeBps: Math.floor(parseFloat(settings.fee_percentage) * 100),
+          feeWallet: settings.fee_wallet_address,
+          referralPercentage: parseFloat(settings.referral_percentage),
+          minTradeAmount: parseFloat(settings.min_trade_amount),
+          maxTradeAmount: settings.max_trade_amount ? parseFloat(settings.max_trade_amount) : undefined,
+          enabled: settings.enabled,
+          maintenanceMode: settings.maintenance_mode
+        };
+      }
+    } catch (error) {
+      console.error('Error loading fee settings from database:', error);
+    }
+  }
+
   calculateFee(amount: number): number {
     return (amount * this.config.tradingFeeBps) / 10000;
   }
 
   getFeePercentage(): string {
     return (this.config.tradingFeeBps / 100).toFixed(2);
+  }
+
+  getReferralPercentage(): number {
+    return this.config.referralPercentage || 0;
+  }
+
+  getMinTradeAmount(): number {
+    return this.config.minTradeAmount || 0.01;
+  }
+
+  getMaxTradeAmount(): number | undefined {
+    return this.config.maxTradeAmount;
+  }
+
+  isBotEnabled(): boolean {
+    return this.config.enabled !== false;
+  }
+
+  isMaintenanceMode(): boolean {
+    return this.config.maintenanceMode === true;
   }
 
   async recordFee(

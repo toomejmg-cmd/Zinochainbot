@@ -211,4 +211,114 @@ router.get('/referrals', async (req, res) => {
   }
 });
 
+router.get('/settings', async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM bot_settings ORDER BY id DESC LIMIT 1');
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Settings not found' });
+    }
+
+    res.json({ settings: result.rows[0] });
+  } catch (error) {
+    console.error('Settings error:', error);
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+router.put('/settings', async (req, res) => {
+  try {
+    const { fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode } = req.body;
+    const adminId = (req as any).user.id;
+
+    if (!fee_wallet_address || fee_percentage === undefined || referral_percentage === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (fee_percentage < 0 || fee_percentage > 100) {
+      return res.status(400).json({ error: 'Fee percentage must be between 0 and 100' });
+    }
+
+    if (referral_percentage < 0 || referral_percentage > 100) {
+      return res.status(400).json({ error: 'Referral percentage must be between 0 and 100' });
+    }
+
+    if (fee_wallet_address.length !== 44 && fee_wallet_address.length !== 32) {
+      return res.status(400).json({ error: 'Invalid Solana wallet address' });
+    }
+
+    const checkResult = await query('SELECT id FROM bot_settings LIMIT 1');
+    
+    let result;
+    if (checkResult.rows.length === 0) {
+      result = await query(`
+        INSERT INTO bot_settings (fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode, updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+      `, [fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode, adminId]);
+    } else {
+      result = await query(`
+        UPDATE bot_settings 
+        SET 
+          fee_wallet_address = $1,
+          fee_percentage = $2,
+          referral_percentage = $3,
+          min_trade_amount = $4,
+          max_trade_amount = $5,
+          enabled = $6,
+          maintenance_mode = $7,
+          updated_at = CURRENT_TIMESTAMP,
+          updated_by = $8
+        WHERE id = (SELECT id FROM bot_settings ORDER BY id DESC LIMIT 1)
+        RETURNING *
+      `, [fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode, adminId]);
+    }
+
+    res.json({ 
+      message: 'Settings updated successfully',
+      settings: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Update settings error:', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+router.get('/transfers', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = (page - 1) * limit;
+
+    const result = await query(`
+      SELECT 
+        t.*,
+        sender.username as sender_username,
+        sender.telegram_id as sender_telegram_id,
+        recipient.username as recipient_username,
+        recipient.telegram_id as recipient_telegram_id
+      FROM transfers t
+      LEFT JOIN users sender ON sender.id = t.sender_id
+      LEFT JOIN users recipient ON recipient.id = t.recipient_id
+      ORDER BY t.created_at DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    const countResult = await query('SELECT COUNT(*) as total FROM transfers');
+
+    res.json({
+      transfers: result.rows,
+      pagination: {
+        page,
+        limit,
+        total: parseInt(countResult.rows[0].total),
+        pages: Math.ceil(parseInt(countResult.rows[0].total) / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Transfers list error:', error);
+    res.status(500).json({ error: 'Failed to fetch transfers' });
+  }
+});
+
 export default router;

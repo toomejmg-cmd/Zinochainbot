@@ -5,8 +5,9 @@ import { CoinGeckoService } from '../services/coingecko';
 import { AdminService } from '../services/admin';
 import { FeeService } from '../services/fees';
 import { ReferralService } from '../services/referral';
+import { TransferService } from '../services/transfer';
 import { query } from '../database/db';
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import {
   getMainMenu,
   getBackToMainMenu,
@@ -19,24 +20,30 @@ import {
 } from './menus';
 
 const WELCOME_MESSAGE = `
-🤖 *Welcome to Zinobot!*
+🚀 *Welcome to Zinobot!*
 
-Your AI-powered Solana trading assistant. Trade tokens instantly, set automated orders, and maximize your returns with our advanced features.
+Your powerful Solana trading companion! Trade tokens instantly, transfer assets, and manage your portfolio - all within Telegram.
 
-*🎯 Key Features:*
-• Instant token swaps via Jupiter
-• Automated limit orders
-• DCA (Dollar Cost Averaging)
-• Token sniping for new launches
-• Referral rewards program
-• Secure encrypted wallets
+*💎 What You Can Do:*
+━━━━━━━━━━━━━━━━━━
+💰 *Trade* - Swap tokens via Jupiter Aggregator
+📤 *Transfer* - Send SOL & tokens to anyone  
+📊 *Portfolio* - Track your holdings & balance
+🎁 *Referrals* - Earn rewards from friends
+🔐 *Wallet* - Non-custodial, AES-256 encrypted
 
-*🔒 Security:*
-Your private keys are encrypted with AES-256 and stored securely. Zinobot is non-custodial - you always control your funds.
+*🌟 Why Zinobot?*
+━━━━━━━━━━━━━━━━━━
+✅ Instant token swaps
+✅ Low fees (configurable)
+✅ Secure & encrypted
+✅ Simple & fast
+✅ 24/7 available
 
 *🌐 Network:* ${process.env.SOLANA_NETWORK || 'devnet'}
+*💡 New here?* Create a wallet to start trading!
 
-Choose an option below to get started!
+Choose an option from the menu below 👇
 `;
 
 interface UserState {
@@ -60,7 +67,8 @@ export function registerCommands(
   coinGeckoService: CoinGeckoService,
   adminService: AdminService,
   feeService: FeeService,
-  referralService: ReferralService
+  referralService: ReferralService,
+  transferService: TransferService
 ) {
   
   bot.command('start', async (ctx) => {
@@ -697,6 +705,72 @@ export function registerCommands(
     }
   });
 
+  bot.command('help', async (ctx) => {
+    const helpMessage = `
+📚 *Zinobot Command Guide*
+
+━━━━━━━━━━━━━━━━━━━━━━━
+*🚀 Getting Started*
+━━━━━━━━━━━━━━━━━━━━━━━
+/start - Register & open main menu
+/create_wallet - Generate new wallet
+/wallet - View wallet & balance
+
+━━━━━━━━━━━━━━━━━━━━━━━
+*💰 Trading Commands*
+━━━━━━━━━━━━━━━━━━━━━━━
+/buy - Swap SOL for tokens
+/sell - Swap tokens for SOL
+
+*Example:*
+\`/buy EPj...SSq 0.1\` (Buy with 0.1 SOL)
+\`/sell EPj...SSq 10\` (Sell 10 tokens)
+
+━━━━━━━━━━━━━━━━━━━━━━━
+*📤 Transfer Commands*
+━━━━━━━━━━━━━━━━━━━━━━━
+/transfer - Send tokens to others
+
+*Examples:*
+\`/transfer SOL 0.1 @username\`
+\`/transfer SOL 0.5 5Z8F...Abc123\`
+\`/transfer EPj...SSq 10 @friend\`
+
+━━━━━━━━━━━━━━━━━━━━━━━
+*📊 Portfolio & Info*
+━━━━━━━━━━━━━━━━━━━━━━━
+/portfolio - View token holdings
+/history - See recent transactions
+/refer - Get referral code & earnings
+
+━━━━━━━━━━━━━━━━━━━━━━━
+*🎁 Referral Program*
+━━━━━━━━━━━━━━━━━━━━━━━
+Share your referral code with friends!
+You earn ${feeService.getReferralPercentage()}% of their trading fees.
+
+Use /refer to get your code and track earnings.
+
+━━━━━━━━━━━━━━━━━━━━━━━
+*💡 Tips*
+━━━━━━━━━━━━━━━━━━━━━━━
+• All wallets are encrypted (AES-256)
+• Trading fee: ${feeService.getFeePercentage()}%
+• Network: ${process.env.SOLANA_NETWORK || 'devnet'}
+• Non-custodial (you control funds)
+
+*Need help?* Contact support or visit our docs!
+`;
+
+    const keyboard = new InlineKeyboard()
+      .text('🏠 Main Menu', 'menu_main');
+
+    await ctx.reply(helpMessage, { 
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+    });
+  });
+
   bot.on('message:text', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
@@ -870,6 +944,124 @@ export function registerCommands(
         console.error('Sell error:', error);
         await ctx.reply(`❌ Swap failed: ${error.message}`);
       }
+    }
+  });
+
+  bot.command('transfer', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const dbUser = await query('SELECT id FROM users WHERE telegram_id = $1', [userId]);
+    if (dbUser.rows.length === 0) {
+      return ctx.reply('❌ Please /start the bot first.');
+    }
+
+    const args = ctx.message?.text?.split(' ').slice(1);
+    if (!args || args.length < 3) {
+      return ctx.reply(
+        `📤 *Transfer Tokens*\n\n` +
+        `Usage: \`/transfer <token_mint> <amount> <recipient>\`\n\n` +
+        `Examples:\n` +
+        `• \`/transfer SOL 0.1 @username\`\n` +
+        `• \`/transfer SOL 0.1 5Z8F...Abc123\`\n` +
+        `• \`/transfer EPj...SSq 10 @username\`\n\n` +
+        `Notes:\n` +
+        `• Use "SOL" for native Solana transfers\n` +
+        `• Recipient can be @username or wallet address\n` +
+        `• Make sure you have enough balance`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+
+    try {
+      const [tokenInput, amountStr, recipientStr] = args;
+      const amount = parseFloat(amountStr);
+
+      if (isNaN(amount) || amount <= 0) {
+        return ctx.reply('❌ Invalid amount. Must be a positive number.');
+      }
+
+      const wallet = await query(
+        'SELECT * FROM wallets WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT 1',
+        [dbUser.rows[0].id]
+      );
+
+      if (wallet.rows.length === 0) {
+        return ctx.reply('❌ No active wallet found. Create one with /create_wallet');
+      }
+
+      const keypair = await walletManager.getKeypair(wallet.rows[0].encrypted_key);
+      
+      let recipientWallet: string;
+      let recipientId: number | null = null;
+
+      if (recipientStr.startsWith('@')) {
+        const username = recipientStr.substring(1);
+        const recipientUser = await query(
+          'SELECT u.id, w.public_key FROM users u JOIN wallets w ON w.user_id = u.id WHERE u.username = $1 AND w.is_active = true LIMIT 1',
+          [username]
+        );
+
+        if (recipientUser.rows.length === 0) {
+          return ctx.reply(`❌ User @${username} not found or has no wallet.`);
+        }
+
+        recipientWallet = recipientUser.rows[0].public_key;
+        recipientId = recipientUser.rows[0].id;
+      } else {
+        try {
+          new PublicKey(recipientStr);
+          recipientWallet = recipientStr;
+        } catch {
+          return ctx.reply('❌ Invalid wallet address or username.');
+        }
+      }
+
+      await ctx.reply('⏳ Processing transfer...');
+
+      let signature: string;
+
+      if (tokenInput.toUpperCase() === 'SOL') {
+        const balance = await walletManager.getBalance(wallet.rows[0].public_key);
+        if (balance < amount) {
+          return ctx.reply(`❌ Insufficient balance. You have ${balance.toFixed(4)} SOL`);
+        }
+
+        signature = await transferService.transferSOL(
+          keypair,
+          recipientWallet,
+          amount,
+          dbUser.rows[0].id,
+          recipientId
+        );
+      } else {
+        const tokenMint = tokenInput;
+        
+        signature = await transferService.transferSPLToken(
+          keypair,
+          recipientWallet,
+          tokenMint,
+          amount,
+          9,
+          dbUser.rows[0].id,
+          recipientId,
+          'TOKEN'
+        );
+      }
+
+      const recipientDisplay = recipientId ? `@${recipientStr.substring(1)}` : `${recipientWallet.slice(0, 4)}...${recipientWallet.slice(-4)}`;
+
+      await ctx.reply(
+        `✅ *Transfer Successful!*\n\n` +
+        `📤 Sent: ${amount} ${tokenInput.toUpperCase()}\n` +
+        `👤 To: ${recipientDisplay}\n` +
+        `📝 Signature: \`${signature}\`\n\n` +
+        `🔗 View: https://solscan.io/tx/${signature}?cluster=${process.env.SOLANA_NETWORK}`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
+    } catch (error: any) {
+      console.error('Transfer error:', error);
+      await ctx.reply(`❌ Transfer failed: ${error.message || 'Unknown error'}`);
     }
   });
 
