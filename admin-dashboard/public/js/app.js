@@ -1,7 +1,5 @@
-// API Configuration - Auto-detect environment
-const API_URL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3001/api'
-  : `${window.location.protocol}//${window.location.hostname}:3001/api`;
+// API Configuration - Use proxy on same domain
+const API_URL = '/api';
 let authToken = localStorage.getItem('adminToken');
 let refreshInterval;
 
