@@ -20,26 +20,54 @@ import {
   getConfirmMenu
 } from './menus';
 
-const WELCOME_MESSAGE = `🚀 *Welcome to Zinobot!*
-_Your AI-Powered Solana Trading Companion_
+const TERMS_MESSAGE = `🚀 *Welcome to Zinobot!*
 
-⚡️ *Features:*
-💰 Instant swaps via Jupiter
-📤 P2P transfers
-📊 Portfolio tracking
-🎁 Referral rewards
-🔐 AES-256 encrypted
+Your AI-powered Solana trading companion for instant token swaps, transfers, and portfolio management.
 
-🌟 *Why Zinobot?*
-✅ Best DEX rates
-✅ Ultra-low fees
-✅ Military-grade security
-✅ 24/7 trading
+⚡ *What We Offer:*
+• Lightning-fast token swaps via Jupiter
+• Secure P2P transfers
+• Real-time portfolio tracking  
+• Referral rewards program
+• Bank-grade AES-256 encryption
+
+⚠️ *Before You Continue:*
+By using Zinobot, you agree to our Terms of Service and Privacy Policy.
+
+📄 [Terms of Service](https://zinochain.com/terms)
+🔒 [Privacy Policy](https://zinochain.com/privacy)
+
+*Network:* ${process.env.SOLANA_NETWORK || 'devnet'} 🟢
+
+Tap "Continue" to accept and proceed.`;
+
+const MAIN_DASHBOARD_MESSAGE = (walletAddress: string, solBalance: number, solPrice: number) => `
+💼 *Zinobot Trading Dashboard*
+
+📍 *Your Wallet Address:*
+\`${walletAddress}\`
+_(Tap to copy)_
+
+💰 *Balance:*
+${solBalance.toFixed(4)} SOL${solPrice > 0 ? ` ($${(solBalance * solPrice).toFixed(2)})` : ''}
+
+🎯 *Quick Actions:*
+• Buy tokens with best rates via Jupiter
+• Sell tokens instantly
+• Transfer SOL & tokens P2P
+• Track your full portfolio
+• Earn rewards through referrals
+
+⚡ *Trading Features:*
+✅ Limit orders for precise entries
+✅ DCA (Dollar Cost Averaging)
+✅ Sniper for new token launches
+✅ Real-time price alerts
 
 🌐 [zinochain.com](https://zinochain.com) | 🐦 [@zinochain](https://x.com/zinochain)
-📧 hi@zinochain.com
 
-*Network:* ${process.env.SOLANA_NETWORK || 'devnet'} 🟢`;
+Choose an action below to get started! 👇
+`;
 
 interface UserState {
   awaitingBuyAmount?: boolean;
@@ -78,11 +106,12 @@ export function registerCommands(
       `INSERT INTO users (telegram_id, username, first_name, last_name)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (telegram_id) DO UPDATE SET username = $2, first_name = $3, last_name = $4
-       RETURNING id`,
+       RETURNING id, onboarding_completed`,
       [userId, username, firstName, lastName]
     );
 
     const dbUserId = result.rows[0].id;
+    const onboardingCompleted = result.rows[0].onboarding_completed;
 
     let referralCode = await referralService.getReferralCode(dbUserId);
     if (!referralCode) {
@@ -90,32 +119,146 @@ export function registerCommands(
       await referralService.setReferralCode(dbUserId, referralCode);
     }
 
-    const existingWallet = await walletManager.getActiveWallet(dbUserId);
-    if (!existingWallet) {
-      try {
-        await walletManager.createWallet(dbUserId);
-      } catch (error) {
-        console.error('Error creating wallet:', error);
+    if (onboardingCompleted) {
+      const wallet = await walletManager.getActiveWallet(dbUserId);
+      if (wallet) {
+        const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+        const solPrice = await coinGeckoService.getSolanaPrice();
+        
+        await ctx.reply(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenu()
+        });
+        return;
       }
     }
 
-    await ctx.reply(WELCOME_MESSAGE, {
+    const termsKeyboard = new InlineKeyboard().text('✅ Continue', 'onboarding_accept_terms');
+    
+    await ctx.reply(TERMS_MESSAGE, {
+      parse_mode: 'Markdown',
+      reply_markup: termsKeyboard
+    });
+  });
+
+  bot.callbackQuery('onboarding_accept_terms', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery('Creating your wallet...');
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    
+    let wallet = await walletManager.getActiveWallet(dbUserId);
+    if (!wallet) {
+      wallet = await walletManager.createWallet(dbUserId);
+    }
+
+    const walletInfoMessage = `
+🔐 *Your Wallet Created!*
+
+📍 *Wallet Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+✅ *Wallet Security:*
+• Your wallet is encrypted with AES-256
+• Stored securely in our database
+• Only YOU can access your funds
+
+⚠️ *Important Security Tips:*
+🔹 Never share your wallet credentials
+🔹 Keep your Telegram account secure
+🔹 Enable 2FA on Telegram
+🔹 Your wallet keys are encrypted - we cannot recover them if Telegram account is lost
+
+💡 You can export your private key later from Settings if needed (for backup purposes).
+
+Ready to start trading? Tap Continue! 👇
+`;
+
+    const continueKeyboard = new InlineKeyboard().text('🚀 Continue to Dashboard', 'onboarding_continue_to_dashboard');
+
+    await ctx.editMessageText(walletInfoMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: continueKeyboard
+    });
+  });
+
+  bot.callbackQuery('onboarding_continue_to_dashboard', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery('Loading dashboard...');
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+
+    await query(`UPDATE users SET onboarding_completed = TRUE WHERE id = $1`, [dbUserId]);
+
+    const wallet = await walletManager.getActiveWallet(dbUserId);
+    if (!wallet) return;
+
+    const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+    const solPrice = await coinGeckoService.getSolanaPrice();
+
+    await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
       parse_mode: 'Markdown',
       reply_markup: getMainMenu()
     });
   });
 
   bot.callbackQuery('menu_main', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     await ctx.answerCallbackQuery();
-    await ctx.editMessageText(WELCOME_MESSAGE, {
+
+    const userResult = await query(`SELECT id, onboarding_completed FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const onboardingCompleted = userResult.rows[0].onboarding_completed;
+
+    if (!onboardingCompleted) {
+      await ctx.reply('Please complete onboarding first. Send /start to begin.');
+      return;
+    }
+
+    const wallet = await walletManager.getActiveWallet(dbUserId);
+    if (!wallet) return;
+
+    const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+    const solPrice = await coinGeckoService.getSolanaPrice();
+
+    await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
       parse_mode: 'Markdown',
       reply_markup: getMainMenu()
     });
   });
 
   bot.callbackQuery('menu_refresh', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     await ctx.answerCallbackQuery('Refreshing...');
-    await ctx.editMessageText(WELCOME_MESSAGE, {
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const wallet = await walletManager.getActiveWallet(dbUserId);
+    if (!wallet) return;
+
+    const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+    const solPrice = await coinGeckoService.getSolanaPrice();
+
+    await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
       parse_mode: 'Markdown',
       reply_markup: getMainMenu()
     });
