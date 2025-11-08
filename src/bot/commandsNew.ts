@@ -90,21 +90,10 @@ export function registerCommands(
       await referralService.setReferralCode(dbUserId, referralCode);
     }
 
-    const logoPath = path.join(__dirname, '../../assets/zinobot-logo-original.png');
-    
-    try {
-      await ctx.replyWithPhoto(new InputFile(logoPath), {
-        caption: WELCOME_MESSAGE,
-        parse_mode: 'Markdown',
-        reply_markup: getMainMenu()
-      });
-    } catch (error) {
-      console.error('Error sending logo:', error);
-      await ctx.reply(WELCOME_MESSAGE, {
-        parse_mode: 'Markdown',
-        reply_markup: getMainMenu()
-      });
-    }
+    await ctx.reply(WELCOME_MESSAGE, {
+      parse_mode: 'Markdown',
+      reply_markup: getMainMenu()
+    });
   });
 
   bot.callbackQuery('menu_main', async (ctx) => {
