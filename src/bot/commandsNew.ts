@@ -1,4 +1,4 @@
-import { Bot, Context, InlineKeyboard } from 'grammy';
+import { Bot, Context, InlineKeyboard, InputFile } from 'grammy';
 import { WalletManager } from '../wallet/walletManager';
 import { JupiterService, NATIVE_SOL_MINT, USDC_MINT } from '../services/jupiter';
 import { CoinGeckoService } from '../services/coingecko';
@@ -8,6 +8,7 @@ import { ReferralService } from '../services/referral';
 import { TransferService } from '../services/transfer';
 import { query } from '../database/db';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
+import * as path from 'path';
 import {
   getMainMenu,
   getBackToMainMenu,
@@ -22,28 +23,37 @@ import {
 const WELCOME_MESSAGE = `
 🚀 *Welcome to Zinobot!*
 
-Your powerful Solana trading companion! Trade tokens instantly, transfer assets, and manage your portfolio - all within Telegram.
+*Your AI-Powered Solana Trading Companion*
 
-*💎 What You Can Do:*
-━━━━━━━━━━━━━━━━━━
-💰 *Trade* - Swap tokens via Jupiter Aggregator
-📤 *Transfer* - Send SOL & tokens to anyone  
-📊 *Portfolio* - Track your holdings & balance
-🎁 *Referrals* - Earn rewards from friends
-🔐 *Wallet* - Non-custodial, AES-256 encrypted
+Trade smarter, not harder! Zinobot brings the power of decentralized trading directly to your fingertips. Swap tokens instantly, transfer assets peer-to-peer, and manage your entire Solana portfolio - all without leaving Telegram.
 
-*🌟 Why Zinobot?*
-━━━━━━━━━━━━━━━━━━
-✅ Instant token swaps
-✅ Low fees (configurable)
-✅ Secure & encrypted
-✅ Simple & fast
-✅ 24/7 available
+*⚡️ Lightning-Fast Features:*
+━━━━━━━━━━━━━━━━━━━━━━
+💰 *Instant Swaps* - Powered by Jupiter Aggregator
+📤 *P2P Transfers* - Send SOL & tokens to anyone  
+📊 *Portfolio Tracker* - Real-time balance & holdings
+🎁 *Referral Rewards* - Earn from every friend you bring
+🔐 *Bank-Grade Security* - Non-custodial, AES-256 encrypted
 
-*🌐 Network:* ${process.env.SOLANA_NETWORK || 'devnet'}
-*💡 New here?* Create a wallet to start trading!
+*🌟 Why Traders Choose Zinobot:*
+━━━━━━━━━━━━━━━━━━━━━━
+✅ Best swap rates across Solana DEXs
+✅ Ultra-low fees (fully transparent)
+✅ Military-grade wallet encryption
+✅ Zero learning curve - just tap & trade
+✅ Available 24/7 - Never miss an opportunity
 
-Choose an option from the menu below 👇
+*🌐 Connect With Us:*
+━━━━━━━━━━━━━━━━━━━━━━
+🌐 Website: [zinochain.com](https://zinochain.com)
+🐦 X (Twitter): [@zinochain](https://x.com/zinochain)
+📧 Email: hi@zinochain.com
+
+*🎯 Ready to start?*
+Tap */start* to create your wallet or */help* for commands!
+
+━━━━━━━━━━━━━━━━━━━━━━
+*Network:* ${process.env.SOLANA_NETWORK || 'devnet'} | *Status:* 🟢 Online
 `;
 
 interface UserState {
@@ -95,10 +105,21 @@ export function registerCommands(
       await referralService.setReferralCode(dbUserId, referralCode);
     }
 
-    await ctx.reply(WELCOME_MESSAGE, {
-      parse_mode: 'Markdown',
-      reply_markup: getMainMenu()
-    });
+    const logoPath = path.join(__dirname, '../../assets/zinobot-logo.png');
+    
+    try {
+      await ctx.replyWithPhoto(new InputFile(logoPath), {
+        caption: WELCOME_MESSAGE,
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenu()
+      });
+    } catch (error) {
+      console.error('Error sending logo:', error);
+      await ctx.reply(WELCOME_MESSAGE, {
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenu()
+      });
+    }
   });
 
   bot.callbackQuery('menu_main', async (ctx) => {
