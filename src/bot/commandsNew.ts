@@ -9,6 +9,7 @@ import { TransferService } from '../services/transfer';
 import { query } from '../database/db';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import * as path from 'path';
+import bs58 from 'bs58';
 import {
   getMainMenu,
   getBackToMainMenu,
@@ -152,40 +153,63 @@ export function registerCommands(
 
     const dbUserId = userResult.rows[0].id;
     
-    let wallet = await walletManager.getActiveWallet(dbUserId);
-    if (!wallet) {
-      wallet = await walletManager.createWallet(dbUserId);
+    let existingWallet = await walletManager.getActiveWallet(dbUserId);
+    let secretKey = '';
+    let publicKey = '';
+
+    if (!existingWallet) {
+      const newWallet = await walletManager.createWallet(dbUserId);
+      secretKey = newWallet.secretKey;
+      publicKey = newWallet.publicKey;
+    } else {
+      publicKey = existingWallet.publicKey;
+      const keypair = await walletManager.getKeypair(existingWallet.id);
+      secretKey = bs58.encode(keypair.secretKey);
     }
 
-    const walletInfoMessage = `
-🔐 *Your Wallet Created!*
+    const walletCredentialsMessage = `
+🔐 *Your Wallet Credentials*
 
 📍 *Wallet Address:*
-\`${wallet.publicKey}\`
+\`${publicKey}\`
 _(Tap to copy)_
 
-✅ *Wallet Security:*
-• Your wallet is encrypted with AES-256
-• Stored securely in our database
-• Only YOU can access your funds
+🔑 *Private Key:*
+||${secretKey}||
+_(Tap to reveal - KEEP SECRET!)_
 
-⚠️ *Important Security Tips:*
-🔹 Never share your wallet credentials
-🔹 Keep your Telegram account secure
-🔹 Enable 2FA on Telegram
-🔹 Your wallet keys are encrypted - we cannot recover them if Telegram account is lost
+⚠️ *CRITICAL SECURITY WARNING:*
+🔴 NEVER share your private key with ANYONE
+🔴 Screenshot and store it OFFLINE immediately
+🔴 We will NEVER ask for your private key
+🔴 Losing this key = losing access to your funds
+🔴 This message will auto-delete in 10 minutes
 
-💡 You can export your private key later from Settings if needed (for backup purposes).
+✅ *Secure Backup Tips:*
+• Write it down on paper (best practice)
+• Store in a password manager (encrypted)
+• Keep multiple secure backups
+• NEVER store in cloud services or screenshots
 
-Ready to start trading? Tap Continue! 👇
+⏰ *This sensitive information will be automatically deleted in 10 minutes for your security.*
+
+Once you've safely backed up your private key, tap Continue! 👇
 `;
 
-    const continueKeyboard = new InlineKeyboard().text('🚀 Continue to Dashboard', 'onboarding_continue_to_dashboard');
+    const continueKeyboard = new InlineKeyboard().text('✅ I Saved My Key - Continue', 'onboarding_continue_to_dashboard');
 
-    await ctx.editMessageText(walletInfoMessage, {
+    await ctx.editMessageText(walletCredentialsMessage, {
       parse_mode: 'Markdown',
       reply_markup: continueKeyboard
     });
+
+    setTimeout(async () => {
+      try {
+        await ctx.deleteMessage();
+      } catch (error) {
+        console.log('Could not delete onboarding message (may have been manually deleted)');
+      }
+    }, 10 * 60 * 1000);
   });
 
   bot.callbackQuery('onboarding_continue_to_dashboard', async (ctx) => {
