@@ -162,6 +162,14 @@ None specified yet.
 ## Recent Changes
 
 ### November 8, 2025
+- **Bot Welcome Page Enhancement**
+  - Added professional Zinobot logo displayed when users start the bot
+  - Redesigned welcome message with catchy, marketing-focused copy
+  - Integrated branded links: website (zinochain.com), X/Twitter (@zinochain), and email
+  - Improved user experience with visual branding on first interaction
+  - Added fallback handling if logo image fails to load
+  - Main menu already includes Help button for easy access to commands
+
 - **Admin Dashboard Proxy Fix**
   - Fixed API proxy between dashboard (port 5000) and Admin API (port 3001)
   - Replaced http-proxy-middleware with simple fetch-based proxy for reliability
