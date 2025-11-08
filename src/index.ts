@@ -60,6 +60,32 @@ async function main() {
       console.error('❌ Bot error:', err);
     });
 
+    const botDescription = `🚀 Welcome to Zinobot - Your AI-Powered Solana Trading Companion!
+
+Trade smarter, not harder! Swap tokens, transfer assets, and manage your entire Solana portfolio directly in Telegram.
+
+✨ Features:
+• Instant token swaps via Jupiter
+• P2P transfers 
+• Portfolio tracking
+• Referral rewards
+• AES-256 encrypted wallets
+
+🌐 zinochain.com | 🐦 @zinochain | 📧 hi@zinochain.com
+
+Tap /start to begin or /help for commands!`;
+
+    const shortDescription = `Your AI-powered Solana trading bot. Swap tokens, transfer assets & manage your portfolio - all in Telegram!`;
+
+    try {
+      await bot.api.setMyDescription(botDescription);
+      await bot.api.setMyShortDescription(shortDescription);
+      console.log('✅ Bot description set successfully');
+    } catch (error) {
+      console.error('⚠️  Failed to set bot description:', error);
+    }
+
+    console.log('✅ Bot commands and callbacks registered');
     console.log('✅ Zinobot is ready!');
     console.log('📱 Open Telegram and start chatting with your bot\n');
 
