@@ -104,11 +104,11 @@ export const DEFAULT_CHAIN_CONFIG: ChainConfig = {
     rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com'
   },
   ethereum: {
-    rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth.public-rpc.com',
+    rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://ethereum.publicnode.com',
     oneInchApiKey: process.env.ONEINCH_API_KEY
   },
   bsc: {
-    rpcUrl: process.env.BSC_RPC_URL || 'https://bsc-dataseed.binance.org',
+    rpcUrl: process.env.BSC_RPC_URL || 'https://bsc-dataseed1.binance.org',
     oneInchApiKey: process.env.ONEINCH_API_KEY
   }
 };

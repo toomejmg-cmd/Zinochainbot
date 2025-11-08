@@ -17,6 +17,7 @@ import { TokenInfoService } from '../services/tokenInfo';
 import {
   getMainMenu,
   getBackToMainMenu,
+  getWalletMenu,
   getBuyMenu,
   getSellMenu,
   getSettingsMenu,
@@ -502,6 +503,9 @@ Tap Continue when ready! 👇
 
     await ctx.answerCallbackQuery();
 
+    // Clear any active command states for clean environment
+    userStates.delete(userId);
+
     const userResult = await query(`SELECT id, onboarding_completed, current_chain FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
@@ -608,7 +612,7 @@ Choose an action below! 👇
       `💰 *Buy Tokens*\n\n` +
       `Enter one of the following:\n\n` +
       `1️⃣ Token address (e.g., \`${USDC_MINT}\`)\n` +
-      `2️⃣ Token ticker/symbol (e.g., \`BONK\`)\n` +
+      `2️⃣ Token ticker/symbol (e.g., \`ZCXT\`)\n` +
       `3️⃣ URL from:\n` +
       `   • pump.fun\n` +
       `   • Birdeye\n` +
@@ -780,6 +784,182 @@ Choose an action below! 👇
     );
   });
 
+  bot.callbackQuery('menu_wallet', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+    const multiChainWallet = new MultiChainWalletService();
+    const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+
+    if (!wallet) {
+      await ctx.reply(`No ${currentChain} wallet found. Please create one first.`);
+      return;
+    }
+
+    const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+    const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+
+    const walletMessage = `
+👛 *Your Wallet:*
+
+*Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+*Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+💡 Tap to copy the address and send ${chainInfo.nativeToken.symbol} to deposit.
+`;
+
+    await ctx.editMessageText(walletMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: getWalletMenu(currentChain)
+    });
+  });
+
+  bot.callbackQuery('wallet_view_explorer', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+    const dbUserId = userResult.rows[0].id;
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+    const multiChainWallet = new MultiChainWalletService();
+    const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+
+    if (!wallet) return;
+
+    const adapter = multiChainWallet.getChainManager().getAdapter(currentChain);
+    const explorerUrl = currentChain === 'solana' 
+      ? `https://solscan.io/account/${wallet.publicKey}?cluster=${process.env.SOLANA_NETWORK || 'devnet'}`
+      : currentChain === 'ethereum'
+      ? `https://etherscan.io/address/${wallet.publicKey}`
+      : `https://bscscan.com/address/${wallet.publicKey}`;
+
+    await ctx.reply(`🔍 View your wallet:\n${explorerUrl}`);
+  });
+
+  bot.callbackQuery('wallet_deposit', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+    const dbUserId = userResult.rows[0].id;
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+    const multiChainWallet = new MultiChainWalletService();
+    const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+    const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+
+    if (!wallet) return;
+
+    await ctx.reply(
+      `📥 *Deposit ${chainInfo.nativeToken.symbol}*\n\n` +
+      `Send ${chainInfo.nativeToken.symbol} to this address:\n\n` +
+      `\`${wallet.publicKey}\`\n` +
+      `_(Tap to copy)_\n\n` +
+      `⚠️ Only send ${chainInfo.nativeToken.symbol} on ${chainInfo.name} network!`,
+      { parse_mode: 'Markdown' }
+    );
+  });
+
+  bot.callbackQuery('wallet_buy', async (ctx) => {
+    await ctx.answerCallbackQuery('Coming soon!');
+    await ctx.reply('💰 Buy native tokens feature is coming soon! For now, use the Buy menu to purchase tokens.');
+  });
+
+  bot.callbackQuery('wallet_withdraw_all', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      '📤 *Withdraw All*\n\nEnter the destination address:',
+      { parse_mode: 'Markdown' }
+    );
+  });
+
+  bot.callbackQuery('wallet_withdraw_custom', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      '📤 *Withdraw Custom Amount*\n\nEnter destination address and amount (separated by space):',
+      { parse_mode: 'Markdown' }
+    );
+  });
+
+  bot.callbackQuery('wallet_manage_tokens', async (ctx) => {
+    await ctx.answerCallbackQuery('Coming soon!');
+    await ctx.reply('🪙 Token management feature is coming soon!');
+  });
+
+  bot.callbackQuery('wallet_reset', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('⚠️ *Reset All Wallets*\n\nThis feature will permanently delete all your wallets. Implementation coming soon with proper security confirmation.', { parse_mode: 'Markdown' });
+  });
+
+  bot.callbackQuery('wallet_export_seed', async (ctx) => {
+    await ctx.answerCallbackQuery('Coming soon!');
+    await ctx.reply('🔑 Seed phrase export feature is coming soon with enhanced security measures!');
+  });
+
+  bot.callbackQuery('wallet_refresh', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery('Refreshing...');
+
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+    const dbUserId = userResult.rows[0].id;
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+    const multiChainWallet = new MultiChainWalletService();
+    const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+
+    if (!wallet) return;
+
+    const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+    const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+
+    const walletMessage = `
+👛 *Your Wallet:*
+
+*Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+*Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+💡 Tap to copy the address and send ${chainInfo.nativeToken.symbol} to deposit.
+`;
+
+    await ctx.editMessageText(walletMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: getWalletMenu(currentChain)
+    });
+  });
+
+  bot.callbackQuery('close_menu', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    
+    // Clear any active command states
+    userStates.delete(userId);
+    
+    await ctx.deleteMessage();
+  });
+
   bot.callbackQuery('menu_withdraw', async (ctx) => {
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
@@ -842,38 +1022,49 @@ Choose an action below! 👇
     );
   });
 
-  // Token buy preset amount handlers
-  bot.callbackQuery(/buy_preset_([A-Za-z0-9]{32,44})_([\d.]+)/, async (ctx) => {
+  // Token buy preset amount handlers - multi-chain support
+  bot.callbackQuery(/buy_preset_(solana|ethereum|bsc)_(0x[a-fA-F0-9]{40}|[A-Za-z0-9]{32,44})_([\d.]+)/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const tokenAddress = ctx.match[1];
-    const solAmount = parseFloat(ctx.match[2]);
+    const chain = ctx.match[1] as ChainType;
+    const tokenAddress = ctx.match[2];
+    const nativeAmount = parseFloat(ctx.match[3]);
 
     await ctx.answerCallbackQuery();
     
     try {
       const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
       const dbUserId = userResult.rows[0].id;
-      const wallet = await walletManager.getActiveWallet(dbUserId);
+      
+      // Use multi-chain wallet service
+      const multiChainWallet = new MultiChainWalletService();
+      const wallet = await multiChainWallet.getWallet(dbUserId, chain);
 
       if (!wallet) {
-        await ctx.reply('❌ No wallet found. Use /create_wallet first.');
+        await ctx.reply(`❌ No ${chain} wallet found. Please switch to ${chain} chain first.`);
         return;
       }
 
-      const solBalance = await walletManager.getBalance(wallet.publicKey);
+      const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
+      const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
       
-      if (solBalance < solAmount) {
-        await ctx.reply(`❌ Insufficient balance. You have ${solBalance.toFixed(4)} SOL but need ${solAmount} SOL.`);
+      if (nativeBalance < nativeAmount) {
+        await ctx.reply(`❌ Insufficient balance. You have ${nativeBalance.toFixed(4)} ${nativeSymbol} but need ${nativeAmount} ${nativeSymbol}.`);
         return;
       }
 
-      await ctx.reply(`🔄 Executing swap: ${solAmount} SOL → Token...`);
+      // Only execute swaps for Solana - ETH/BSC coming soon
+      if (chain !== 'solana') {
+        await ctx.reply(`⏳ ${nativeSymbol} swaps are coming soon! Currently only Solana is supported.`);
+        return;
+      }
+
+      await ctx.reply(`🔄 Executing swap: ${nativeAmount} ${nativeSymbol} → Token...`);
 
       const keypair = await walletManager.getKeypair(wallet.id);
-      const feeAmount = feeService.calculateFee(solAmount);
-      const amountAfterFee = solAmount - feeAmount;
+      const feeAmount = feeService.calculateFee(nativeAmount);
+      const amountAfterFee = nativeAmount - feeAmount;
       const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
 
       const feeWallet = feeService.getFeeWallet();
@@ -902,19 +1093,22 @@ Choose an action below! 👇
         `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
          VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
          RETURNING id`,
-        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, solAmount, feeTransferSuccess ? feeAmount : 0]
+        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeTransferSuccess ? feeAmount : 0]
       );
 
       if (feeTransferSuccess && feeAmount > 0) {
         await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
       }
 
+      const adapter = multiChainWallet.getChainManager().getAdapter(chain);
+      const explorerUrl = adapter.getExplorerUrl(signature);
+
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
-        `💰 Amount: ${solAmount} SOL\n` +
-        `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
+        `💰 Amount: ${nativeAmount} ${nativeSymbol}\n` +
+        `💵 Fee: ${feeAmount.toFixed(4)} ${nativeSymbol}\n` +
         `📝 Signature: \`${signature}\`\n\n` +
-        `🔗 View: https://solscan.io/tx/${signature}?cluster=${process.env.SOLANA_NETWORK}`,
+        `🔗 [View Transaction](${explorerUrl})`,
         { parse_mode: 'Markdown', reply_markup: getMainMenu() }
       );
     } catch (error: any) {
@@ -923,38 +1117,44 @@ Choose an action below! 👇
     }
   });
 
-  // Custom amount buy handler
-  bot.callbackQuery(/buy_custom_amount_([A-Za-z0-9]{32,44})/, async (ctx) => {
+  // Custom amount buy handler - multi-chain support
+  bot.callbackQuery(/buy_custom_amount_(solana|ethereum|bsc)_(0x[a-fA-F0-9]{40}|[A-Za-z0-9]{32,44})/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const tokenAddress = ctx.match[1];
+    const chain = ctx.match[1] as ChainType;
+    const tokenAddress = ctx.match[2];
+    
+    const multiChainWallet = new MultiChainWalletService();
+    const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
     
     await ctx.answerCallbackQuery();
     await ctx.reply(
       `💰 *Custom Buy Amount*\n\n` +
-      `Please enter the amount of SOL you want to spend:\n\n` +
+      `Please enter the amount of ${nativeSymbol} you want to spend:\n\n` +
       `Example: \`2.5\``,
       { parse_mode: 'Markdown' }
     );
 
     userStates.set(userId, { 
       awaitingBuyAmount: true,
-      currentToken: tokenAddress
+      currentToken: tokenAddress,
+      currentChain: chain
     });
   });
 
-  // Refresh token info handler
-  bot.callbackQuery(/refresh_token_([A-Za-z0-9]{32,44})/, async (ctx) => {
+  // Refresh token info handler - multi-chain support
+  bot.callbackQuery(/refresh_token_(solana|ethereum|bsc)_(0x[a-fA-F0-9]{40}|[A-Za-z0-9]{32,44})/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const tokenAddress = ctx.match[1];
+    const chain = ctx.match[1] as ChainType;
+    const tokenAddress = ctx.match[2];
     
     await ctx.answerCallbackQuery('Refreshing...');
     
     try {
-      const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, 'solana');
+      const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
       
       if (!tokenInfo) {
         await ctx.reply('❌ Unable to fetch token information.');
@@ -963,19 +1163,22 @@ Choose an action below! 👇
 
       const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
       const dbUserId = userResult.rows[0].id;
-      const wallet = await walletManager.getActiveWallet(dbUserId);
+      
+      const multiChainWallet = new MultiChainWalletService();
+      const wallet = await multiChainWallet.getWallet(dbUserId, chain);
 
       if (!wallet) {
-        await ctx.reply('❌ No wallet found.');
+        await ctx.reply(`❌ No ${chain} wallet found.`);
         return;
       }
 
-      const solBalance = await walletManager.getBalance(wallet.publicKey);
+      const nativeBalance = await multiChainWallet.getBalance(dbUserId, chain);
+      const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
       const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
 
-      const explorerLink = urlParser.getExplorerLink(tokenInfo.address, 'solana');
-      const chartLink = urlParser.getChartLink(tokenInfo.address, 'solana');
-      const scanLink = urlParser.getScanLink(tokenInfo.address, 'dexscreener', 'solana');
+      const explorerLink = urlParser.getExplorerLink(tokenInfo.address, chain);
+      const chartLink = urlParser.getChartLink(tokenInfo.address, chain);
+      const scanLink = urlParser.getScanLink(tokenInfo.address, 'dexscreener', chain);
 
       let previewMessage = `*${tokenInfo.name} | ${tokenInfo.symbol} |*\n`;
       previewMessage += `\`${tokenInfo.address}\`\n`;
@@ -986,8 +1189,8 @@ Choose an action below! 👇
       previewMessage += `*6h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h6)}, `;
       previewMessage += `*24h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h24)}\n`;
       previewMessage += `*Market Cap:* ${tokenInfoService.formatLargeNumber(tokenInfo.marketCap)}\n\n`;
-      previewMessage += `*Price Impact (5.0000 SOL):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
-      previewMessage += `*Wallet Balance:* ${solBalance.toFixed(4)} SOL\n\n`;
+      previewMessage += `*Price Impact (5.0000 ${nativeSymbol}):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
+      previewMessage += `*Wallet Balance:* ${parseFloat(nativeBalance).toFixed(4)} ${nativeSymbol}\n\n`;
       
       if (tokenInfo.socials?.twitter || tokenInfo.socials?.telegram) {
         previewMessage += `🔗 `;
@@ -1000,15 +1203,15 @@ Choose an action below! 👇
 
       const buyKeyboard = new InlineKeyboard()
         .text('DCA', `menu_dca`)
-        .text('✅ Swap', `execute_swap_${tokenAddress}`)
+        .text('✅ Swap', `execute_swap_${chain}_${tokenAddress}`)
         .text('Limit', `menu_limit`)
         .row()
-        .text('Buy 1.0 SOL', `buy_preset_${tokenAddress}_1.0`)
-        .text('Buy 5.0 SOL', `buy_preset_${tokenAddress}_5.0`)
+        .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_1.0`)
+        .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_5.0`)
         .row()
-        .text('Buy X SOL', `buy_custom_amount_${tokenAddress}`)
+        .text(`Buy X ${nativeSymbol}`, `buy_custom_amount_${chain}_${tokenAddress}`)
         .row()
-        .text('🔄 Refresh', `refresh_token_${tokenAddress}`)
+        .text('🔄 Refresh', `refresh_token_${chain}_${tokenAddress}`)
         .text('❌ Cancel', 'menu_main');
 
       await ctx.editMessageText(previewMessage, {
@@ -1445,20 +1648,25 @@ Use /refer to get your code and track earnings.
       try {
         await ctx.reply('🔍 Analyzing token...');
         
+        // Get user's current chain
+        const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const userChain = userResult.rows[0].current_chain || 'solana';
+        
         // Try to parse URL or token address
         const parsed = urlParser.parseURL(text);
         let tokenAddress: string | null = null;
-        let chain: string = 'solana';
+        let chain: string = userChain;
         
         if (parsed) {
           tokenAddress = parsed.tokenAddress;
-          chain = parsed.chain || 'solana';
+          chain = parsed.chain || userChain;
         } else {
-          // Try as ticker symbol search
-          const searchResults = await tokenInfoService.searchToken(text, 'solana');
+          // Try as ticker symbol search using user's current chain
+          const searchResults = await tokenInfoService.searchToken(text, userChain);
           if (searchResults.length === 0) {
             await ctx.reply(
-              `❌ Token not found.\n\n` +
+              `❌ Token not found on ${userChain}.\n\n` +
               `Please provide:\n` +
               `• Valid token address\n` +
               `• Token ticker/symbol\n` +
@@ -1485,17 +1693,18 @@ Use /refer to get your code and track earnings.
           return;
         }
 
-        // Get user wallet balance
-        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-        const dbUserId = userResult.rows[0].id;
-        const wallet = await walletManager.getActiveWallet(dbUserId);
+        // Get user wallet for the detected chain
+        const multiChainWallet = new MultiChainWalletService();
+        const wallet = await multiChainWallet.getWallet(dbUserId, chain as ChainType);
 
         if (!wallet) {
-          await ctx.reply('❌ No wallet found. Use /create_wallet first.');
+          await ctx.reply(`❌ No ${chain} wallet found. Please switch to ${chain} chain first.`);
           return;
         }
 
-        const solBalance = await walletManager.getBalance(wallet.publicKey);
+        // Get balance using the appropriate chain adapter
+        const nativeBalance = await multiChainWallet.getBalance(dbUserId, chain as ChainType);
+        const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain as ChainType).getNativeToken().symbol;
         
         // Calculate price impact for different amounts
         const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
@@ -1532,10 +1741,10 @@ Use /refer to get your code and track earnings.
         previewMessage += `*Market Cap:* ${tokenInfoService.formatLargeNumber(tokenInfo.marketCap)}\n\n`;
         
         // Price impact
-        previewMessage += `*Price Impact (5.0000 SOL):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
+        previewMessage += `*Price Impact (5.0000 ${nativeSymbol}):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
         
         // Wallet balance
-        previewMessage += `*Wallet Balance:* ${solBalance.toFixed(4)} SOL\n\n`;
+        previewMessage += `*Wallet Balance:* ${parseFloat(nativeBalance).toFixed(4)} ${nativeSymbol}\n\n`;
         
         // Social links if available
         if (tokenInfo.socials?.twitter || tokenInfo.socials?.telegram) {
@@ -1547,18 +1756,18 @@ Use /refer to get your code and track earnings.
         
         previewMessage += `*To buy press one of the buttons below.*`;
 
-        // Build inline keyboard with buy options
+        // Build inline keyboard with buy options - chain-specific labels
         const buyKeyboard = new InlineKeyboard()
           .text('DCA', `menu_dca`)
-          .text('✅ Swap', `execute_swap_${tokenAddress}`)
+          .text('✅ Swap', `execute_swap_${chain}_${tokenAddress}`)
           .text('Limit', `menu_limit`)
           .row()
-          .text('Buy 1.0 SOL', `buy_preset_${tokenAddress}_1.0`)
-          .text('Buy 5.0 SOL', `buy_preset_${tokenAddress}_5.0`)
+          .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_1.0`)
+          .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_5.0`)
           .row()
-          .text('Buy X SOL', `buy_custom_amount_${tokenAddress}`)
+          .text(`Buy X ${nativeSymbol}`, `buy_custom_amount_${chain}_${tokenAddress}`)
           .row()
-          .text('🔄 Refresh', `refresh_token_${tokenAddress}`)
+          .text('🔄 Refresh', `refresh_token_${chain}_${tokenAddress}`)
           .text('❌ Cancel', 'menu_main');
 
         await ctx.reply(previewMessage, {

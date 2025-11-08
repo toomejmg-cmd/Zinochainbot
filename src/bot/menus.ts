@@ -7,6 +7,8 @@ export function getMainMenu(currentChain?: 'solana' | 'ethereum' | 'bsc'): Inlin
   return new InlineKeyboard()
     .text(`${chainEmoji} Switch Chain (${chainName})`, 'menu_switch_chain')
     .row()
+    .text('👛 Wallet', 'menu_wallet')
+    .row()
     .text('💰 Buy', 'menu_buy').text('💸 Sell', 'menu_sell')
     .row()
     .text('⏰ Limit Orders', 'menu_limit').text('🔄 DCA Orders', 'menu_dca')
@@ -19,7 +21,9 @@ export function getMainMenu(currentChain?: 'solana' | 'ethereum' | 'bsc'): Inlin
     .row()
     .text('⚙️ Settings', 'menu_settings').text('❓ Help', 'menu_help')
     .row()
-    .text('🔄 Refresh', 'menu_refresh');
+    .text('🔄 Refresh', 'menu_refresh')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
 
 export function getChainSelectorMenu(): InlineKeyboard {
@@ -27,11 +31,35 @@ export function getChainSelectorMenu(): InlineKeyboard {
     .text('⚡ Solana', 'switch_chain_solana').row()
     .text('🔷 Ethereum', 'switch_chain_ethereum').row()
     .text('🟡 Binance Smart Chain', 'switch_chain_bsc').row()
-    .text('🏠 Main Menu', 'menu_main');
+    .text('🏠 Main Menu', 'menu_main').row()
+    .text('❌ Close', 'close_menu');
+}
+
+export function getWalletMenu(chain?: 'solana' | 'ethereum' | 'bsc'): InlineKeyboard {
+  const explorerName = chain === 'ethereum' ? 'Etherscan' : chain === 'bsc' ? 'BSCScan' : 'Solscan';
+  const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
+  
+  return new InlineKeyboard()
+    .text(`🔍 View on ${explorerName}`, 'wallet_view_explorer')
+    .row()
+    .text(`📥 Deposit ${nativeSymbol}`, 'wallet_deposit').text(`💰 Buy ${nativeSymbol}`, 'wallet_buy')
+    .row()
+    .text(`📤 Withdraw all ${nativeSymbol}`, 'wallet_withdraw_all').text(`📤 Withdraw X ${nativeSymbol}`, 'wallet_withdraw_custom')
+    .row()
+    .text('🪙 Manage Tokens', 'wallet_manage_tokens')
+    .row()
+    .text('🔄 Reset All Wallets', 'wallet_reset').text('🔑 Export Seed Phrase', 'wallet_export_seed')
+    .row()
+    .text('🔄 Refresh', 'wallet_refresh')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
 
 export function getBackToMainMenu(): InlineKeyboard {
-  return new InlineKeyboard().text('🏠 Main Menu', 'menu_main');
+  return new InlineKeyboard()
+    .text('🏠 Main Menu', 'menu_main')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
 
 export function getBuyMenu(): InlineKeyboard {
@@ -40,7 +68,9 @@ export function getBuyMenu(): InlineKeyboard {
     .row()
     .text('📝 Custom Token', 'buy_custom')
     .row()
-    .text('🏠 Main Menu', 'menu_main');
+    .text('🏠 Main Menu', 'menu_main')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
 
 export function getSellMenu(): InlineKeyboard {
@@ -49,7 +79,9 @@ export function getSellMenu(): InlineKeyboard {
     .row()
     .text('📝 Custom Token', 'sell_custom')
     .row()
-    .text('🏠 Main Menu', 'menu_main');
+    .text('🏠 Main Menu', 'menu_main')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
 
 export function getSettingsMenu(): InlineKeyboard {
@@ -60,7 +92,9 @@ export function getSettingsMenu(): InlineKeyboard {
     .row()
     .text('✅ Auto-Approve', 'settings_auto_approve')
     .row()
-    .text('🏠 Main Menu', 'menu_main');
+    .text('🏠 Main Menu', 'menu_main')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
 
 export function getAdminMenu(): InlineKeyboard {
@@ -71,7 +105,9 @@ export function getAdminMenu(): InlineKeyboard {
     .row()
     .text('👥 Manage Admins', 'admin_manage')
     .row()
-    .text('🏠 Main Menu', 'menu_main');
+    .text('🏠 Main Menu', 'menu_main')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
 
 export function getConfirmMenu(action: string): InlineKeyboard {
@@ -86,5 +122,7 @@ export function getWithdrawMenu(): InlineKeyboard {
     .row()
     .text('🪙 Withdraw Token', 'withdraw_token')
     .row()
-    .text('🏠 Main Menu', 'menu_main');
+    .text('🏠 Main Menu', 'menu_main')
+    .row()
+    .text('❌ Close', 'close_menu');
 }
