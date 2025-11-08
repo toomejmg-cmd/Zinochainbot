@@ -12,6 +12,8 @@ import * as path from 'path';
 import bs58 from 'bs58';
 import { MultiChainWalletService } from '../services/multiChainWallet';
 import { ChainType } from '../adapters/IChainAdapter';
+import { URLParserService } from '../services/urlParser';
+import { TokenInfoService } from '../services/tokenInfo';
 import {
   getMainMenu,
   getBackToMainMenu,
@@ -101,6 +103,8 @@ export function registerCommands(
 ) {
   
   const multiChainWalletService = new MultiChainWalletService();
+  const urlParser = new URLParserService();
+  const tokenInfoService = new TokenInfoService();
   
   bot.command('start', async (ctx) => {
     const userId = ctx.from?.id;
@@ -601,9 +605,19 @@ Choose an action below! 👇
 
     await ctx.answerCallbackQuery();
     await ctx.reply(
-      `Please enter the token mint address and SOL amount:\n\n` +
-      `Format: \`<token_mint> <sol_amount>\`\n` +
-      `Example: \`${USDC_MINT} 0.1\``,
+      `💰 *Buy Tokens*\n\n` +
+      `Enter one of the following:\n\n` +
+      `1️⃣ Token address (e.g., \`${USDC_MINT}\`)\n` +
+      `2️⃣ Token ticker/symbol (e.g., \`BONK\`)\n` +
+      `3️⃣ URL from:\n` +
+      `   • pump.fun\n` +
+      `   • Birdeye\n` +
+      `   • DEX Screener\n` +
+      `   • Moonshot\n\n` +
+      `📎 *Example URLs:*\n` +
+      `\`https://pump.fun/coin/3wppuw...\`\n` +
+      `\`https://dexscreener.com/solana/abc...\`\n\n` +
+      `I'll show you the token details before you buy! 🚀`,
       { parse_mode: 'Markdown' }
     );
 
@@ -826,6 +840,184 @@ Choose an action below! 👇
         reply_markup: getBackToMainMenu()
       }
     );
+  });
+
+  // Token buy preset amount handlers
+  bot.callbackQuery(/buy_preset_([A-Za-z0-9]{32,44})_([\d.]+)/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const tokenAddress = ctx.match[1];
+    const solAmount = parseFloat(ctx.match[2]);
+
+    await ctx.answerCallbackQuery();
+    
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      const wallet = await walletManager.getActiveWallet(dbUserId);
+
+      if (!wallet) {
+        await ctx.reply('❌ No wallet found. Use /create_wallet first.');
+        return;
+      }
+
+      const solBalance = await walletManager.getBalance(wallet.publicKey);
+      
+      if (solBalance < solAmount) {
+        await ctx.reply(`❌ Insufficient balance. You have ${solBalance.toFixed(4)} SOL but need ${solAmount} SOL.`);
+        return;
+      }
+
+      await ctx.reply(`🔄 Executing swap: ${solAmount} SOL → Token...`);
+
+      const keypair = await walletManager.getKeypair(wallet.id);
+      const feeAmount = feeService.calculateFee(solAmount);
+      const amountAfterFee = solAmount - feeAmount;
+      const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
+
+      const feeWallet = feeService.getFeeWallet();
+      let feeTransferSuccess = false;
+      if (feeWallet && feeAmount > 0) {
+        try {
+          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+          feeTransferSuccess = true;
+        } catch (feeError) {
+          console.error('Fee transfer failed:', feeError);
+          throw new Error('Fee collection failed. Transaction aborted.');
+        }
+      } else {
+        feeTransferSuccess = true;
+      }
+
+      const signature = await jupiterService.swap(
+        keypair,
+        NATIVE_SOL_MINT,
+        tokenAddress,
+        amountLamportsAfterFee,
+        100
+      );
+
+      const txResult = await query(
+        `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
+         VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
+         RETURNING id`,
+        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, solAmount, feeTransferSuccess ? feeAmount : 0]
+      );
+
+      if (feeTransferSuccess && feeAmount > 0) {
+        await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+      }
+
+      await ctx.reply(
+        `✅ *Swap Successful!*\n\n` +
+        `💰 Amount: ${solAmount} SOL\n` +
+        `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
+        `📝 Signature: \`${signature}\`\n\n` +
+        `🔗 View: https://solscan.io/tx/${signature}?cluster=${process.env.SOLANA_NETWORK}`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
+    } catch (error: any) {
+      console.error('Buy preset error:', error);
+      await ctx.reply(`❌ Swap failed: ${error.message}`);
+    }
+  });
+
+  // Custom amount buy handler
+  bot.callbackQuery(/buy_custom_amount_([A-Za-z0-9]{32,44})/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const tokenAddress = ctx.match[1];
+    
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `💰 *Custom Buy Amount*\n\n` +
+      `Please enter the amount of SOL you want to spend:\n\n` +
+      `Example: \`2.5\``,
+      { parse_mode: 'Markdown' }
+    );
+
+    userStates.set(userId, { 
+      awaitingBuyAmount: true,
+      currentToken: tokenAddress
+    });
+  });
+
+  // Refresh token info handler
+  bot.callbackQuery(/refresh_token_([A-Za-z0-9]{32,44})/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const tokenAddress = ctx.match[1];
+    
+    await ctx.answerCallbackQuery('Refreshing...');
+    
+    try {
+      const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, 'solana');
+      
+      if (!tokenInfo) {
+        await ctx.reply('❌ Unable to fetch token information.');
+        return;
+      }
+
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      const wallet = await walletManager.getActiveWallet(dbUserId);
+
+      if (!wallet) {
+        await ctx.reply('❌ No wallet found.');
+        return;
+      }
+
+      const solBalance = await walletManager.getBalance(wallet.publicKey);
+      const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
+
+      const explorerLink = urlParser.getExplorerLink(tokenInfo.address, 'solana');
+      const chartLink = urlParser.getChartLink(tokenInfo.address, 'solana');
+      const scanLink = urlParser.getScanLink(tokenInfo.address, 'dexscreener', 'solana');
+
+      let previewMessage = `*${tokenInfo.name} | ${tokenInfo.symbol} |*\n`;
+      previewMessage += `\`${tokenInfo.address}\`\n`;
+      previewMessage += `[Explorer](${explorerLink}) | [Chart](${chartLink}) | [Scan](${scanLink})\n\n`;
+      previewMessage += `*Price:* $${parseFloat(tokenInfo.priceUsd).toFixed(6)}\n`;
+      previewMessage += `*5m:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.m5)}, `;
+      previewMessage += `*1h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h1)}, `;
+      previewMessage += `*6h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h6)}, `;
+      previewMessage += `*24h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h24)}\n`;
+      previewMessage += `*Market Cap:* ${tokenInfoService.formatLargeNumber(tokenInfo.marketCap)}\n\n`;
+      previewMessage += `*Price Impact (5.0000 SOL):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
+      previewMessage += `*Wallet Balance:* ${solBalance.toFixed(4)} SOL\n\n`;
+      
+      if (tokenInfo.socials?.twitter || tokenInfo.socials?.telegram) {
+        previewMessage += `🔗 `;
+        if (tokenInfo.socials.twitter) previewMessage += `[Twitter](${tokenInfo.socials.twitter}) `;
+        if (tokenInfo.socials.telegram) previewMessage += `[Telegram](${tokenInfo.socials.telegram})`;
+        previewMessage += `\n\n`;
+      }
+      
+      previewMessage += `*To buy press one of the buttons below.*`;
+
+      const buyKeyboard = new InlineKeyboard()
+        .text('✅ Swap', `execute_swap_${tokenAddress}`)
+        .row()
+        .text('Buy 1.0 SOL', `buy_preset_${tokenAddress}_1.0`)
+        .text('Buy 5.0 SOL', `buy_preset_${tokenAddress}_5.0`)
+        .row()
+        .text('Buy X SOL', `buy_custom_amount_${tokenAddress}`)
+        .row()
+        .text('🔄 Refresh', `refresh_token_${tokenAddress}`)
+        .text('❌ Cancel', 'menu_main');
+
+      await ctx.editMessageText(previewMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: buyKeyboard,
+        link_preview_options: { is_disabled: true }
+      });
+    } catch (error: any) {
+      console.error('Refresh error:', error);
+      await ctx.reply(`❌ Error: ${error.message}`);
+    }
   });
 
   bot.command('admin', async (ctx) => {
@@ -1246,20 +1438,144 @@ Use /refer to get your code and track earnings.
     const text = ctx.message.text;
 
     if (state.awaitingBuyToken) {
-      const parts = text.split(' ');
-      if (parts.length !== 2) {
-        await ctx.reply('❌ Invalid format. Use: `<token_mint> <sol_amount>`', { parse_mode: 'Markdown' });
-        return;
-      }
+      userStates.delete(userId);
+      
+      try {
+        await ctx.reply('🔍 Analyzing token...');
+        
+        // Try to parse URL or token address
+        const parsed = urlParser.parseURL(text);
+        let tokenAddress: string | null = null;
+        let chain: string = 'solana';
+        
+        if (parsed) {
+          tokenAddress = parsed.tokenAddress;
+          chain = parsed.chain || 'solana';
+        } else {
+          // Try as ticker symbol search
+          const searchResults = await tokenInfoService.searchToken(text, 'solana');
+          if (searchResults.length === 0) {
+            await ctx.reply(
+              `❌ Token not found.\n\n` +
+              `Please provide:\n` +
+              `• Valid token address\n` +
+              `• Token ticker/symbol\n` +
+              `• URL from pump.fun, Birdeye, DEX Screener, or Moonshot`,
+              { parse_mode: 'Markdown' }
+            );
+            return;
+          }
+          tokenAddress = searchResults[0].address;
+        }
 
-      const [tokenMint, solAmountStr] = parts;
-      const solAmount = parseFloat(solAmountStr);
+        // Fetch token information
+        const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
+        
+        if (!tokenInfo) {
+          await ctx.reply(
+            `❌ Unable to fetch token information.\n\n` +
+            `This could mean:\n` +
+            `• Token doesn't exist on ${chain}\n` +
+            `• No liquidity pools found\n` +
+            `• Token is too new (not indexed yet)`,
+            { parse_mode: 'Markdown' }
+          );
+          return;
+        }
+
+        // Get user wallet balance
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const wallet = await walletManager.getActiveWallet(dbUserId);
+
+        if (!wallet) {
+          await ctx.reply('❌ No wallet found. Use /create_wallet first.');
+          return;
+        }
+
+        const solBalance = await walletManager.getBalance(wallet.publicKey);
+        
+        // Calculate price impact for different amounts
+        const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
+
+        // Build token preview message
+        let previewMessage = ``;
+        
+        if (parsed?.platform) {
+          const platformEmoji: Record<string, string> = {
+            'pump.fun': '🚀',
+            'birdeye': '🐦',
+            'dexscreener': '📊',
+            'moonshot': '🌙'
+          };
+          previewMessage += `${platformEmoji[parsed.platform] || '💎'} `;
+        }
+        
+        previewMessage += `*${tokenInfo.name} | ${tokenInfo.symbol} |*\n`;
+        previewMessage += `\`${tokenInfo.address}\`\n`;
+        
+        // Explorer links
+        const explorerLink = urlParser.getExplorerLink(tokenInfo.address, chain);
+        const chartLink = urlParser.getChartLink(tokenInfo.address, chain);
+        const scanLink = urlParser.getScanLink(tokenInfo.address, parsed?.platform || 'dexscreener', chain);
+        
+        previewMessage += `[Explorer](${explorerLink}) | [Chart](${chartLink}) | [Scan](${scanLink})\n\n`;
+        
+        // Price and market data
+        previewMessage += `*Price:* $${parseFloat(tokenInfo.priceUsd).toFixed(6)}\n`;
+        previewMessage += `*5m:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.m5)}, `;
+        previewMessage += `*1h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h1)}, `;
+        previewMessage += `*6h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h6)}, `;
+        previewMessage += `*24h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h24)}\n`;
+        previewMessage += `*Market Cap:* ${tokenInfoService.formatLargeNumber(tokenInfo.marketCap)}\n\n`;
+        
+        // Price impact
+        previewMessage += `*Price Impact (5.0000 SOL):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
+        
+        // Wallet balance
+        previewMessage += `*Wallet Balance:* ${solBalance.toFixed(4)} SOL\n\n`;
+        
+        // Social links if available
+        if (tokenInfo.socials?.twitter || tokenInfo.socials?.telegram) {
+          previewMessage += `🔗 `;
+          if (tokenInfo.socials.twitter) previewMessage += `[Twitter](${tokenInfo.socials.twitter}) `;
+          if (tokenInfo.socials.telegram) previewMessage += `[Telegram](${tokenInfo.socials.telegram})`;
+          previewMessage += `\n\n`;
+        }
+        
+        previewMessage += `*To buy press one of the buttons below.*`;
+
+        // Build inline keyboard with buy options
+        const buyKeyboard = new InlineKeyboard()
+          .text('✅ Swap', `execute_swap_${tokenAddress}`)
+          .row()
+          .text('Buy 1.0 SOL', `buy_preset_${tokenAddress}_1.0`)
+          .text('Buy 5.0 SOL', `buy_preset_${tokenAddress}_5.0`)
+          .row()
+          .text('Buy X SOL', `buy_custom_amount_${tokenAddress}`)
+          .row()
+          .text('🔄 Refresh', `refresh_token_${tokenAddress}`)
+          .text('❌ Cancel', 'menu_main');
+
+        await ctx.reply(previewMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: buyKeyboard,
+          link_preview_options: { is_disabled: true }
+        });
+        
+      } catch (error: any) {
+        console.error('Token preview error:', error);
+        await ctx.reply(`❌ Error: ${error.message}`);
+      }
+    } else if (state.awaitingBuyAmount && state.currentToken) {
+      const solAmount = parseFloat(text);
 
       if (isNaN(solAmount) || solAmount <= 0) {
-        await ctx.reply('❌ Invalid SOL amount.');
+        await ctx.reply('❌ Invalid SOL amount. Please enter a positive number.');
         return;
       }
 
+      const tokenAddress = state.currentToken;
       userStates.delete(userId);
 
       try {
@@ -1272,10 +1588,16 @@ Use /refer to get your code and track earnings.
           return;
         }
 
+        const solBalance = await walletManager.getBalance(wallet.publicKey);
+        
+        if (solBalance < solAmount) {
+          await ctx.reply(`❌ Insufficient balance. You have ${solBalance.toFixed(4)} SOL but need ${solAmount} SOL.`);
+          return;
+        }
+
         await ctx.reply(`🔄 Executing swap: ${solAmount} SOL → Token...`);
 
         const keypair = await walletManager.getKeypair(wallet.id);
-        const amountLamports = Math.floor(solAmount * LAMPORTS_PER_SOL);
         const feeAmount = feeService.calculateFee(solAmount);
         const amountAfterFee = solAmount - feeAmount;
         const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
@@ -1297,7 +1619,7 @@ Use /refer to get your code and track earnings.
         const signature = await jupiterService.swap(
           keypair,
           NATIVE_SOL_MINT,
-          tokenMint,
+          tokenAddress,
           amountLamportsAfterFee,
           100
         );
@@ -1306,7 +1628,7 @@ Use /refer to get your code and track earnings.
           `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
            VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
            RETURNING id`,
-          [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenMint, solAmount, feeTransferSuccess ? feeAmount : 0]
+          [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, solAmount, feeTransferSuccess ? feeAmount : 0]
         );
 
         if (feeTransferSuccess && feeAmount > 0) {
@@ -1322,7 +1644,7 @@ Use /refer to get your code and track earnings.
           { parse_mode: 'Markdown', reply_markup: getMainMenu() }
         );
       } catch (error: any) {
-        console.error('Buy error:', error);
+        console.error('Buy custom amount error:', error);
         await ctx.reply(`❌ Swap failed: ${error.message}`);
       }
     } else if (state.awaitingSellToken) {
