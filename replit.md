@@ -161,6 +161,14 @@ None specified yet.
 
 ## Recent Changes
 
+### November 8, 2025
+- **Admin Dashboard Proxy Fix**
+  - Fixed API proxy between dashboard (port 5000) and Admin API (port 3001)
+  - Replaced http-proxy-middleware with simple fetch-based proxy for reliability
+  - Verified all endpoints working: stats, users, transactions, transfers, settings
+  - Dashboard fully functional with proper API communication
+  - All pages now load correctly including Settings page
+
 ### November 7, 2025
 - **Admin Dashboard Implementation**
   - Built REST API with Express.js on port 3001
