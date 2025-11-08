@@ -999,7 +999,9 @@ Choose an action below! 👇
       previewMessage += `*To buy press one of the buttons below.*`;
 
       const buyKeyboard = new InlineKeyboard()
+        .text('DCA', `menu_dca`)
         .text('✅ Swap', `execute_swap_${tokenAddress}`)
+        .text('Limit', `menu_limit`)
         .row()
         .text('Buy 1.0 SOL', `buy_preset_${tokenAddress}_1.0`)
         .text('Buy 5.0 SOL', `buy_preset_${tokenAddress}_5.0`)
@@ -1547,7 +1549,9 @@ Use /refer to get your code and track earnings.
 
         // Build inline keyboard with buy options
         const buyKeyboard = new InlineKeyboard()
+          .text('DCA', `menu_dca`)
           .text('✅ Swap', `execute_swap_${tokenAddress}`)
+          .text('Limit', `menu_limit`)
           .row()
           .text('Buy 1.0 SOL', `buy_preset_${tokenAddress}_1.0`)
           .text('Buy 5.0 SOL', `buy_preset_${tokenAddress}_5.0`)

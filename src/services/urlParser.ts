@@ -44,11 +44,12 @@ export class URLParserService {
    * Parse token address from DEX Screener URL
    * Formats: 
    * - https://dexscreener.com/solana/{tokenAddress}
-   * - https://dexscreener.com/ethereum/{tokenAddress}
-   * - https://dexscreener.com/bsc/{tokenAddress}
+   * - https://dexscreener.com/ethereum/{0xAddress}
+   * - https://dexscreener.com/bsc/{0xAddress}
    */
   private parseDexScreener(url: string): ParsedTokenURL | null {
-    const regex = /dexscreener\.com\/(solana|ethereum|bsc|base|arbitrum|polygon)\/([A-Za-z0-9]{32,44})/;
+    // Support both Solana base58 addresses and EVM 0x addresses
+    const regex = /dexscreener\.com\/(solana|ethereum|bsc|base|arbitrum|polygon)\/(0x[a-fA-F0-9]{40}|[A-Za-z0-9]{32,44})/;
     const match = url.match(regex);
     if (!match) return null;
 
@@ -73,12 +74,21 @@ export class URLParserService {
    * Main parsing method - detects platform and extracts token address
    */
   parseURL(input: string): ParsedTokenURL | null {
-    // If it's already a token address (no URL), return it directly
+    // Check if it's a Solana base58 address
     if (/^[A-Za-z0-9]{32,44}$/.test(input.trim())) {
       return {
         tokenAddress: input.trim(),
         platform: 'unknown',
-        chain: 'solana' // Default to Solana for direct addresses
+        chain: 'solana'
+      };
+    }
+
+    // Check if it's an EVM 0x address
+    if (/^0x[a-fA-F0-9]{40}$/.test(input.trim())) {
+      return {
+        tokenAddress: input.trim(),
+        platform: 'unknown',
+        chain: 'ethereum' // Default to Ethereum for 0x addresses
       };
     }
 

@@ -208,6 +208,20 @@ None specified yet.
 ## Recent Changes
 
 ### November 8, 2025  
+- **URL-Based Token Buying with DEX Integration** 💎
+  - Integrated pump.fun, Moonshot, Birdeye, and DEX Screener for URL-based token purchases
+  - Created URLParserService to extract token addresses from platform URLs
+  - Supports Solana base58 addresses and Ethereum 0x addresses
+  - Built TokenInfoService using DEX Screener API for real-time token data
+  - Rich token preview displays: price, market cap, volume, 5m/1h/6h/24h price changes
+  - Shows wallet balance and price impact calculations
+  - Direct links to Explorer, Chart, and platform-specific scans
+  - Quick buy buttons: DCA, Swap, Limit, Buy 1.0 SOL, Buy 5.0 SOL, Buy X SOL
+  - Refresh button updates token data in real-time
+  - Search tokens by ticker symbol if URL not provided
+  - Complete buy flow with fee collection and transaction recording
+  - Users can enter URLs, token addresses, or ticker symbols to buy
+
 - **Multi-Chain Architecture Implementation** 🌐
   - Added support for Ethereum and Binance Smart Chain alongside Solana
   - Created chain adapter pattern (IChainAdapter interface) for extensibility
