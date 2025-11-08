@@ -1,41 +1,53 @@
 # Zinobot - Project Documentation
 
 ## Overview
-Zinobot is a Solana-based Telegram trading bot built with Node.js and TypeScript. It enables users to create wallets, trade tokens via Jupiter Aggregator, and track their portfolio directly through Telegram.
+Zinobot is a **multi-chain** Telegram trading bot built with Node.js and TypeScript. It supports Solana, Ethereum, and Binance Smart Chain, enabling users to create wallets, trade tokens, and track their portfolio directly through Telegram.
 
-**Current Status:** MVP implementation complete with Admin Dashboard
-**Network:** Solana Devnet (default)
-**Last Updated:** November 7, 2025
+**Current Status:** Multi-chain architecture implemented
+**Supported Chains:** Solana (Devnet), Ethereum (Mainnet), Binance Smart Chain (Mainnet)
+**Last Updated:** November 8, 2025
 
 ## Architecture
 
 ### Tech Stack
 - **Language:** TypeScript/Node.js
 - **Bot Framework:** grammY
-- **Blockchain:** Solana (via @solana/web3.js)
-- **Trading:** Jupiter Aggregator API
-- **Database:** PostgreSQL
-- **Encryption:** AES-256-GCM
+- **Blockchains:** 
+  - Solana (via @solana/web3.js + Jupiter Aggregator)
+  - Ethereum (via ethers.js + 1inch API)
+  - Binance Smart Chain (via ethers.js + 1inch API)
+- **Trading APIs:** Jupiter (Solana), 1inch (ETH/BSC)
+- **Database:** PostgreSQL with multi-chain support
+- **Encryption:** AES-256-GCM for all chains
 - **Market Data:** CoinGecko API
 
 ### Project Structure
 ```
 zinobot/
 ├── src/                          # Main Telegram bot
+│   ├── adapters/                 # Chain adapter pattern
+│   │   ├── IChainAdapter.ts     # Interface for all chains
+│   │   ├── SolanaAdapter.ts     # Solana implementation
+│   │   ├── EthereumAdapter.ts   # Ethereum implementation
+│   │   └── BSCAdapter.ts        # BSC implementation
 │   ├── bot/
-│   │   └── commands.ts          # Telegram command handlers
+│   │   ├── commandsNew.ts       # Telegram command handlers
+│   │   └── menus.ts             # Bot menu structures
 │   ├── database/
 │   │   ├── db.ts                # Database connection
 │   │   ├── init.ts              # Schema initialization
-│   │   └── schema.sql           # Database schema
+│   │   └── schema.sql           # Multi-chain database schema
 │   ├── services/
-│   │   ├── jupiter.ts           # Jupiter swap integration
+│   │   ├── jupiter.ts           # Jupiter swap integration (Solana)
+│   │   ├── oneinch.ts           # 1inch integration (ETH/BSC)
+│   │   ├── chainManager.ts      # Chain adapter management
+│   │   ├── multiChainWallet.ts  # Multi-chain wallet service
 │   │   ├── fees.ts              # Fee collection service
 │   │   └── coingecko.ts         # Price data service
 │   ├── utils/
-│   │   └── encryption.ts        # AES-256 encryption
+│   │   └── encryption.ts        # AES-256 encryption (chain-agnostic)
 │   ├── wallet/
-│   │   └── walletManager.ts     # Wallet operations
+│   │   └── walletManager.ts     # Legacy Solana wallet operations
 │   └── index.ts                 # Main entry point
 ├── admin-api/                    # REST API for admin dashboard
 │   ├── src/
@@ -57,17 +69,45 @@ zinobot/
 └── .env.example
 ```
 
-## Features Implemented (MVP)
+## Features Implemented
 
 ### Core Functionality
 ✅ Telegram bot interface with grammY
-✅ Solana wallet generation with encrypted storage
-✅ Token swaps via Jupiter Aggregator
-✅ Portfolio tracking (SOL balance)
-✅ Transaction history
+✅ **Multi-chain wallet generation** (Solana, Ethereum, BSC)
+✅ **Chain adapter architecture** for easy expansion
+✅ **Encrypted storage for all chains** with AES-256
+✅ Token swaps via Jupiter (Solana) and 1inch (ETH/BSC)
+✅ **Chain switching** with persistent selection
+✅ **Chain-specific dashboards** showing balances and info
+✅ Portfolio tracking across multiple chains
+✅ Transaction history with chain tagging
 ✅ Market data from CoinGecko
-✅ PostgreSQL database with full schema
+✅ PostgreSQL database with multi-chain schema
 ✅ Secure key management with AES-256
+
+### Multi-Chain Features
+⚡ **Solana Support:**
+  - Fast, low-cost transactions
+  - Jupiter Aggregator for best swap rates
+  - Devnet for testing
+
+🔷 **Ethereum Support:**
+  - Established DeFi ecosystem
+  - 1inch API for token swaps
+  - Mainnet integration ready
+
+🟡 **BSC Support:**
+  - Low fees, high speed
+  - 1inch API for token swaps
+  - Mainnet integration ready
+
+### Onboarding Flow
+1. **Terms Acceptance** - User agrees to terms & privacy
+2. **Chain Selection** - Choose starting blockchain (Solana/Ethereum/BSC)
+3. **Wallet Creation** - Generate encrypted wallet with private key display
+4. **Dashboard** - Chain-specific trading interface
+
+Users can switch chains anytime and create wallets on additional chains!
 
 ### Bot Commands
 - `/start` - Register and introduction
@@ -97,12 +137,18 @@ zinobot/
 ## Database Schema
 
 ### Tables
-1. **users** - Telegram user data
-2. **wallets** - Encrypted wallet storage
-3. **transactions** - Trade history
+1. **users** - Telegram user data + `current_chain` (persistent chain selection)
+2. **wallets** - Encrypted wallet storage + `chain` column (supports multiple wallets per user)
+3. **transactions** - Trade history + `chain` column (multi-chain transaction tracking)
 4. **token_cache** - Price/metadata cache
 5. **orders** - Limit orders (future)
 6. **dca_jobs** - Recurring purchases (future)
+
+### Multi-Chain Architecture
+- Users can have one wallet per chain (Solana, Ethereum, BSC)
+- Chain selection persisted in database (survives bot restarts)
+- All wallets encrypted with AES-256 regardless of chain
+- Transactions tagged with chain for accurate history tracking
 
 ## Security Features
 - Private keys encrypted with AES-256-GCM before storage
@@ -161,7 +207,29 @@ None specified yet.
 
 ## Recent Changes
 
-### November 8, 2025
+### November 8, 2025  
+- **Multi-Chain Architecture Implementation** 🌐
+  - Added support for Ethereum and Binance Smart Chain alongside Solana
+  - Created chain adapter pattern (IChainAdapter interface) for extensibility
+  - Implemented SolanaAdapter, EthereumAdapter, and BSCAdapter
+  - Built ChainManager service to handle adapter switching
+  - Created MultiChainWalletService for unified wallet management
+  - Added 1inch API integration for Ethereum/BSC token swaps
+  - Database schema updated with `chain` columns in wallets & transactions tables
+  - Added `current_chain` to users table for persistent chain selection
+  - Onboarding flow now includes chain selection step
+  - Chain switching UI added to main menu with automatic wallet creation
+  - All dashboards now show chain-specific data (balances, addresses, network info)
+  - /start command updated to display user's current chain
+  - Ready for multi-chain trading across Solana, Ethereum, and BSC!
+
+- **3-Step Professional Onboarding Flow**
+  - Step 1: Terms & Conditions acceptance with links
+  - Step 1.5: Chain selection (Solana/Ethereum/BSC) with descriptions
+  - Step 2: Wallet credentials display with private key (auto-deletes in 10 minutes)
+  - Step 3: Chain-specific dashboard with trading interface
+  - Users can add wallets on other chains later from Settings
+
 - **Bot Welcome Page Enhancement**
   - Added professional Zinobot logo displayed when users start the bot
   - Redesigned welcome message with catchy, marketing-focused copy

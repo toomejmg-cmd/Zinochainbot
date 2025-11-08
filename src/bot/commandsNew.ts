@@ -114,12 +114,13 @@ export function registerCommands(
       `INSERT INTO users (telegram_id, username, first_name, last_name)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (telegram_id) DO UPDATE SET username = $2, first_name = $3, last_name = $4
-       RETURNING id, onboarding_completed`,
+       RETURNING id, onboarding_completed, current_chain`,
       [userId, username, firstName, lastName]
     );
 
     const dbUserId = result.rows[0].id;
     const onboardingCompleted = result.rows[0].onboarding_completed;
+    const currentChain = (result.rows[0].current_chain as ChainType) || 'solana';
 
     let referralCode = await referralService.getReferralCode(dbUserId);
     if (!referralCode) {
@@ -128,14 +129,29 @@ export function registerCommands(
     }
 
     if (onboardingCompleted) {
-      const wallet = await walletManager.getActiveWallet(dbUserId);
+      // Get wallet for user's current chain
+      const wallet = await multiChainWalletService.getWallet(dbUserId, currentChain);
       if (wallet) {
-        const portfolio = await walletManager.getPortfolio(wallet.publicKey);
-        const solPrice = await coinGeckoService.getSolanaPrice();
+        const balance = await multiChainWalletService.getBalance(dbUserId, currentChain);
+        const chainInfo = multiChainWalletService.getChainManager().getChainInfo(currentChain);
+
+        const dashboardMessage = `
+${chainInfo.icon} *${chainInfo.name} Dashboard*
+
+📍 *Wallet Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+💰 *Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+🌐 *Network:* ${chainInfo.name}
+
+Choose an action below! 👇
+`;
         
-        await ctx.reply(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
+        await ctx.reply(dashboardMessage, {
           parse_mode: 'Markdown',
-          reply_markup: getMainMenu()
+          reply_markup: getMainMenu(currentChain)
         });
         return;
       }
@@ -196,9 +212,11 @@ Which chain would you like to use?
 
     const dbUserId = userResult.rows[0].id;
     
-    // Store selected chain for wallet creation
+    // Save selected chain to database (persistent)
+    await query(`UPDATE users SET current_chain = $1 WHERE id = $2`, [selectedChain, dbUserId]);
+    
+    // Also update in-memory state for current session
     const state = userStates.get(userId) || {};
-    state.selectedChain = selectedChain;
     state.currentChain = selectedChain;
     userStates.set(userId, state);
     
@@ -280,16 +298,32 @@ Once you've safely backed up your private key, tap Continue! 👇
 
     await query(`UPDATE users SET onboarding_completed = TRUE WHERE id = $1`, [dbUserId]);
 
-    const state = userStates.get(userId) || {};
-    const currentChain = state.currentChain || 'solana';
+    // Load current chain from database
+    const userChainResult = await query(`SELECT current_chain FROM users WHERE id = $1`, [dbUserId]);
+    const currentChain = (userChainResult.rows[0]?.current_chain as ChainType) || 'solana';
 
-    const wallet = await walletManager.getActiveWallet(dbUserId);
+    // Get wallet for current chain
+    const wallet = await multiChainWalletService.getWallet(dbUserId, currentChain);
     if (!wallet) return;
 
-    const portfolio = await walletManager.getPortfolio(wallet.publicKey);
-    const solPrice = await coinGeckoService.getSolanaPrice();
+    const balance = await multiChainWalletService.getBalance(dbUserId, currentChain);
+    const chainInfo = multiChainWalletService.getChainManager().getChainInfo(currentChain);
 
-    await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
+    const dashboardMessage = `
+${chainInfo.icon} *${chainInfo.name} Dashboard*
+
+📍 *Wallet Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+💰 *Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+🌐 *Network:* ${chainInfo.name}
+
+Choose an action below! 👇
+`;
+
+    await ctx.editMessageText(dashboardMessage, {
       parse_mode: 'Markdown',
       reply_markup: getMainMenu(currentChain)
     });
@@ -336,7 +370,10 @@ Your wallets are saved - you can switch between chains anytime!
 
     const dbUserId = userResult.rows[0].id;
 
-    // Update user's current chain in state
+    // Update user's current chain in database (persistent)
+    await query(`UPDATE users SET current_chain = $1 WHERE id = $2`, [selectedChain, dbUserId]);
+
+    // Also update in-memory state for current session
     const state = userStates.get(userId) || {};
     state.currentChain = selectedChain;
     userStates.set(userId, state);
@@ -461,27 +498,43 @@ Tap Continue when ready! 👇
 
     await ctx.answerCallbackQuery();
 
-    const userResult = await query(`SELECT id, onboarding_completed FROM users WHERE telegram_id = $1`, [userId]);
+    const userResult = await query(`SELECT id, onboarding_completed, current_chain FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
     const onboardingCompleted = userResult.rows[0].onboarding_completed;
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
 
     if (!onboardingCompleted) {
       await ctx.reply('Please complete onboarding first. Send /start to begin.');
       return;
     }
 
-    const state = userStates.get(userId) || {};
-    const currentChain = state.currentChain || 'solana';
+    // Get wallet for current chain
+    const wallet = await multiChainWalletService.getWallet(dbUserId, currentChain);
+    if (!wallet) {
+      await ctx.reply(`No wallet found for ${currentChain}. Please create one from the chain selector.`);
+      return;
+    }
 
-    const wallet = await walletManager.getActiveWallet(dbUserId);
-    if (!wallet) return;
+    const balance = await multiChainWalletService.getBalance(dbUserId, currentChain);
+    const chainInfo = multiChainWalletService.getChainManager().getChainInfo(currentChain);
 
-    const portfolio = await walletManager.getPortfolio(wallet.publicKey);
-    const solPrice = await coinGeckoService.getSolanaPrice();
+    const dashboardMessage = `
+${chainInfo.icon} *${chainInfo.name} Dashboard*
 
-    await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
+📍 *Wallet Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+💰 *Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+🌐 *Network:* ${chainInfo.name}
+
+Choose an action below! 👇
+`;
+
+    await ctx.editMessageText(dashboardMessage, {
       parse_mode: 'Markdown',
       reply_markup: getMainMenu(currentChain)
     });
@@ -493,21 +546,37 @@ Tap Continue when ready! 👇
 
     await ctx.answerCallbackQuery('Refreshing...');
 
-    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    
-    const state = userStates.get(userId) || {};
-    const currentChain = state.currentChain || 'solana';
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
 
-    const wallet = await walletManager.getActiveWallet(dbUserId);
-    if (!wallet) return;
+    // Get wallet for current chain
+    const wallet = await multiChainWalletService.getWallet(dbUserId, currentChain);
+    if (!wallet) {
+      await ctx.reply(`No wallet found for ${currentChain}. Please create one from the chain selector.`);
+      return;
+    }
 
-    const portfolio = await walletManager.getPortfolio(wallet.publicKey);
-    const solPrice = await coinGeckoService.getSolanaPrice();
+    const balance = await multiChainWalletService.getBalance(dbUserId, currentChain);
+    const chainInfo = multiChainWalletService.getChainManager().getChainInfo(currentChain);
 
-    await ctx.editMessageText(MAIN_DASHBOARD_MESSAGE(portfolio.publicKey, portfolio.solBalance, solPrice), {
+    const dashboardMessage = `
+${chainInfo.icon} *${chainInfo.name} Dashboard*
+
+📍 *Wallet Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+💰 *Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+🌐 *Network:* ${chainInfo.name}
+
+Choose an action below! 👇
+`;
+
+    await ctx.editMessageText(dashboardMessage, {
       parse_mode: 'Markdown',
       reply_markup: getMainMenu(currentChain)
     });
