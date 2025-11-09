@@ -228,50 +228,111 @@ router.get('/settings', async (req, res) => {
 
 router.put('/settings', async (req, res) => {
   try {
-    const { fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode } = req.body;
     const adminId = (req as any).user.id;
+    const s = req.body;
 
-    if (!fee_wallet_address || fee_percentage === undefined || referral_percentage === undefined) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    // Validate required fields
+    if (!s.fee_wallet_address || s.fee_percentage === undefined || s.referral_percentage === undefined) {
+      return res.status(400).json({ error: 'Missing required fields: fee_wallet_address, fee_percentage, referral_percentage' });
     }
 
-    if (fee_percentage < 0 || fee_percentage > 100) {
+    // Validate percentages
+    if (s.fee_percentage < 0 || s.fee_percentage > 100) {
       return res.status(400).json({ error: 'Fee percentage must be between 0 and 100' });
     }
-
-    if (referral_percentage < 0 || referral_percentage > 100) {
+    if (s.referral_percentage < 0 || s.referral_percentage > 100) {
       return res.status(400).json({ error: 'Referral percentage must be between 0 and 100' });
     }
+    if (s.withdrawal_fee_percentage !== undefined && (s.withdrawal_fee_percentage < 0 || s.withdrawal_fee_percentage > 100)) {
+      return res.status(400).json({ error: 'Withdrawal fee percentage must be between 0 and 100' });
+    }
 
-    if (fee_wallet_address.length !== 44 && fee_wallet_address.length !== 32) {
-      return res.status(400).json({ error: 'Invalid Solana wallet address' });
+    // Validate RPC endpoint
+    if (!s.solana_rpc_endpoint || !s.solana_rpc_endpoint.startsWith('http')) {
+      return res.status(400).json({ error: 'Valid Solana RPC endpoint is required' });
     }
 
     const checkResult = await query('SELECT id FROM bot_settings LIMIT 1');
     
     let result;
     if (checkResult.rows.length === 0) {
+      // INSERT ALL fields for new record
       result = await query(`
-        INSERT INTO bot_settings (fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode, updated_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO bot_settings (
+          fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, 
+          enabled, maintenance_mode, allow_new_registrations,
+          withdrawal_wallet_address, withdrawal_fee_percentage, min_withdrawal_amount, max_withdrawal_amount,
+          daily_withdrawal_limit, monthly_withdrawal_limit, withdrawal_requires_approval, auto_withdrawal_threshold,
+          auto_collect_fees, auto_collect_schedule_hours, min_balance_for_auto_collect, fee_collection_wallet_rotation,
+          daily_trade_limit_per_user, max_trade_size_per_transaction, max_active_orders_per_user,
+          max_wallets_per_user, trade_cooldown_seconds, suspicious_activity_threshold,
+          require_2fa, auto_lock_suspicious_accounts, notify_on_suspicious_activity, notify_on_large_trades,
+          max_failed_login_attempts, large_trade_threshold_sol, admin_notification_email, admin_notification_telegram_id,
+          admin_ip_whitelist, require_kyc_above_limit, new_user_cooldown_hours,
+          solana_rpc_endpoint, solana_backup_rpc_endpoint, ethereum_rpc_endpoint, bsc_rpc_endpoint, api_rate_limit_per_minute,
+          global_max_slippage_bps, global_min_slippage_bps, max_gas_price_gwei,
+          min_priority_fee_lamports, max_priority_fee_lamports, enable_mev_protection,
+          max_consecutive_errors, auto_restart_on_error, emergency_stop, emergency_stop_reason,
+          updated_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53)
         RETURNING *
-      `, [fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode, adminId]);
+      `, [
+        s.fee_wallet_address, s.fee_percentage, s.referral_percentage, s.min_trade_amount, s.max_trade_amount,
+        s.enabled !== false, s.maintenance_mode || false, s.allow_new_registrations !== false,
+        s.withdrawal_wallet_address, s.withdrawal_fee_percentage || 0.10, s.min_withdrawal_amount || 0.01, s.max_withdrawal_amount,
+        s.daily_withdrawal_limit, s.monthly_withdrawal_limit, s.withdrawal_requires_approval || false, s.auto_withdrawal_threshold,
+        s.auto_collect_fees || false, s.auto_collect_schedule_hours || 24, s.min_balance_for_auto_collect || 1.0, s.fee_collection_wallet_rotation || false,
+        s.daily_trade_limit_per_user, s.max_trade_size_per_transaction, s.max_active_orders_per_user || 10,
+        s.max_wallets_per_user || 5, s.trade_cooldown_seconds || 0, s.suspicious_activity_threshold || 100,
+        s.require_2fa || false, s.auto_lock_suspicious_accounts || false, s.notify_on_suspicious_activity !== false, s.notify_on_large_trades !== false,
+        s.max_failed_login_attempts || 5, s.large_trade_threshold_sol || 10, s.admin_notification_email, s.admin_notification_telegram_id,
+        s.admin_ip_whitelist || null, s.require_kyc_above_limit, s.new_user_cooldown_hours || 0,
+        s.solana_rpc_endpoint, s.solana_backup_rpc_endpoint, s.ethereum_rpc_endpoint, s.bsc_rpc_endpoint, s.api_rate_limit_per_minute || 60,
+        s.global_max_slippage_bps || 5000, s.global_min_slippage_bps || 10, s.max_gas_price_gwei,
+        s.min_priority_fee_lamports || 1000, s.max_priority_fee_lamports || 1000000, s.enable_mev_protection !== false,
+        s.max_consecutive_errors || 10, s.auto_restart_on_error !== false, s.emergency_stop || false, s.emergency_stop_reason,
+        adminId
+      ]);
     } else {
+      // UPDATE ALL fields for existing record
       result = await query(`
         UPDATE bot_settings 
         SET 
-          fee_wallet_address = $1,
-          fee_percentage = $2,
-          referral_percentage = $3,
-          min_trade_amount = $4,
-          max_trade_amount = $5,
-          enabled = $6,
-          maintenance_mode = $7,
-          updated_at = CURRENT_TIMESTAMP,
-          updated_by = $8
+          fee_wallet_address = $1, fee_percentage = $2, referral_percentage = $3, min_trade_amount = $4, max_trade_amount = $5,
+          enabled = $6, maintenance_mode = $7, allow_new_registrations = $8,
+          withdrawal_wallet_address = $9, withdrawal_fee_percentage = $10, min_withdrawal_amount = $11, max_withdrawal_amount = $12,
+          daily_withdrawal_limit = $13, monthly_withdrawal_limit = $14, withdrawal_requires_approval = $15, auto_withdrawal_threshold = $16,
+          auto_collect_fees = $17, auto_collect_schedule_hours = $18, min_balance_for_auto_collect = $19, fee_collection_wallet_rotation = $20,
+          daily_trade_limit_per_user = $21, max_trade_size_per_transaction = $22, max_active_orders_per_user = $23,
+          max_wallets_per_user = $24, trade_cooldown_seconds = $25, suspicious_activity_threshold = $26,
+          require_2fa = $27, auto_lock_suspicious_accounts = $28, notify_on_suspicious_activity = $29, notify_on_large_trades = $30,
+          max_failed_login_attempts = $31, large_trade_threshold_sol = $32, admin_notification_email = $33, admin_notification_telegram_id = $34,
+          admin_ip_whitelist = $35, require_kyc_above_limit = $36, new_user_cooldown_hours = $37,
+          solana_rpc_endpoint = $38, solana_backup_rpc_endpoint = $39, ethereum_rpc_endpoint = $40, bsc_rpc_endpoint = $41, api_rate_limit_per_minute = $42,
+          global_max_slippage_bps = $43, global_min_slippage_bps = $44, max_gas_price_gwei = $45,
+          min_priority_fee_lamports = $46, max_priority_fee_lamports = $47, enable_mev_protection = $48,
+          max_consecutive_errors = $49, auto_restart_on_error = $50, emergency_stop = $51, emergency_stop_reason = $52,
+          updated_at = CURRENT_TIMESTAMP, updated_by = $53
         WHERE id = (SELECT id FROM bot_settings ORDER BY id DESC LIMIT 1)
         RETURNING *
-      `, [fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, enabled, maintenance_mode, adminId]);
+      `, [
+        s.fee_wallet_address, s.fee_percentage, s.referral_percentage, s.min_trade_amount, s.max_trade_amount,
+        s.enabled !== false, s.maintenance_mode || false, s.allow_new_registrations !== false,
+        s.withdrawal_wallet_address, s.withdrawal_fee_percentage || 0.10, s.min_withdrawal_amount || 0.01, s.max_withdrawal_amount,
+        s.daily_withdrawal_limit, s.monthly_withdrawal_limit, s.withdrawal_requires_approval || false, s.auto_withdrawal_threshold,
+        s.auto_collect_fees || false, s.auto_collect_schedule_hours || 24, s.min_balance_for_auto_collect || 1.0, s.fee_collection_wallet_rotation || false,
+        s.daily_trade_limit_per_user, s.max_trade_size_per_transaction, s.max_active_orders_per_user || 10,
+        s.max_wallets_per_user || 5, s.trade_cooldown_seconds || 0, s.suspicious_activity_threshold || 100,
+        s.require_2fa || false, s.auto_lock_suspicious_accounts || false, s.notify_on_suspicious_activity !== false, s.notify_on_large_trades !== false,
+        s.max_failed_login_attempts || 5, s.large_trade_threshold_sol || 10, s.admin_notification_email, s.admin_notification_telegram_id,
+        s.admin_ip_whitelist || null, s.require_kyc_above_limit, s.new_user_cooldown_hours || 0,
+        s.solana_rpc_endpoint, s.solana_backup_rpc_endpoint, s.ethereum_rpc_endpoint, s.bsc_rpc_endpoint, s.api_rate_limit_per_minute || 60,
+        s.global_max_slippage_bps || 5000, s.global_min_slippage_bps || 10, s.max_gas_price_gwei,
+        s.min_priority_fee_lamports || 1000, s.max_priority_fee_lamports || 1000000, s.enable_mev_protection !== false,
+        s.max_consecutive_errors || 10, s.auto_restart_on_error !== false, s.emergency_stop || false, s.emergency_stop_reason,
+        adminId
+      ]);
     }
 
     res.json({ 

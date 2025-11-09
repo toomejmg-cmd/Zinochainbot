@@ -2099,7 +2099,7 @@ _(Tap to copy)_
 
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
-      `❓ *Help & Support*\n\n` +
+      `❓ *Help and Support*\n\n` +
       `*Available Commands:*\n` +
       `/start - Main menu\n` +
       `/create_wallet - Generate wallet\n` +

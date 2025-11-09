@@ -342,6 +342,29 @@ async function loadTransfers() {
     }
 }
 
+// Tab Management
+function switchSettingsTab(tabName) {
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
+        btn.classList.add('border-transparent');
+    });
+    
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
+    if (activeButton) {
+        activeButton.classList.add('active', 'border-blue-500', 'text-blue-600');
+        activeButton.classList.remove('border-transparent');
+    }
+    
+    const activeContent = document.getElementById(`${tabName}Tab`);
+    if (activeContent) {
+        activeContent.classList.remove('hidden');
+    }
+}
+
 // Settings Management
 async function loadSettings() {
     try {
@@ -354,15 +377,98 @@ async function loadSettings() {
         if (!response.ok) throw new Error('Failed to load settings');
         
         const data = await response.json();
-        const settings = data.settings;
+        const s = data.settings;
 
-        document.getElementById('feeWalletAddress').value = settings.fee_wallet_address || '';
-        document.getElementById('feePercentage').value = settings.fee_percentage || 0;
-        document.getElementById('referralPercentage').value = settings.referral_percentage || 0;
-        document.getElementById('minTradeAmount').value = settings.min_trade_amount || 0;
-        document.getElementById('maxTradeAmount').value = settings.max_trade_amount || '';
-        document.getElementById('botEnabled').checked = settings.enabled;
-        document.getElementById('maintenanceMode').checked = settings.maintenance_mode;
+        // General Settings
+        document.getElementById('feeWalletAddress').value = s.fee_wallet_address || '';
+        document.getElementById('feePercentage').value = s.fee_percentage || 0;
+        document.getElementById('referralPercentage').value = s.referral_percentage || 0;
+        document.getElementById('minTradeAmount').value = s.min_trade_amount || 0;
+        document.getElementById('maxTradeAmount').value = s.max_trade_amount || '';
+        document.getElementById('botEnabled').checked = s.enabled !== false;
+        document.getElementById('maintenanceMode').checked = s.maintenance_mode || false;
+        document.getElementById('allowNewRegistrations').checked = s.allow_new_registrations !== false;
+
+        // Withdrawal Settings
+        document.getElementById('withdrawalWalletAddress').value = s.withdrawal_wallet_address || '';
+        document.getElementById('withdrawalFeePercentage').value = s.withdrawal_fee_percentage || 0.10;
+        document.getElementById('minWithdrawalAmount').value = s.min_withdrawal_amount || 0.01;
+        document.getElementById('maxWithdrawalAmount').value = s.max_withdrawal_amount || '';
+        document.getElementById('dailyWithdrawalLimit').value = s.daily_withdrawal_limit || '';
+        document.getElementById('monthlyWithdrawalLimit').value = s.monthly_withdrawal_limit || '';
+        document.getElementById('withdrawalRequiresApproval').checked = s.withdrawal_requires_approval || false;
+        document.getElementById('autoCollectFees').checked = s.auto_collect_fees || false;
+        if (document.getElementById('autoWithdrawalThreshold')) {
+            document.getElementById('autoWithdrawalThreshold').value = s.auto_withdrawal_threshold || '';
+        }
+        if (document.getElementById('autoCollectScheduleHours')) {
+            document.getElementById('autoCollectScheduleHours').value = s.auto_collect_schedule_hours || 24;
+        }
+        if (document.getElementById('minBalanceForAutoCollect')) {
+            document.getElementById('minBalanceForAutoCollect').value = s.min_balance_for_auto_collect || 1.0;
+        }
+        if (document.getElementById('feeCollectionWalletRotation')) {
+            document.getElementById('feeCollectionWalletRotation').checked = s.fee_collection_wallet_rotation || false;
+        }
+
+        // Limits
+        document.getElementById('dailyTradeLimitPerUser').value = s.daily_trade_limit_per_user || '';
+        document.getElementById('maxTradeSizePerTransaction').value = s.max_trade_size_per_transaction || '';
+        document.getElementById('maxActiveOrdersPerUser').value = s.max_active_orders_per_user || 10;
+        document.getElementById('maxWalletsPerUser').value = s.max_wallets_per_user || 5;
+        document.getElementById('tradeCooldownSeconds').value = s.trade_cooldown_seconds || 0;
+        document.getElementById('suspiciousActivityThreshold').value = s.suspicious_activity_threshold || 100;
+        if (document.getElementById('newUserCooldownHours')) {
+            document.getElementById('newUserCooldownHours').value = s.new_user_cooldown_hours || 0;
+        }
+
+        // Security
+        document.getElementById('require2fa').checked = s.require_2fa || false;
+        document.getElementById('autoLockSuspiciousAccounts').checked = s.auto_lock_suspicious_accounts || false;
+        document.getElementById('notifyOnSuspiciousActivity').checked = s.notify_on_suspicious_activity !== false;
+        document.getElementById('notifyOnLargeTrades').checked = s.notify_on_large_trades !== false;
+        document.getElementById('maxFailedLoginAttempts').value = s.max_failed_login_attempts || 5;
+        document.getElementById('largeTradeThresholdSol').value = s.large_trade_threshold_sol || 10;
+        document.getElementById('adminNotificationEmail').value = s.admin_notification_email || '';
+        document.getElementById('adminNotificationTelegramId').value = s.admin_notification_telegram_id || '';
+        if (document.getElementById('adminIpWhitelist')) {
+            document.getElementById('adminIpWhitelist').value = (s.admin_ip_whitelist || []).join('\n');
+        }
+        if (document.getElementById('requireKycAboveLimit')) {
+            document.getElementById('requireKycAboveLimit').value = s.require_kyc_above_limit || '';
+        }
+
+        // Infrastructure
+        document.getElementById('solanaRpcEndpoint').value = s.solana_rpc_endpoint || 'https://api.devnet.solana.com';
+        document.getElementById('solanaBackupRpcEndpoint').value = s.solana_backup_rpc_endpoint || '';
+        document.getElementById('ethereumRpcEndpoint').value = s.ethereum_rpc_endpoint || '';
+        document.getElementById('bscRpcEndpoint').value = s.bsc_rpc_endpoint || '';
+        document.getElementById('apiRateLimitPerMinute').value = s.api_rate_limit_per_minute || 60;
+        if (document.getElementById('maxGasPriceGwei')) {
+            document.getElementById('maxGasPriceGwei').value = s.max_gas_price_gwei || '';
+        }
+        if (document.getElementById('lastHealthCheck')) {
+            document.getElementById('lastHealthCheck').textContent = s.last_health_check ? new Date(s.last_health_check).toLocaleString() : 'Never';
+        }
+
+        // Advanced
+        document.getElementById('globalMaxSlippageBps').value = s.global_max_slippage_bps || 5000;
+        document.getElementById('globalMinSlippageBps').value = s.global_min_slippage_bps || 10;
+        document.getElementById('minPriorityFeeLamports').value = s.min_priority_fee_lamports || 1000;
+        document.getElementById('maxPriorityFeeLamports').value = s.max_priority_fee_lamports || 1000000;
+        document.getElementById('maxConsecutiveErrors').value = s.max_consecutive_errors || 10;
+        document.getElementById('enableMevProtection').checked = s.enable_mev_protection !== false;
+        document.getElementById('autoRestartOnError').checked = s.auto_restart_on_error !== false;
+        document.getElementById('emergencyStop').checked = s.emergency_stop || false;
+        document.getElementById('emergencyStopReason').value = s.emergency_stop_reason || '';
+
+        // Update emergency banner
+        if (s.emergency_stop) {
+            document.getElementById('emergencyBanner').classList.remove('hidden');
+            document.getElementById('emergencyReason').textContent = s.emergency_stop_reason || 'All trading operations are halted';
+        } else {
+            document.getElementById('emergencyBanner').classList.add('hidden');
+        }
     } catch (error) {
         console.error('Failed to load settings:', error);
         alert('Failed to load settings. Please try again.');
@@ -373,13 +479,69 @@ async function saveSettings(event) {
     event.preventDefault();
 
     const settings = {
+        // General
         fee_wallet_address: document.getElementById('feeWalletAddress').value.trim(),
         fee_percentage: parseFloat(document.getElementById('feePercentage').value),
         referral_percentage: parseFloat(document.getElementById('referralPercentage').value),
         min_trade_amount: parseFloat(document.getElementById('minTradeAmount').value),
         max_trade_amount: document.getElementById('maxTradeAmount').value ? parseFloat(document.getElementById('maxTradeAmount').value) : null,
         enabled: document.getElementById('botEnabled').checked,
-        maintenance_mode: document.getElementById('maintenanceMode').checked
+        maintenance_mode: document.getElementById('maintenanceMode').checked,
+        allow_new_registrations: document.getElementById('allowNewRegistrations').checked,
+
+        // Withdrawals
+        withdrawal_wallet_address: document.getElementById('withdrawalWalletAddress').value.trim() || null,
+        withdrawal_fee_percentage: parseFloat(document.getElementById('withdrawalFeePercentage').value),
+        min_withdrawal_amount: parseFloat(document.getElementById('minWithdrawalAmount').value),
+        max_withdrawal_amount: document.getElementById('maxWithdrawalAmount').value ? parseFloat(document.getElementById('maxWithdrawalAmount').value) : null,
+        daily_withdrawal_limit: document.getElementById('dailyWithdrawalLimit').value ? parseFloat(document.getElementById('dailyWithdrawalLimit').value) : null,
+        monthly_withdrawal_limit: document.getElementById('monthlyWithdrawalLimit').value ? parseFloat(document.getElementById('monthlyWithdrawalLimit').value) : null,
+        withdrawal_requires_approval: document.getElementById('withdrawalRequiresApproval').checked,
+        auto_collect_fees: document.getElementById('autoCollectFees').checked,
+        auto_withdrawal_threshold: document.getElementById('autoWithdrawalThreshold')?.value ? parseFloat(document.getElementById('autoWithdrawalThreshold').value) : null,
+        auto_collect_schedule_hours: document.getElementById('autoCollectScheduleHours')?.value ? parseInt(document.getElementById('autoCollectScheduleHours').value) : 24,
+        min_balance_for_auto_collect: document.getElementById('minBalanceForAutoCollect')?.value ? parseFloat(document.getElementById('minBalanceForAutoCollect').value) : 1.0,
+        fee_collection_wallet_rotation: document.getElementById('feeCollectionWalletRotation')?.checked || false,
+
+        // Limits
+        daily_trade_limit_per_user: document.getElementById('dailyTradeLimitPerUser').value ? parseFloat(document.getElementById('dailyTradeLimitPerUser').value) : null,
+        max_trade_size_per_transaction: document.getElementById('maxTradeSizePerTransaction').value ? parseFloat(document.getElementById('maxTradeSizePerTransaction').value) : null,
+        max_active_orders_per_user: parseInt(document.getElementById('maxActiveOrdersPerUser').value),
+        max_wallets_per_user: parseInt(document.getElementById('maxWalletsPerUser').value),
+        trade_cooldown_seconds: parseInt(document.getElementById('tradeCooldownSeconds').value),
+        suspicious_activity_threshold: parseFloat(document.getElementById('suspiciousActivityThreshold').value),
+        new_user_cooldown_hours: document.getElementById('newUserCooldownHours')?.value ? parseInt(document.getElementById('newUserCooldownHours').value) : 0,
+
+        // Security
+        require_2fa: document.getElementById('require2fa').checked,
+        auto_lock_suspicious_accounts: document.getElementById('autoLockSuspiciousAccounts').checked,
+        notify_on_suspicious_activity: document.getElementById('notifyOnSuspiciousActivity').checked,
+        notify_on_large_trades: document.getElementById('notifyOnLargeTrades').checked,
+        max_failed_login_attempts: parseInt(document.getElementById('maxFailedLoginAttempts').value),
+        large_trade_threshold_sol: parseFloat(document.getElementById('largeTradeThresholdSol').value),
+        admin_notification_email: document.getElementById('adminNotificationEmail').value.trim() || null,
+        admin_notification_telegram_id: document.getElementById('adminNotificationTelegramId').value ? parseInt(document.getElementById('adminNotificationTelegramId').value) : null,
+        admin_ip_whitelist: document.getElementById('adminIpWhitelist')?.value ? document.getElementById('adminIpWhitelist').value.split('\n').map(ip => ip.trim()).filter(ip => ip.length > 0) : null,
+        require_kyc_above_limit: document.getElementById('requireKycAboveLimit')?.value ? parseFloat(document.getElementById('requireKycAboveLimit').value) : null,
+
+        // Infrastructure
+        solana_rpc_endpoint: document.getElementById('solanaRpcEndpoint').value.trim(),
+        solana_backup_rpc_endpoint: document.getElementById('solanaBackupRpcEndpoint').value.trim() || null,
+        ethereum_rpc_endpoint: document.getElementById('ethereumRpcEndpoint').value.trim() || null,
+        bsc_rpc_endpoint: document.getElementById('bscRpcEndpoint').value.trim() || null,
+        api_rate_limit_per_minute: parseInt(document.getElementById('apiRateLimitPerMinute').value),
+        max_gas_price_gwei: document.getElementById('maxGasPriceGwei')?.value ? parseFloat(document.getElementById('maxGasPriceGwei').value) : null,
+
+        // Advanced
+        global_max_slippage_bps: parseInt(document.getElementById('globalMaxSlippageBps').value),
+        global_min_slippage_bps: parseInt(document.getElementById('globalMinSlippageBps').value),
+        min_priority_fee_lamports: parseInt(document.getElementById('minPriorityFeeLamports').value),
+        max_priority_fee_lamports: parseInt(document.getElementById('maxPriorityFeeLamports').value),
+        max_consecutive_errors: parseInt(document.getElementById('maxConsecutiveErrors').value),
+        enable_mev_protection: document.getElementById('enableMevProtection').checked,
+        auto_restart_on_error: document.getElementById('autoRestartOnError').checked,
+        emergency_stop: document.getElementById('emergencyStop').checked,
+        emergency_stop_reason: document.getElementById('emergencyStopReason').value.trim() || null
     };
 
     try {
@@ -475,6 +637,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Settings form
     document.getElementById('settingsForm')?.addEventListener('submit', saveSettings);
     document.getElementById('cancelSettings')?.addEventListener('click', loadSettings);
+
+    // Settings tabs
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            switchSettingsTab(button.dataset.tab);
+        });
+    });
+
+    // Emergency stop controls
+    document.getElementById('emergencyStop')?.addEventListener('change', (e) => {
+        const reasonDiv = document.getElementById('emergencyReasonDiv');
+        if (e.target.checked) {
+            reasonDiv.style.display = 'block';
+        } else {
+            reasonDiv.style.display = 'none';
+        }
+    });
+
+    document.getElementById('deactivateEmergency')?.addEventListener('click', () => {
+        document.getElementById('emergencyStop').checked = false;
+        document.getElementById('emergencyReasonDiv').style.display = 'none';
+        document.getElementById('emergencyStopReason').value = '';
+    });
 
     // Check if already logged in
     if (authToken) {
