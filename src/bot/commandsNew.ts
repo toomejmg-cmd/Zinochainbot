@@ -6,6 +6,7 @@ import { AdminService } from '../services/admin';
 import { FeeService } from '../services/fees';
 import { ReferralService } from '../services/referral';
 import { TransferService } from '../services/transfer';
+import { WatchlistService } from '../services/watchlist';
 import { query } from '../database/db';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import * as path from 'path';
@@ -137,6 +138,7 @@ export function registerCommands(
   const multiChainWalletService = new MultiChainWalletService();
   const urlParser = new URLParserService();
   const tokenInfoService = new TokenInfoService();
+  const watchlistService = new WatchlistService();
   
   bot.command('start', async (ctx) => {
     const userId = ctx.from?.id;
@@ -158,10 +160,13 @@ export function registerCommands(
     const onboardingCompleted = result.rows[0].onboarding_completed;
     const currentChain = (result.rows[0].current_chain as ChainType) || 'solana';
 
-    let referralCode = await referralService.getReferralCode(dbUserId);
-    if (!referralCode) {
-      referralCode = referralService.generateReferralCode(userId);
-      await referralService.setReferralCode(dbUserId, referralCode);
+    const startPayload = ctx.match;
+    if (startPayload && startPayload.startsWith('ref-')) {
+      try {
+        await referralService.processReferral(dbUserId, startPayload);
+      } catch (err) {
+        console.error('Error processing referral:', err);
+      }
     }
 
     if (onboardingCompleted) {
@@ -808,32 +813,109 @@ Choose an action below! 👇
 
     await ctx.answerCallbackQuery();
 
-    const userResult = await query(`SELECT id, referred_by FROM users WHERE telegram_id = $1`, [userId]);
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const hasReferrer = userResult.rows[0].referred_by;
-    const referralCode = await referralService.getReferralCode(dbUserId);
-    const stats = await referralService.getReferralStats(dbUserId);
+    const dashboard = await referralService.getDashboard(dbUserId);
+    const settings = await referralService.getSettings();
+
+    const lastUpdated = new Date(dashboard.lastUpdated).toLocaleString('en-US', { 
+      month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' 
+    });
 
     await ctx.editMessageText(
-      `👥 *Referral Program*\n\n` +
-      `🎁 Earn rewards by inviting friends!\n\n` +
-      `*Your Referral Code:*\n\`${referralCode}\`\n\n` +
-      `*Your Stats:*\n` +
-      `👥 Total Referrals: ${stats.totalReferrals}\n` +
-      `💰 Total Rewards: ${stats.totalRewards} SOL\n` +
-      `✅ Paid: ${stats.paidRewards} SOL\n` +
-      `⏳ Pending: ${stats.pendingRewards} SOL\n\n` +
-      `${!hasReferrer ? '🔗 Use /applyreferral <code> to apply a referral code\n\n' : ''}` +
-      `Share your code with friends to earn rewards!`,
+      `*Trade. Refer. Earn More.*\n\n` +
+      `Share your unique link to get 50% cashback on trading fees and up to 55% from referred traders!\n\n` +
+      `Cashback and rewards are paid out every 12 hours and airdropped to your Rewards Wallet. To qualify, maintain at least 0.005 SOL in rewards.\n\n` +
+      `All Zinobot users enjoy a 15% boost to tier rewards and 25% cashback on trading fees.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*📊 Referral Rewards*\n` +
+      `• Users referred: ${dashboard.referralRewards.usersReferred}\n` +
+      `• Direct: ${dashboard.referralRewards.directReferrals}, Indirect: ${dashboard.referralRewards.indirectReferrals}\n` +
+      `• Earned rewards: ${dashboard.referralRewards.earnedRewards.toFixed(4)} SOL ($${(dashboard.referralRewards.earnedRewards * 0).toFixed(2)})\n\n` +
+      `*Layer Breakdown:*\n` +
+      `• Layer 1 - ${settings.layer_1_percent}%: ${dashboard.layerBreakdown.layer1.count} users, ${dashboard.layerBreakdown.layer1.rewards.toFixed(4)} SOL\n` +
+      `• Layer 2 - ${settings.layer_2_percent}%: ${dashboard.layerBreakdown.layer2.count} users, ${dashboard.layerBreakdown.layer2.rewards.toFixed(4)} SOL\n` +
+      `• Layer 3 - ${settings.layer_3_percent}%: ${dashboard.layerBreakdown.layer3.count} users, ${dashboard.layerBreakdown.layer3.rewards.toFixed(4)} SOL\n\n` +
+      `*💰 Cashback Rewards*\n` +
+      `• Earned rewards: ${dashboard.cashbackRewards.earnedRewards.toFixed(4)} SOL ($${(dashboard.cashbackRewards.earnedRewards * 0).toFixed(2)})\n\n` +
+      `*💎 Total Rewards*\n` +
+      `• Total paid: ${dashboard.totalRewards.totalPaid.toFixed(4)} SOL ($${(dashboard.totalRewards.totalPaid * 0).toFixed(2)})\n` +
+      `• Total unpaid: ${dashboard.totalRewards.totalUnpaid.toFixed(4)} SOL ($${(dashboard.totalRewards.totalUnpaid * 0).toFixed(2)})\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*🔗 Your Referral Link*\n` +
+      `${dashboard.referralLink}\n` +
+      `_Your friends earn 10% more with your link_\n\n` +
+      `*💼 Rewards Wallet*\n` +
+      `${dashboard.rewardsWallet}\n\n` +
+      `Last updated at ${lastUpdated} UTC (every 5 min)`,
       {
         parse_mode: 'Markdown',
-        reply_markup: getBackToMainMenu()
+        reply_markup: new InlineKeyboard()
+          .text('🔁 Update Your Referral Link', 'referral_refresh_link').row()
+          .text('🔙 Back', 'back_button')
+          .text('❌ Close', 'close_menu')
       }
     );
 
     pushNavigation(userId, 'referral');
+  });
+
+  bot.callbackQuery('referral_refresh_link', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery('Generating new referral link...');
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const newLink = await referralService.updateReferralLink(dbUserId);
+
+    await ctx.answerCallbackQuery({ text: `✅ New link generated!` });
+    
+    const dashboard = await referralService.getDashboard(dbUserId);
+    const settings = await referralService.getSettings();
+    const lastUpdated = new Date(dashboard.lastUpdated).toLocaleString('en-US', { 
+      month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' 
+    });
+
+    await ctx.editMessageText(
+      `*Trade. Refer. Earn More.*\n\n` +
+      `Share your unique link to get 50% cashback on trading fees and up to 55% from referred traders!\n\n` +
+      `Cashback and rewards are paid out every 12 hours and airdropped to your Rewards Wallet. To qualify, maintain at least 0.005 SOL in rewards.\n\n` +
+      `All Zinobot users enjoy a 15% boost to tier rewards and 25% cashback on trading fees.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*📊 Referral Rewards*\n` +
+      `• Users referred: ${dashboard.referralRewards.usersReferred}\n` +
+      `• Direct: ${dashboard.referralRewards.directReferrals}, Indirect: ${dashboard.referralRewards.indirectReferrals}\n` +
+      `• Earned rewards: ${dashboard.referralRewards.earnedRewards.toFixed(4)} SOL ($${(dashboard.referralRewards.earnedRewards * 0).toFixed(2)})\n\n` +
+      `*Layer Breakdown:*\n` +
+      `• Layer 1 - ${settings.layer_1_percent}%: ${dashboard.layerBreakdown.layer1.count} users, ${dashboard.layerBreakdown.layer1.rewards.toFixed(4)} SOL\n` +
+      `• Layer 2 - ${settings.layer_2_percent}%: ${dashboard.layerBreakdown.layer2.count} users, ${dashboard.layerBreakdown.layer2.rewards.toFixed(4)} SOL\n` +
+      `• Layer 3 - ${settings.layer_3_percent}%: ${dashboard.layerBreakdown.layer3.count} users, ${dashboard.layerBreakdown.layer3.rewards.toFixed(4)} SOL\n\n` +
+      `*💰 Cashback Rewards*\n` +
+      `• Earned rewards: ${dashboard.cashbackRewards.earnedRewards.toFixed(4)} SOL ($${(dashboard.cashbackRewards.earnedRewards * 0).toFixed(2)})\n\n` +
+      `*💎 Total Rewards*\n` +
+      `• Total paid: ${dashboard.totalRewards.totalPaid.toFixed(4)} SOL ($${(dashboard.totalRewards.totalPaid * 0).toFixed(2)})\n` +
+      `• Total unpaid: ${dashboard.totalRewards.totalUnpaid.toFixed(4)} SOL ($${(dashboard.totalRewards.totalUnpaid * 0).toFixed(2)})\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*🔗 Your Referral Link*\n` +
+      `${dashboard.referralLink}\n` +
+      `_Your friends earn 10% more with your link_\n\n` +
+      `*💼 Rewards Wallet*\n` +
+      `${dashboard.rewardsWallet}\n\n` +
+      `Last updated at ${lastUpdated} UTC (every 5 min)`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🔁 Update Your Referral Link', 'referral_refresh_link').row()
+          .text('🔙 Back', 'back_button')
+          .text('❌ Close', 'close_menu')
+      }
+    );
   });
 
   bot.callbackQuery('menu_wallet', async (ctx) => {
@@ -1295,8 +1377,112 @@ _(Tap to copy)_
   });
 
   bot.callbackQuery('watchlist_view_all', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     await ctx.answerCallbackQuery();
-    await ctx.reply('📊 Your watchlist is currently empty. Add some tokens to start monitoring!');
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const tokens = await watchlistService.getWatchlist(dbUserId);
+
+    if (tokens.length === 0) {
+      await ctx.reply(
+        `📊 *Your Watchlist*\n\n` +
+        `Your watchlist is currently empty. Add some tokens to start monitoring!`,
+        { 
+          parse_mode: 'Markdown',
+          reply_markup: new InlineKeyboard()
+            .text('➕ Add Token', 'watchlist_add').row()
+            .text('🔙 Back', 'back_button')
+            .text('❌ Close', 'close_menu')
+        }
+      );
+      return;
+    }
+
+    let message = `📊 *Your Watchlist* (${tokens.length} tokens)\n\n`;
+    
+    const keyboard = new InlineKeyboard();
+    for (const token of tokens) {
+      const displayName = token.tokenName 
+        ? `${token.tokenName} (${token.tokenSymbol || 'TOKEN'})` 
+        : `${token.tokenAddress.substring(0, 8)}...`;
+      
+      message += `• ${displayName} - ${token.chain.toUpperCase()}\n`;
+      keyboard.text(`🗑️ ${displayName}`, `watchlist_remove_${token.id}`).row();
+    }
+
+    message += `\nTap a token to remove it from your watchlist.`;
+
+    keyboard.text('➕ Add Token', 'watchlist_add').row();
+    keyboard.text('🔙 Back', 'back_button').text('❌ Close', 'close_menu');
+
+    await ctx.reply(message, { 
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+    });
+  });
+
+  bot.callbackQuery(/^watchlist_remove_(\d+)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const tokenId = parseInt(ctx.match[1]);
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const removed = await watchlistService.removeToken(dbUserId, tokenId);
+
+    if (removed) {
+      await ctx.answerCallbackQuery({ text: '✅ Token removed from watchlist' });
+      
+      const tokens = await watchlistService.getWatchlist(dbUserId);
+      
+      if (tokens.length === 0) {
+        await ctx.editMessageText(
+          `📊 *Your Watchlist*\n\n` +
+          `Your watchlist is currently empty. Add some tokens to start monitoring!`,
+          { 
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard()
+              .text('➕ Add Token', 'watchlist_add').row()
+              .text('🔙 Back', 'back_button')
+              .text('❌ Close', 'close_menu')
+          }
+        );
+        return;
+      }
+
+      let message = `📊 *Your Watchlist* (${tokens.length} tokens)\n\n`;
+      
+      const keyboard = new InlineKeyboard();
+      for (const token of tokens) {
+        const displayName = token.tokenName 
+          ? `${token.tokenName} (${token.tokenSymbol || 'TOKEN'})` 
+          : `${token.tokenAddress.substring(0, 8)}...`;
+        
+        message += `• ${displayName} - ${token.chain.toUpperCase()}\n`;
+        keyboard.text(`🗑️ ${displayName}`, `watchlist_remove_${token.id}`).row();
+      }
+
+      message += `\nTap a token to remove it from your watchlist.`;
+
+      keyboard.text('➕ Add Token', 'watchlist_add').row();
+      keyboard.text('🔙 Back', 'back_button').text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, { 
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+    } else {
+      await ctx.answerCallbackQuery({ text: '❌ Failed to remove token', show_alert: true });
+    }
   });
 
   // Wallet import handler
@@ -1454,6 +1640,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
       if (feeTransferSuccess && feeAmount > 0) {
         await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+        await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
       }
 
       const adapter = multiChainWallet.getChainManager().getAdapter(chain);
@@ -1773,11 +1960,10 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         return;
       }
 
-      const result = await referralService.applyReferral(dbUserId, referralCode);
-      
-      if (result) {
+      try {
+        await referralService.processReferral(dbUserId, referralCode);
         await ctx.reply(`✅ Referral code applied successfully! Welcome to Zinobot!`);
-      } else {
+      } catch (err) {
         await ctx.reply(`❌ Invalid referral code or you cannot refer yourself.`);
       }
     } catch (error: any) {
@@ -2202,6 +2388,7 @@ Use /refer to get your code and track earnings.
 
         if (feeTransferSuccess && feeAmount > 0) {
           await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+          await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
         }
 
         await ctx.reply(
@@ -2286,6 +2473,7 @@ Use /refer to get your code and track earnings.
 
         if (feeTransferSuccess && feeAmount > 0) {
           await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+          await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
         }
 
         await ctx.reply(
@@ -2299,6 +2487,86 @@ Use /refer to get your code and track earnings.
       } catch (error: any) {
         console.error('Sell error:', error);
         await ctx.reply(`❌ Swap failed: ${error.message}`);
+      }
+    } else if (state.awaitingImportSeed) {
+      userStates.delete(userId);
+
+      try {
+        await ctx.deleteMessage().catch(() => {});
+        
+        await ctx.reply('🔐 Importing wallet...');
+
+        const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+        const result = await multiChainWalletService.importWalletFromMnemonic(
+          dbUserId,
+          currentChain,
+          text,
+          { setActive: true, replaceExisting: true }
+        );
+
+        if (result.success) {
+          await ctx.reply(
+            `✅ *Wallet Imported Successfully!*\n\n` +
+            `*Chain:* ${currentChain.toUpperCase()}\n` +
+            `*Address:*\n\`${result.publicKey}\`\n\n` +
+            `Your wallet is now active and ready to use!`,
+            { parse_mode: 'Markdown', reply_markup: getMainMenu(currentChain) }
+          );
+        } else {
+          await ctx.reply(
+            `❌ *Import Failed*\n\n${result.error || 'Unknown error occurred'}\n\n` +
+            `Please try again with a valid seed phrase.`,
+            { parse_mode: 'Markdown' }
+          );
+        }
+      } catch (error: any) {
+        console.error('Wallet import error:', error);
+        await ctx.reply(`❌ Import failed. Please try again.`);
+      }
+    } else if (state.awaitingWatchlistToken) {
+      userStates.delete(userId);
+
+      try {
+        await ctx.reply('🔍 Adding token to watchlist...');
+
+        const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+        const result = await watchlistService.addToken(dbUserId, currentChain, text);
+
+        if (result.success && result.token) {
+          const tokenDisplay = result.token.tokenName 
+            ? `${result.token.tokenName} (${result.token.tokenSymbol || 'TOKEN'})` 
+            : result.token.tokenAddress.substring(0, 8) + '...';
+
+          await ctx.reply(
+            `✅ *Token Added to Watchlist!*\n\n` +
+            `*Token:* ${tokenDisplay}\n` +
+            `*Chain:* ${result.token.chain.toUpperCase()}\n` +
+            `*Address:*\n\`${result.token.tokenAddress}\``,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: new InlineKeyboard()
+                .text('📋 View Watchlist', 'watchlist_view_all').row()
+                .text('➕ Add Another', 'watchlist_add').row()
+                .text('🔙 Back', 'back_button')
+                .text('❌ Close', 'close_menu')
+            }
+          );
+        } else {
+          await ctx.reply(
+            `❌ *Failed to Add Token*\n\n${result.error || 'Unknown error'}\n\n` +
+            `Please try again with a valid token address or URL.`,
+            { parse_mode: 'Markdown' }
+          );
+        }
+      } catch (error: any) {
+        console.error('Watchlist add error:', error);
+        await ctx.reply(`❌ Failed to add token. Please try again.`);
       }
     }
   });

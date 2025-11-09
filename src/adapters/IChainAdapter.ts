@@ -34,6 +34,8 @@ export interface IChainAdapter {
   
   createWallet(): Promise<WalletCredentials>;
   
+  deriveFromMnemonic?(mnemonic: string): Promise<WalletCredentials>;
+  
   getBalance(address: string): Promise<string>;
   
   getTokenBalances(address: string): Promise<TokenBalance[]>;

@@ -1,6 +1,8 @@
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount, getMint } from '@solana/spl-token';
 import bs58 from 'bs58';
+import * as bip39 from 'bip39';
+import { derivePath } from 'ed25519-hd-key';
 import { JupiterService } from '../services/jupiter';
 import {
   ChainType,
@@ -124,5 +126,16 @@ export class SolanaAdapter implements IChainAdapter {
 
   getExplorerUrl(txHash: string): string {
     return `https://solscan.io/tx/${txHash}?cluster=devnet`;
+  }
+
+  async deriveFromMnemonic(mnemonic: string): Promise<WalletCredentials> {
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const derivedSeed = derivePath("m/44'/501'/0'/0'", seed.toString('hex')).key;
+    const keypair = Keypair.fromSeed(derivedSeed);
+    
+    return {
+      publicKey: keypair.publicKey.toString(),
+      privateKey: bs58.encode(keypair.secretKey)
+    };
   }
 }

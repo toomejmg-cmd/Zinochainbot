@@ -2,6 +2,7 @@ import { ChainManager, DEFAULT_CHAIN_CONFIG } from './chainManager';
 import { ChainType } from '../adapters/IChainAdapter';
 import { query } from '../database/db';
 import { encrypt, decrypt } from '../utils/encryption';
+import * as bip39 from 'bip39';
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY!;
 
@@ -110,5 +111,93 @@ export class MultiChainWalletService {
 
   getChainManager(): ChainManager {
     return this.chainManager;
+  }
+
+  async importWalletFromMnemonic(
+    userId: number,
+    chain: ChainType,
+    mnemonic: string,
+    options?: { setActive?: boolean; replaceExisting?: boolean }
+  ): Promise<{
+    publicKey: string;
+    walletId: number;
+    chain: ChainType;
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      const trimmedMnemonic = mnemonic.trim();
+      
+      if (!bip39.validateMnemonic(trimmedMnemonic)) {
+        return { 
+          publicKey: '', 
+          walletId: 0, 
+          chain, 
+          success: false, 
+          error: 'Invalid seed phrase. Please check and try again.' 
+        };
+      }
+
+      const adapter = this.chainManager.getAdapter(chain);
+      
+      if (!adapter.deriveFromMnemonic) {
+        return { 
+          publicKey: '', 
+          walletId: 0, 
+          chain, 
+          success: false, 
+          error: `${chain} does not support mnemonic import yet` 
+        };
+      }
+
+      const credentials = await adapter.deriveFromMnemonic(trimmedMnemonic);
+
+      const existingWallet = await query(
+        `SELECT id FROM wallets WHERE user_id = $1 AND public_key = $2 AND chain = $3`,
+        [userId, credentials.publicKey, chain]
+      );
+
+      if (existingWallet.rows.length > 0) {
+        return { 
+          publicKey: '', 
+          walletId: 0, 
+          chain, 
+          success: false, 
+          error: 'This wallet is already imported' 
+        };
+      }
+
+      if (options?.replaceExisting) {
+        await query(
+          `UPDATE wallets SET is_active = false WHERE user_id = $1 AND chain = $2`,
+          [userId, chain]
+        );
+      }
+
+      const encryptedPrivateKey = encrypt(credentials.privateKey, ENCRYPTION_KEY);
+
+      const result = await query(
+        `INSERT INTO wallets (user_id, public_key, encrypted_private_key, chain, wallet_type, is_active)
+         VALUES ($1, $2, $3, $4, 'imported', $5)
+         RETURNING id`,
+        [userId, credentials.publicKey, encryptedPrivateKey, chain, options?.setActive !== false]
+      );
+
+      return {
+        publicKey: credentials.publicKey,
+        walletId: result.rows[0].id,
+        chain,
+        success: true
+      };
+    } catch (error: any) {
+      console.error('Error importing wallet:', error);
+      return { 
+        publicKey: '', 
+        walletId: 0, 
+        chain, 
+        success: false, 
+        error: 'Failed to import wallet. Please try again.' 
+        };
+    }
   }
 }
