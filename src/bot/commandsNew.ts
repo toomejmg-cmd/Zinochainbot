@@ -848,7 +848,7 @@ Choose an action below! 👇
       `${dashboard.referralLink}\n` +
       `_Your friends earn 10% more with your link_\n\n` +
       `*💼 Rewards Wallet*\n` +
-      `${dashboard.rewardsWallet}\n\n` +
+      `\`${dashboard.rewardsWallet}\`\n\n` +
       `Last updated at ${lastUpdated} UTC (every 5 min)`,
       {
         parse_mode: 'Markdown',
@@ -906,7 +906,7 @@ Choose an action below! 👇
       `${dashboard.referralLink}\n` +
       `_Your friends earn 10% more with your link_\n\n` +
       `*💼 Rewards Wallet*\n` +
-      `${dashboard.rewardsWallet}\n\n` +
+      `\`${dashboard.rewardsWallet}\`\n\n` +
       `Last updated at ${lastUpdated} UTC (every 5 min)`,
       {
         parse_mode: 'Markdown',
@@ -1317,7 +1317,7 @@ _(Tap to copy)_
 
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
-      `❓ *Help & Support*\n\n` +
+      `❓ *Help \\& Support*\n\n` +
       `*Available Commands:*\n` +
       `/start - Main menu\n` +
       `/create_wallet - Generate wallet\n` +
