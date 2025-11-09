@@ -745,32 +745,19 @@ Choose an action below! 👇
       }
 
       const wallet = walletResult.rows[0];
-      const chain = wallet.chain || 'solana';
+      const chain = (wallet.chain || 'solana') as ChainType;
       
-      // Currently only Solana selling is supported
-      if (chain !== 'solana') {
-        await ctx.editMessageText(
-          `💸 *Sell Tokens*\n\n` +
-          `Your active wallet is on ${chain.toUpperCase()}.\n\n` +
-          `Token selling is currently only available on Solana. Please switch to Solana or create a Solana wallet.`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: new InlineKeyboard()
-              .text('⚡ Switch to Solana', 'switch_chain_solana')
-              .row()
-              .text('🔙 Back', 'back')
-              .text('❌ Close', 'close_menu')
-          }
-        );
-        pushNavigation(userId, 'sell');
-        return;
-      }
+      // Get chain adapter and fetch token balances
+      const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
+      const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
 
-      const portfolio = await walletManager.getPortfolio(wallet.public_key);
+      // Get chain emoji
+      const chainEmoji = chain === 'ethereum' ? '🔷' : chain === 'bsc' ? '🟡' : '⚡';
+      const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
 
-      if (portfolio.tokens.length === 0) {
+      if (tokenBalances.length === 0) {
         await ctx.editMessageText(
-          `💸 *Sell*\n\n` +
+          `💸 *Sell* ${chainEmoji}\n\n` +
           `You do not have any tokens yet. Start trading in the Buy menu.`,
           {
             parse_mode: 'Markdown',
@@ -783,20 +770,23 @@ Choose an action below! 👇
         return;
       }
 
-      let message = `💸 *Sell Tokens*\n\n`;
+      let message = `💸 *Sell Tokens* ${chainEmoji} ${chainName}\n\n`;
       message += `Select a token to sell:\n\n`;
       message += `Current fee: ${feeService.getFeePercentage()}%\n\n`;
 
       const keyboard = new InlineKeyboard();
       
-      for (let i = 0; i < portfolio.tokens.length && i < 10; i++) {
-        const token = portfolio.tokens[i];
-        const shortMint = `${token.mint.substring(0, 4)}...${token.mint.substring(token.mint.length - 4)}`;
-        const buttonText = `🪙 ${shortMint} (${token.balance.toFixed(4)})`;
-        keyboard.text(buttonText, `sell_token_${token.mint}`).row();
+      for (let i = 0; i < tokenBalances.length && i < 10; i++) {
+        const token = tokenBalances[i];
+        const shortAddress = token.tokenAddress.length > 12 
+          ? `${token.tokenAddress.substring(0, 4)}...${token.tokenAddress.substring(token.tokenAddress.length - 4)}`
+          : token.tokenAddress;
+        const displayName = token.symbol !== 'TOKEN' ? token.symbol : shortAddress;
+        const buttonText = `🪙 ${displayName} (${parseFloat(token.balance).toFixed(4)})`;
+        keyboard.text(buttonText, `sell_token_${chain}_${token.tokenAddress}`).row();
       }
 
-      if (portfolio.tokens.length > 10) {
+      if (tokenBalances.length > 10) {
         message += `\n_Showing first 10 tokens only_\n`;
       }
 
@@ -816,11 +806,12 @@ Choose an action below! 👇
   });
 
   // Handle selling a specific token from the list
-  bot.callbackQuery(/^sell_token_(.+)$/, async (ctx) => {
+  bot.callbackQuery(/^sell_token_(.+)_(.+)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const tokenMint = ctx.match[1];
+    const chain = ctx.match[1] as ChainType;
+    const tokenAddress = ctx.match[2];
     await ctx.answerCallbackQuery();
 
     try {
@@ -831,34 +822,49 @@ Choose an action below! 👇
       }
 
       const dbUserId = userResult.rows[0].id;
-      const wallet = await walletManager.getActiveWallet(dbUserId);
+      
+      // Get wallet for this chain
+      const walletResult = await query(
+        `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
+        [dbUserId, chain]
+      );
 
-      if (!wallet) {
-        await ctx.reply('❌ No wallet found.');
+      if (walletResult.rows.length === 0) {
+        await ctx.reply('❌ Wallet not found for this chain.');
         return;
       }
 
-      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
-      const token = portfolio.tokens.find((t: any) => t.mint === tokenMint);
+      const wallet = walletResult.rows[0];
+      const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
+      const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
+      const token = tokenBalances.find((t: any) => t.tokenAddress === tokenAddress);
 
       if (!token) {
         await ctx.reply('❌ Token not found in your wallet.');
         return;
       }
 
+      const chainEmoji = chain === 'ethereum' ? '🔷' : chain === 'bsc' ? '🟡' : '⚡';
+      const displayName = token.symbol !== 'TOKEN' ? token.symbol : 
+        `${tokenAddress.substring(0, 6)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
+
       await ctx.editMessageText(
-        `💸 *Sell Token*\n\n` +
-        `🪙 Token: \`${tokenMint}\`\n` +
-        `💰 Available: ${token.balance.toFixed(4)}\n\n` +
+        `💸 *Sell Token* ${chainEmoji}\n\n` +
+        `🪙 Token: ${displayName}\n` +
+        `📍 Address: \`${tokenAddress}\`\n` +
+        `💰 Available: ${parseFloat(token.balance).toFixed(4)}\n\n` +
         `Enter the amount you want to sell:\n\n` +
-        `*Example:* \`${(token.balance / 2).toFixed(4)}\` (half)\n` +
+        `*Example:* \`${(parseFloat(token.balance) / 2).toFixed(4)}\` (half)\n` +
         `or \`all\` to sell everything`,
         { parse_mode: 'Markdown' }
       );
 
+      const state = userStates.get(userId) || {};
       userStates.set(userId, { 
+        ...state,
         awaitingSellAmount: true,
-        currentToken: tokenMint
+        currentToken: tokenAddress,
+        currentChain: chain
       });
     } catch (error: any) {
       console.error('Sell token error:', error);
