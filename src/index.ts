@@ -61,14 +61,14 @@ async function main() {
       console.error('❌ Bot error:', err);
     });
 
-    const botDescription = `🚀 Welcome to Zinobot - Your AI-Powered Solana Trading Companion!
+    const botDescription = `🚀 Welcome to Zinochain Bot - Your AI-Powered Multi-Chain Trading Companion!
 
-Trade smarter, not harder! Swap tokens, transfer assets, and manage your entire Solana portfolio directly in Telegram.
+Trade smarter, not harder! Swap tokens, transfer assets, and manage your portfolio across Solana, Ethereum, and BSC directly in Telegram.
 
 ✨ Features:
-• Instant token swaps via Jupiter
-• P2P transfers 
-• Portfolio tracking
+• Multi-chain token swaps (Jupiter & 1inch)
+• P2P transfers across all chains
+• Cross-chain portfolio tracking
 • Referral rewards
 • AES-256 encrypted wallets
 
@@ -76,7 +76,7 @@ Trade smarter, not harder! Swap tokens, transfer assets, and manage your entire 
 
 Tap /start to begin or /help for commands!`;
 
-    const shortDescription = `Your AI-powered Solana trading bot. Swap tokens, transfer assets & manage your portfolio - all in Telegram!`;
+    const shortDescription = `Your AI-powered multi-chain trading bot. Swap tokens across Solana, Ethereum & BSC - all in Telegram!`;
 
     try {
       await bot.api.setMyDescription(botDescription);
@@ -88,7 +88,7 @@ Tap /start to begin or /help for commands!`;
 
 
     console.log('✅ Bot commands and callbacks registered');
-    console.log('✅ Zinobot is ready!');
+    console.log('✅ Zinochain Bot is ready!');
     console.log('📱 Open Telegram and start chatting with your bot\n');
 
     await bot.start({
@@ -104,12 +104,12 @@ Tap /start to begin or /help for commands!`;
 }
 
 process.on('SIGINT', () => {
-  console.log('\n👋 Shutting down Zinobot...');
+  console.log('\n👋 Shutting down Zinochain Bot...');
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n👋 Shutting down Zinobot...');
+  console.log('\n👋 Shutting down Zinochain Bot...');
   process.exit(0);
 });
 

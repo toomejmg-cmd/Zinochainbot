@@ -1,7 +1,7 @@
 {
-  "name": "zinobot",
+  "name": "zinochain-bot",
   "version": "1.0.0",
-  "description": "Solana-based Telegram trading bot",
+  "description": "Multi-chain Telegram trading bot for Solana, Ethereum, and BSC",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -17,7 +17,7 @@
     "trading",
     "jupiter"
   ],
-  "author": "Zinobot",
+  "author": "Zinochain",
   "license": "MIT",
   "dependencies": {
     "@solana/spl-token": "^0.4.1",

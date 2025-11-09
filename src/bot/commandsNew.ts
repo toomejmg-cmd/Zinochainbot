@@ -31,7 +31,7 @@ import {
   getWatchlistMenu
 } from './menus';
 
-const TERMS_MESSAGE = `🚀 *Welcome to Zinobot!*
+const TERMS_MESSAGE = `🚀 *Welcome to Zinochain Bot!*
 
 Your AI-powered multi-chain trading companion for instant token swaps, transfers, and portfolio management across Solana, Ethereum, and BSC.
 
@@ -49,7 +49,7 @@ Your AI-powered multi-chain trading companion for instant token swaps, transfers
 • Non-custodial wallet management
 
 ⚠️ *Before You Continue:*
-By using Zinobot, you agree to our Terms of Service and Privacy Policy.
+By using Zinochain Bot, you agree to our Terms of Service and Privacy Policy.
 
 📄 [Terms of Service](https://zinochain.com/terms)
 🔒 [Privacy Policy](https://zinochain.com/privacy)
@@ -60,7 +60,7 @@ const MAIN_DASHBOARD_MESSAGE = (walletAddress: string, balance: number, price: n
   const chainEmoji = chain === 'ethereum' ? '🔷' : chain === 'bsc' ? '🟡' : '⚡';
   const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
   
-  return `💼 *Zinobot Trading Dashboard* ${chainEmoji}
+  return `💼 *Zinochain Bot Trading Dashboard* ${chainEmoji}
 
 🌐 *Active Chain:* ${chainName}
 
@@ -3150,7 +3150,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
       try {
         await referralService.processReferral(dbUserId, referralCode);
-        await ctx.reply(`✅ Referral code applied successfully! Welcome to Zinobot!`);
+        await ctx.reply(`✅ Referral code applied successfully! Welcome to Zinochain Bot!`);
       } catch (err) {
         await ctx.reply(`❌ Invalid referral code or you cannot refer yourself.`);
       }

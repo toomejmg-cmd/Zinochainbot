@@ -1,7 +1,7 @@
 {
-  "name": "zinobot-admin-dashboard",
+  "name": "zinochain-bot-admin-dashboard",
   "version": "1.0.0",
-  "description": "Admin Dashboard for Zinobot",
+  "description": "Admin Dashboard for Zinochain Bot",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

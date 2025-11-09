@@ -1,7 +1,7 @@
-# Zinobot - Project Documentation
+# Zinochain Bot - Project Documentation
 
 ## Overview
-Zinobot is a **multi-chain** Telegram trading bot built with Node.js and TypeScript. It supports Solana, Ethereum, and Binance Smart Chain, enabling users to create wallets, trade tokens, and track their portfolio directly through Telegram.
+Zinochain Bot is a **multi-chain** Telegram trading bot built with Node.js and TypeScript. It supports Solana, Ethereum, and Binance Smart Chain, enabling users to create wallets, trade tokens, and track their portfolio directly through Telegram.
 
 **Current Status:** Multi-chain architecture implemented
 **Supported Chains:** Solana (Devnet), Ethereum (Mainnet), Binance Smart Chain (Mainnet)
@@ -23,7 +23,7 @@ Zinobot is a **multi-chain** Telegram trading bot built with Node.js and TypeScr
 
 ### Project Structure
 ```
-zinobot/
+zinochain-bot/
 ├── src/                          # Main Telegram bot
 │   ├── adapters/                 # Chain adapter pattern
 │   │   ├── IChainAdapter.ts     # Interface for all chains

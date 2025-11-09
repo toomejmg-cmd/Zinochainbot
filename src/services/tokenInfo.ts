@@ -54,7 +54,7 @@ export class TokenInfoService {
         {
           timeout: 10000,
           headers: {
-            'User-Agent': 'Zinobot/1.0'
+            'User-Agent': 'ZinochainBot/1.0'
           }
         }
       );
@@ -185,7 +185,7 @@ export class TokenInfoService {
         {
           timeout: 10000,
           headers: {
-            'User-Agent': 'Zinobot/1.0'
+            'User-Agent': 'ZinochainBot/1.0'
           }
         }
       );

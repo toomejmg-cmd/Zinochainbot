@@ -1,6 +1,6 @@
-# Zinobot - Solana Trading Bot for Telegram
+# Zinochain Bot - Multi-Chain Trading Bot for Telegram
 
-A comprehensive, production-ready Telegram trading bot for Solana blockchain, featuring non-custodial wallet management, token swaps via Jupiter Aggregator, admin controls, fee collection, and referral system.
+A comprehensive, production-ready Telegram trading bot supporting Solana, Ethereum, and BSC blockchains, featuring non-custodial wallet management, token swaps via Jupiter and 1inch, admin controls, fee collection, and referral system.
 
 **Bot Status**: ✅ Running as @Zinochainbot  
 **Network**: Solana Devnet (for testing)  
@@ -9,11 +9,12 @@ A comprehensive, production-ready Telegram trading bot for Solana blockchain, fe
 ## ✨ Features
 
 ### Core Trading
+- 🌐 **Multi-Chain Support**: Trade on Solana, Ethereum, and BSC with seamless chain switching
 - 🔐 **Non-Custodial Wallets**: Users control their own wallets with AES-256 encrypted private keys
-- 💱 **Token Swaps**: Buy and sell tokens via Jupiter Aggregator v6 with optimal routing
-- 📊 **Portfolio Tracking**: Real-time SOL and SPL token balances with USD values
+- 💱 **Token Swaps**: Buy and sell tokens via Jupiter (Solana) and 1inch (ETH/BSC) with optimal routing
+- 📊 **Portfolio Tracking**: Real-time cross-chain portfolio with SOL, ETH, BNB, and token balances
 - 💰 **Fee Collection**: Automated 0.5% trading fee (configurable by admins)
-- 📝 **Transaction History**: Complete audit trail with Solscan links
+- 📝 **Transaction History**: Complete audit trail with block explorer links
 
 ### User Experience
 - 🎮 **Interactive Menus**: Button-based interface for easy navigation

@@ -1,7 +1,7 @@
 {
-  "name": "zinobot-admin-api",
+  "name": "zinochain-bot-admin-api",
   "version": "1.0.0",
-  "description": "Admin API for Zinobot Telegram Bot",
+  "description": "Admin API for Zinochain Bot Telegram Trading Bot",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node src/index.ts",
