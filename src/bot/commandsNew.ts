@@ -725,9 +725,14 @@ Choose an action below! 👇
       }
 
       const dbUserId = userResult.rows[0].id;
-      const wallet = await walletManager.getActiveWallet(dbUserId);
+      
+      // Get wallet with chain info
+      const walletResult = await query(
+        `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND is_active = true ORDER BY id DESC LIMIT 1`,
+        [dbUserId]
+      );
 
-      if (!wallet) {
+      if (walletResult.rows.length === 0) {
         await ctx.editMessageText(
           `💸 *Sell Tokens*\n\n` +
           `❌ No wallet found. Please create a wallet first using /create_wallet`,
@@ -739,36 +744,39 @@ Choose an action below! 👇
         return;
       }
 
-      // Debug: Check if public key is valid
-      console.log('Wallet public key:', wallet.publicKey);
+      const wallet = walletResult.rows[0];
+      const chain = wallet.chain || 'solana';
       
-      if (!wallet.publicKey || wallet.publicKey.trim() === '') {
-        console.error('Invalid public key - empty or null');
+      // Currently only Solana selling is supported
+      if (chain !== 'solana') {
         await ctx.editMessageText(
           `💸 *Sell Tokens*\n\n` +
-          `❌ Your wallet has an invalid public key. Please create a new wallet using /create_wallet`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: getBackToMainMenu()
-          }
-        );
-        return;
-      }
-
-      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
-
-      if (portfolio.tokens.length === 0) {
-        await ctx.editMessageText(
-          `💸 *Sell Tokens*\n\n` +
-          `You don't have any tokens to sell yet.\n\n` +
-          `Would you like to buy some tokens?`,
+          `Your active wallet is on ${chain.toUpperCase()}.\n\n` +
+          `Token selling is currently only available on Solana. Please switch to Solana or create a Solana wallet.`,
           {
             parse_mode: 'Markdown',
             reply_markup: new InlineKeyboard()
-              .text('💰 Buy Tokens', 'menu_buy')
+              .text('⚡ Switch to Solana', 'switch_chain_solana')
               .row()
               .text('🔙 Back', 'back')
               .text('❌ Close', 'close_menu')
+          }
+        );
+        pushNavigation(userId, 'sell');
+        return;
+      }
+
+      const portfolio = await walletManager.getPortfolio(wallet.public_key);
+
+      if (portfolio.tokens.length === 0) {
+        await ctx.editMessageText(
+          `💸 *Sell*\n\n` +
+          `You do not have any tokens yet. Start trading in the Buy menu.`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard()
+              .text('🔙 Back', 'back')
+              .text('🔄 Refresh', 'menu_sell')
           }
         );
         pushNavigation(userId, 'sell');
@@ -1807,9 +1815,14 @@ _(Tap to copy)_
       }
 
       const dbUserId = userResult.rows[0].id;
-      const wallet = await walletManager.getActiveWallet(dbUserId);
+      
+      // Get wallet with chain info
+      const walletResult = await query(
+        `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND is_active = true ORDER BY id DESC LIMIT 1`,
+        [dbUserId]
+      );
 
-      if (!wallet) {
+      if (walletResult.rows.length === 0) {
         await ctx.editMessageText(
           `🪙 *Withdraw Token*\n\n` +
           `❌ No wallet found. Please create a wallet first using /create_wallet`,
@@ -1818,7 +1831,28 @@ _(Tap to copy)_
         return;
       }
 
-      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+      const wallet = walletResult.rows[0];
+      const chain = wallet.chain || 'solana';
+      
+      // Currently only Solana withdrawals are supported
+      if (chain !== 'solana') {
+        await ctx.editMessageText(
+          `🪙 *Withdraw Token*\n\n` +
+          `Your active wallet is on ${chain.toUpperCase()}.\n\n` +
+          `Token withdrawals are currently only available on Solana. Please switch to Solana or create a Solana wallet.`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard()
+              .text('⚡ Switch to Solana', 'switch_chain_solana')
+              .row()
+              .text('🔙 Back', 'back')
+              .text('❌ Close', 'close_menu')
+          }
+        );
+        return;
+      }
+
+      const portfolio = await walletManager.getPortfolio(wallet.public_key);
 
       if (portfolio.tokens.length === 0) {
         await ctx.editMessageText(
