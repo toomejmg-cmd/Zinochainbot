@@ -715,18 +715,131 @@ Choose an action below! 👇
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    await ctx.answerCallbackQuery();
-    await ctx.editMessageText(
-      `💸 *Sell Tokens*\n\n` +
-      `Choose a token to sell or enter a custom token address.\n\n` +
-      `Current fee: ${feeService.getFeePercentage()}%`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: getSellMenu()
-      }
-    );
+    await ctx.answerCallbackQuery('Loading your tokens...');
 
-    pushNavigation(userId, 'sell');
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const dbUserId = userResult.rows[0].id;
+      const wallet = await walletManager.getActiveWallet(dbUserId);
+
+      if (!wallet) {
+        await ctx.editMessageText(
+          `💸 *Sell Tokens*\n\n` +
+          `❌ No wallet found. Please create a wallet first using /create_wallet`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: getBackToMainMenu()
+          }
+        );
+        return;
+      }
+
+      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+
+      if (portfolio.tokens.length === 0) {
+        await ctx.editMessageText(
+          `💸 *Sell Tokens*\n\n` +
+          `You don't have any tokens to sell yet.\n\n` +
+          `Would you like to buy some tokens?`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard()
+              .text('💰 Buy Tokens', 'menu_buy')
+              .row()
+              .text('🔙 Back', 'back')
+              .text('❌ Close', 'close_menu')
+          }
+        );
+        pushNavigation(userId, 'sell');
+        return;
+      }
+
+      let message = `💸 *Sell Tokens*\n\n`;
+      message += `Select a token to sell:\n\n`;
+      message += `Current fee: ${feeService.getFeePercentage()}%\n\n`;
+
+      const keyboard = new InlineKeyboard();
+      
+      for (let i = 0; i < portfolio.tokens.length && i < 10; i++) {
+        const token = portfolio.tokens[i];
+        const shortMint = `${token.mint.substring(0, 4)}...${token.mint.substring(token.mint.length - 4)}`;
+        const buttonText = `🪙 ${shortMint} (${token.balance.toFixed(4)})`;
+        keyboard.text(buttonText, `sell_token_${token.mint}`).row();
+      }
+
+      if (portfolio.tokens.length > 10) {
+        message += `\n_Showing first 10 tokens only_\n`;
+      }
+
+      keyboard.text('📝 Custom Token Address', 'sell_custom').row();
+      keyboard.text('🔙 Back', 'back').text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+      pushNavigation(userId, 'sell');
+    } catch (error: any) {
+      console.error('Sell menu error:', error);
+      await ctx.reply('❌ Error loading tokens. Please try again.');
+    }
+  });
+
+  // Handle selling a specific token from the list
+  bot.callbackQuery(/^sell_token_(.+)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const tokenMint = ctx.match[1];
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const dbUserId = userResult.rows[0].id;
+      const wallet = await walletManager.getActiveWallet(dbUserId);
+
+      if (!wallet) {
+        await ctx.reply('❌ No wallet found.');
+        return;
+      }
+
+      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+      const token = portfolio.tokens.find((t: any) => t.mint === tokenMint);
+
+      if (!token) {
+        await ctx.reply('❌ Token not found in your wallet.');
+        return;
+      }
+
+      await ctx.editMessageText(
+        `💸 *Sell Token*\n\n` +
+        `🪙 Token: \`${tokenMint}\`\n` +
+        `💰 Available: ${token.balance.toFixed(4)}\n\n` +
+        `Enter the amount you want to sell:\n\n` +
+        `*Example:* \`${(token.balance / 2).toFixed(4)}\` (half)\n` +
+        `or \`all\` to sell everything`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, { 
+        awaitingSellAmount: true,
+        currentToken: tokenMint
+      });
+    } catch (error: any) {
+      console.error('Sell token error:', error);
+      await ctx.reply('❌ Error processing token sale.');
+    }
   });
 
   bot.callbackQuery('sell_custom', async (ctx) => {
@@ -1624,6 +1737,190 @@ _(Tap to copy)_
     );
 
     pushNavigation(userId, 'withdraw');
+  });
+
+  // Withdraw SOL handler
+  bot.callbackQuery('withdraw_sol', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+      const currentChain = state.currentChain || 'solana';
+
+      await ctx.editMessageText(
+        `📤 *Withdraw SOL*\n\n` +
+        `Step 1: Enter the destination address\n\n` +
+        `*Example:* \`5Z8FwqK...Abc123xyz\`\n\n` +
+        `Paste the Solana wallet address where you want to send SOL.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, { 
+        ...state,
+        awaitingWithdrawAddress: true,
+        withdrawType: 'sol',
+        currentChain 
+      });
+    } catch (error: any) {
+      console.error('Withdraw SOL error:', error);
+      await ctx.reply('❌ Error initiating withdrawal.');
+    }
+  });
+
+  // Withdraw Token handler
+  bot.callbackQuery('withdraw_token', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const dbUserId = userResult.rows[0].id;
+      const wallet = await walletManager.getActiveWallet(dbUserId);
+
+      if (!wallet) {
+        await ctx.editMessageText(
+          `🪙 *Withdraw Token*\n\n` +
+          `❌ No wallet found. Please create a wallet first using /create_wallet`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+
+      if (portfolio.tokens.length === 0) {
+        await ctx.editMessageText(
+          `🪙 *Withdraw Token*\n\n` +
+          `You don't have any tokens to withdraw.\n\n` +
+          `Would you like to buy some tokens?`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard()
+              .text('💰 Buy Tokens', 'menu_buy')
+              .row()
+              .text('🔙 Back', 'back')
+              .text('❌ Close', 'close_menu')
+          }
+        );
+        return;
+      }
+
+      let message = `🪙 *Withdraw Token*\n\n`;
+      message += `Select the token you want to withdraw:\n\n`;
+
+      const keyboard = new InlineKeyboard();
+      
+      for (let i = 0; i < portfolio.tokens.length && i < 10; i++) {
+        const token = portfolio.tokens[i];
+        const shortMint = `${token.mint.substring(0, 4)}...${token.mint.substring(token.mint.length - 4)}`;
+        const buttonText = `🪙 ${shortMint} (${token.balance.toFixed(4)})`;
+        keyboard.text(buttonText, `withdraw_token_${token.mint}`).row();
+      }
+
+      if (portfolio.tokens.length > 10) {
+        message += `\n_Showing first 10 tokens only_\n`;
+      }
+
+      keyboard.text('📝 Custom Token Address', 'withdraw_token_custom').row();
+      keyboard.text('🔙 Back', 'back').text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+    } catch (error: any) {
+      console.error('Withdraw Token error:', error);
+      await ctx.reply('❌ Error loading tokens.');
+    }
+  });
+
+  // Handle withdrawing a specific token from the list
+  bot.callbackQuery(/^withdraw_token_(.+)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const tokenMint = ctx.match[1];
+    if (tokenMint === 'custom') {
+      await ctx.answerCallbackQuery();
+      await ctx.editMessageText(
+        `🪙 *Withdraw Token - Custom*\n\n` +
+        `Step 1: Enter the token mint address\n\n` +
+        `*Example:* \`${USDC_MINT}\``,
+        { parse_mode: 'Markdown' }
+      );
+
+      const state = userStates.get(userId) || {};
+      userStates.set(userId, { 
+        ...state,
+        awaitingWithdrawAddress: true,
+        withdrawType: 'token',
+        currentChain: state.currentChain || 'solana'
+      });
+      return;
+    }
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const dbUserId = userResult.rows[0].id;
+      const wallet = await walletManager.getActiveWallet(dbUserId);
+
+      if (!wallet) {
+        await ctx.reply('❌ No wallet found.');
+        return;
+      }
+
+      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+      const token = portfolio.tokens.find((t: any) => t.mint === tokenMint);
+
+      if (!token) {
+        await ctx.reply('❌ Token not found in your wallet.');
+        return;
+      }
+
+      await ctx.editMessageText(
+        `🪙 *Withdraw Token*\n\n` +
+        `🪙 Token: \`${tokenMint}\`\n` +
+        `💰 Available: ${token.balance.toFixed(4)}\n\n` +
+        `Step 1: Enter the destination address\n\n` +
+        `Paste the Solana wallet address where you want to send this token.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      const state = userStates.get(userId) || {};
+      userStates.set(userId, { 
+        ...state,
+        awaitingWithdrawAddress: true,
+        withdrawType: 'token',
+        currentToken: tokenMint,
+        currentChain: state.currentChain || 'solana'
+      });
+    } catch (error: any) {
+      console.error('Withdraw specific token error:', error);
+      await ctx.reply('❌ Error processing token withdrawal.');
+    }
   });
 
   // Limit Orders Menu
