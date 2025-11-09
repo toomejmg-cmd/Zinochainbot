@@ -19,9 +19,9 @@ export function getMainMenu(currentChain?: 'solana' | 'ethereum' | 'bsc'): Inlin
     .row()
     .text('🔔 Alerts', 'menu_alerts').text('🎁 Rewards', 'menu_rewards')
     .row()
-    .text('⚙️ Settings', 'menu_settings').text('❓ Help', 'menu_help')
+    .text('👀 Watchlist', 'menu_watchlist').text('⚙️ Settings', 'menu_settings')
     .row()
-    .text('🔄 Refresh', 'menu_refresh')
+    .text('❓ Help', 'menu_help').text('🔄 Refresh', 'menu_refresh')
     .row()
     .text('❌ Close', 'close_menu');
 }
@@ -31,8 +31,7 @@ export function getChainSelectorMenu(): InlineKeyboard {
     .text('⚡ Solana', 'switch_chain_solana').row()
     .text('🔷 Ethereum', 'switch_chain_ethereum').row()
     .text('🟡 Binance Smart Chain', 'switch_chain_bsc').row()
-    .text('🏠 Main Menu', 'menu_main').row()
-    .text('❌ Close', 'close_menu');
+    .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }
 
 export function getWalletMenu(chain?: 'solana' | 'ethereum' | 'bsc'): InlineKeyboard {
@@ -46,13 +45,13 @@ export function getWalletMenu(chain?: 'solana' | 'ethereum' | 'bsc'): InlineKeyb
     .row()
     .text(`📤 Withdraw all ${nativeSymbol}`, 'wallet_withdraw_all').text(`📤 Withdraw X ${nativeSymbol}`, 'wallet_withdraw_custom')
     .row()
-    .text('🪙 Manage Tokens', 'wallet_manage_tokens')
+    .text('🪙 Manage Tokens', 'wallet_manage_tokens').text('📲 Import Wallet', 'wallet_import')
     .row()
     .text('🔄 Reset All Wallets', 'wallet_reset').text('🔑 Export Seed Phrase', 'wallet_export_seed')
     .row()
     .text('🔄 Refresh', 'wallet_refresh')
     .row()
-    .text('❌ Close', 'close_menu');
+    .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }
 
 export function getBackToMainMenu(): InlineKeyboard {
@@ -68,9 +67,7 @@ export function getBuyMenu(): InlineKeyboard {
     .row()
     .text('📝 Custom Token', 'buy_custom')
     .row()
-    .text('🏠 Main Menu', 'menu_main')
-    .row()
-    .text('❌ Close', 'close_menu');
+    .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }
 
 export function getSellMenu(): InlineKeyboard {
@@ -79,9 +76,7 @@ export function getSellMenu(): InlineKeyboard {
     .row()
     .text('📝 Custom Token', 'sell_custom')
     .row()
-    .text('🏠 Main Menu', 'menu_main')
-    .row()
-    .text('❌ Close', 'close_menu');
+    .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }
 
 export function getSettingsMenu(): InlineKeyboard {
@@ -92,9 +87,7 @@ export function getSettingsMenu(): InlineKeyboard {
     .row()
     .text('✅ Auto-Approve', 'settings_auto_approve')
     .row()
-    .text('🏠 Main Menu', 'menu_main')
-    .row()
-    .text('❌ Close', 'close_menu');
+    .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }
 
 export function getAdminMenu(): InlineKeyboard {
@@ -122,7 +115,32 @@ export function getWithdrawMenu(): InlineKeyboard {
     .row()
     .text('🪙 Withdraw Token', 'withdraw_token')
     .row()
-    .text('🏠 Main Menu', 'menu_main')
+    .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
+}
+
+export function getTokenManagementMenu(chain?: 'solana' | 'ethereum' | 'bsc', stats?: {
+  solBalance: number;
+  tokensOwned: number;
+  tokenValue: string;
+  frozenTokens: number;
+  hiddenMinPosTokens: number;
+  manuallyHiddenTokens: number;
+}): InlineKeyboard {
+  return new InlineKeyboard()
+    .text('🔒 Hide Tokens Below Min Pos Value: $0.001', 'tokens_hide_min_value')
+    .row()
+    .text('🔥 Swap and Burn', 'tokens_swap_burn').text('👁️ Manage Hidden', 'tokens_manage_hidden')
+    .row()
+    .text('🔙 Back', 'back').text('🔄 Refresh', 'tokens_refresh')
     .row()
     .text('❌ Close', 'close_menu');
+}
+
+export function getWatchlistMenu(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text('➕ Add Token', 'watchlist_add')
+    .row()
+    .text('📊 View All', 'watchlist_view_all')
+    .row()
+    .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }

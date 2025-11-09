@@ -24,7 +24,9 @@ import {
   getAdminMenu,
   getWithdrawMenu,
   getConfirmMenu,
-  getChainSelectorMenu
+  getChainSelectorMenu,
+  getTokenManagementMenu,
+  getWatchlistMenu
 } from './menus';
 
 const TERMS_MESSAGE = `🚀 *Welcome to Zinobot!*
@@ -84,13 +86,42 @@ interface UserState {
   awaitingWithdrawAddress?: boolean;
   awaitingWithdrawAmount?: boolean;
   awaitingReferralCode?: boolean;
+  awaitingWatchlistToken?: boolean;
+  awaitingImportSeed?: boolean;
   currentToken?: string;
   withdrawType?: 'sol' | 'token';
   selectedChain?: 'solana' | 'ethereum' | 'bsc';
   currentChain?: 'solana' | 'ethereum' | 'bsc';
 }
 
+interface NavigationHistory {
+  menuName: string;
+  messageId?: number;
+}
+
 const userStates = new Map<number, UserState>();
+const navigationHistory = new Map<number, NavigationHistory[]>();
+
+// Helper function to push navigation history
+function pushNavigation(userId: number, menuName: string, messageId?: number) {
+  const history = navigationHistory.get(userId) || [];
+  history.push({ menuName, messageId });
+  navigationHistory.set(userId, history);
+}
+
+// Helper function to pop navigation history
+function popNavigation(userId: number): NavigationHistory | undefined {
+  const history = navigationHistory.get(userId) || [];
+  const previous = history.pop();
+  navigationHistory.set(userId, history);
+  return previous;
+}
+
+// Helper function to get last navigation
+function getLastNavigation(userId: number): NavigationHistory | undefined {
+  const history = navigationHistory.get(userId) || [];
+  return history[history.length - 1];
+}
 
 export function registerCommands(
   bot: Bot,
@@ -341,6 +372,8 @@ Choose an action below! 👇
 
     await ctx.answerCallbackQuery();
 
+    pushNavigation(userId, 'chain_selector');
+
     const chainSelectionMessage = `
 🌐 *Select Blockchain*
 
@@ -546,6 +579,9 @@ Choose an action below! 👇
       parse_mode: 'Markdown',
       reply_markup: getMainMenu(currentChain)
     });
+
+    // Initialize navigation history with main menu
+    navigationHistory.set(userId, [{ menuName: 'main' }]);
   });
 
   bot.callbackQuery('menu_refresh', async (ctx) => {
@@ -591,6 +627,9 @@ Choose an action below! 👇
   });
 
   bot.callbackQuery('menu_buy', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
       `💰 *Buy Tokens*\n\n` +
@@ -601,6 +640,8 @@ Choose an action below! 👇
         reply_markup: getBuyMenu()
       }
     );
+
+    pushNavigation(userId, 'buy');
   });
 
   bot.callbackQuery('buy_custom', async (ctx) => {
@@ -629,6 +670,9 @@ Choose an action below! 👇
   });
 
   bot.callbackQuery('menu_sell', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
       `💸 *Sell Tokens*\n\n` +
@@ -639,6 +683,8 @@ Choose an action below! 👇
         reply_markup: getSellMenu()
       }
     );
+
+    pushNavigation(userId, 'sell');
   });
 
   bot.callbackQuery('sell_custom', async (ctx) => {
@@ -712,6 +758,8 @@ Choose an action below! 👇
         parse_mode: 'Markdown',
         reply_markup: getBackToMainMenu()
       });
+
+      pushNavigation(userId, 'portfolio');
     } catch (error: any) {
       console.error('Portfolio error:', error);
       await ctx.reply('❌ Error loading portfolio.');
@@ -750,6 +798,8 @@ Choose an action below! 👇
         reply_markup: getSettingsMenu()
       }
     );
+
+    pushNavigation(userId, 'settings');
   });
 
   bot.callbackQuery('menu_referral', async (ctx) => {
@@ -782,6 +832,8 @@ Choose an action below! 👇
         reply_markup: getBackToMainMenu()
       }
     );
+
+    pushNavigation(userId, 'referral');
   });
 
   bot.callbackQuery('menu_wallet', async (ctx) => {
@@ -823,6 +875,8 @@ _(Tap to copy)_
       parse_mode: 'Markdown',
       reply_markup: getWalletMenu(currentChain)
     });
+
+    pushNavigation(userId, 'wallet');
   });
 
   bot.callbackQuery('wallet_view_explorer', async (ctx) => {
@@ -898,8 +952,49 @@ _(Tap to copy)_
   });
 
   bot.callbackQuery('wallet_manage_tokens', async (ctx) => {
-    await ctx.answerCallbackQuery('Coming soon!');
-    await ctx.reply('🪙 Token management feature is coming soon!');
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+    const dbUserId = userResult.rows[0].id;
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+    const multiChainWallet = new MultiChainWalletService();
+    const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+    const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+
+    // For now, show placeholder stats - can be enhanced later to fetch real token data
+    const tokenStats = {
+      solBalance: parseFloat(balance),
+      tokensOwned: 0,
+      tokenValue: '$N/A',
+      frozenTokens: 0,
+      hiddenMinPosTokens: 0,
+      manuallyHiddenTokens: 0
+    };
+
+    const tokenMessage = `
+🪙 *Token Management*
+
+Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${chainInfo.nativeToken.symbol}bot and reclaim ${chainInfo.nativeToken.symbol} from rent.
+
+*${chainInfo.nativeToken.symbol} Balance:* ${tokenStats.solBalance.toFixed(4)}
+*Tokens owned:* ${tokenStats.tokensOwned}
+*Token Value:* ${tokenStats.tokenValue} ${chainInfo.nativeToken.symbol}
+
+*${tokenStats.frozenTokens}* Frozen Tokens
+*${tokenStats.hiddenMinPosTokens}* Hidden (Min Pos Value) Tokens
+*${tokenStats.manuallyHiddenTokens}* Manually Hidden Tokens
+`;
+
+    await ctx.editMessageText(tokenMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: getTokenManagementMenu(currentChain, tokenStats)
+    });
+
+    pushNavigation(userId, 'token_management');
   });
 
   bot.callbackQuery('wallet_reset', async (ctx) => {
@@ -956,11 +1051,143 @@ _(Tap to copy)_
     
     // Clear any active command states
     userStates.delete(userId);
+    navigationHistory.delete(userId);
     
     await ctx.deleteMessage();
   });
 
+  // Back button handler
+  bot.callbackQuery('back', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    // Pop current menu from history
+    popNavigation(userId);
+    // Get previous menu
+    const previous = popNavigation(userId);
+
+    if (!previous) {
+      // No history, go to main menu
+      await ctx.answerCallbackQuery();
+      
+      const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+      const multiChainWallet = new MultiChainWalletService();
+      const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+      const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+      const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+
+      if (!wallet) return;
+
+      const solPrice = 0; // We can fetch from CoinGecko if needed
+
+      const message = MAIN_DASHBOARD_MESSAGE(wallet.publicKey, parseFloat(balance), solPrice);
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenu(currentChain)
+      });
+
+      pushNavigation(userId, 'main');
+      return;
+    }
+
+    // Navigate to previous menu
+    const menuHandlers: Record<string, () => Promise<void>> = {
+      main: async () => {
+        const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+        const multiChainWallet = new MultiChainWalletService();
+        const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+        const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+
+        if (!wallet) return;
+
+        const solPrice = 0;
+        const message = MAIN_DASHBOARD_MESSAGE(wallet.publicKey, parseFloat(balance), solPrice);
+
+        await ctx.editMessageText(message, {
+          parse_mode: 'Markdown',
+          reply_markup: getMainMenu(currentChain)
+        });
+      },
+      wallet: async () => {
+        const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+        const multiChainWallet = new MultiChainWalletService();
+        const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+        const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+        const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+
+        if (!wallet) return;
+
+        const walletMessage = `
+👛 *Your Wallet:*
+
+*Address:*
+\`${wallet.publicKey}\`
+_(Tap to copy)_
+
+*Balance:* ${parseFloat(balance).toFixed(4)} ${chainInfo.nativeToken.symbol}
+
+💡 Tap to copy the address and send ${chainInfo.nativeToken.symbol} to deposit.
+`;
+
+        await ctx.editMessageText(walletMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: getWalletMenu(currentChain)
+        });
+      },
+      buy: async () => {
+        await ctx.editMessageText(
+          `💰 *Buy Tokens*\n\nChoose how you want to buy tokens:`,
+          { parse_mode: 'Markdown', reply_markup: getBuyMenu() }
+        );
+      },
+      sell: async () => {
+        await ctx.editMessageText(
+          `💸 *Sell Tokens*\n\nChoose which token you want to sell:`,
+          { parse_mode: 'Markdown', reply_markup: getSellMenu() }
+        );
+      },
+      settings: async () => {
+        await ctx.editMessageText(
+          `⚙️ *Settings*\n\nConfigure your trading preferences:`,
+          { parse_mode: 'Markdown', reply_markup: getSettingsMenu() }
+        );
+      },
+      withdraw: async () => {
+        await ctx.editMessageText(
+          `📤 *Withdraw Funds*\n\nChoose what you want to withdraw:`,
+          { parse_mode: 'Markdown', reply_markup: getWithdrawMenu() }
+        );
+      },
+      watchlist: async () => {
+        await ctx.editMessageText(
+          `👀 *Watchlist*\n\nMonitor your favorite tokens across all chains.\n\nAdd tokens by contract address or URL from pump.fun, Moonshot, Birdeye, or DEX Screener.`,
+          { parse_mode: 'Markdown', reply_markup: getWatchlistMenu() }
+        );
+      },
+    };
+
+    const handler = menuHandlers[previous.menuName];
+    if (handler) {
+      await handler();
+    }
+  });
+
   bot.callbackQuery('menu_withdraw', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
       `📤 *Withdraw Funds*\n\n` +
@@ -970,6 +1197,8 @@ _(Tap to copy)_
         reply_markup: getWithdrawMenu()
       }
     );
+
+    pushNavigation(userId, 'withdraw');
   });
 
   bot.callbackQuery(/menu_(limit|dca|sniper|alerts|rewards)/, async (ctx) => {
@@ -1001,6 +1230,9 @@ _(Tap to copy)_
   });
 
   bot.callbackQuery('menu_help', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
       `❓ *Help & Support*\n\n` +
@@ -1020,6 +1252,130 @@ _(Tap to copy)_
         reply_markup: getBackToMainMenu()
       }
     );
+
+    pushNavigation(userId, 'help');
+  });
+
+  // Watchlist menu handler
+  bot.callbackQuery('menu_watchlist', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `👀 *Watchlist*\n\n` +
+      `Monitor your favorite tokens across all chains.\n\n` +
+      `Add tokens by contract address or URL from pump.fun, Moonshot, Birdeye, or DEX Screener.\n\n` +
+      `Your watchlist is currently empty.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: getWatchlistMenu()
+      }
+    );
+
+    pushNavigation(userId, 'watchlist');
+  });
+
+  // Watchlist action handlers
+  bot.callbackQuery('watchlist_add', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `➕ *Add to Watchlist*\n\n` +
+      `Send me:\n` +
+      `• Token contract address (Solana/Ethereum/BSC)\n` +
+      `• URL from pump.fun, Moonshot, Birdeye, or DEX Screener\n\n` +
+      `I'll automatically detect the chain and add it to your watchlist!`,
+      { parse_mode: 'Markdown' }
+    );
+
+    userStates.set(userId, { awaitingWatchlistToken: true });
+  });
+
+  bot.callbackQuery('watchlist_view_all', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('📊 Your watchlist is currently empty. Add some tokens to start monitoring!');
+  });
+
+  // Wallet import handler
+  bot.callbackQuery('wallet_import', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `📲 *Import Wallet*\n\n` +
+      `Send me your 12 or 24-word seed phrase to import your existing wallet.\n\n` +
+      `⚠️ *Security Notice:*\n` +
+      `• Only import wallets you trust\n` +
+      `• Never share your seed phrase with anyone else\n` +
+      `• This message will be deleted automatically\n\n` +
+      `Type your seed phrase (words separated by spaces):`,
+      { parse_mode: 'Markdown' }
+    );
+
+    userStates.set(userId, { awaitingImportSeed: true });
+  });
+
+  // Token management action handlers
+  bot.callbackQuery('tokens_hide_min_value', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('🔒 Hiding tokens below minimum position value of $0.001...\n\nThis feature will automatically hide low-value tokens from your portfolio view.');
+  });
+
+  bot.callbackQuery('tokens_swap_burn', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('🔥 *Swap and Burn*\n\nThis feature allows you to:\n• Swap rugged tokens for native currency\n• Burn frozen tokens\n• Reclaim rent from dead tokens\n\nComing soon!', { parse_mode: 'Markdown' });
+  });
+
+  bot.callbackQuery('tokens_manage_hidden', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.reply('👁️ *Manage Hidden Tokens*\n\nView and manage your hidden tokens:\n• Frozen tokens: 0\n• Hidden (Min Pos Value): 0\n• Manually hidden: 0\n\nYou can unhide tokens from here.', { parse_mode: 'Markdown' });
+  });
+
+  bot.callbackQuery('tokens_refresh', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery('Refreshing token data...');
+
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+    const dbUserId = userResult.rows[0].id;
+    const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+
+    const multiChainWallet = new MultiChainWalletService();
+    const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+    const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+
+    const tokenStats = {
+      solBalance: parseFloat(balance),
+      tokensOwned: 0,
+      tokenValue: '$N/A',
+      frozenTokens: 0,
+      hiddenMinPosTokens: 0,
+      manuallyHiddenTokens: 0
+    };
+
+    const tokenMessage = `
+🪙 *Token Management*
+
+Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${chainInfo.nativeToken.symbol}bot and reclaim ${chainInfo.nativeToken.symbol} from rent.
+
+*${chainInfo.nativeToken.symbol} Balance:* ${tokenStats.solBalance.toFixed(4)}
+*Tokens owned:* ${tokenStats.tokensOwned}
+*Token Value:* ${tokenStats.tokenValue} ${chainInfo.nativeToken.symbol}
+
+*${tokenStats.frozenTokens}* Frozen Tokens
+*${tokenStats.hiddenMinPosTokens}* Hidden (Min Pos Value) Tokens
+*${tokenStats.manuallyHiddenTokens}* Manually Hidden Tokens
+`;
+
+    await ctx.editMessageText(tokenMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: getTokenManagementMenu(currentChain, tokenStats)
+    });
   });
 
   // Token buy preset amount handlers - multi-chain support
