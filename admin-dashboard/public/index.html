@@ -415,6 +415,36 @@
                                             <span class="absolute right-3 top-2 text-gray-500">SOL</span>
                                         </div>
                                     </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Auto-Withdrawal Threshold
+                                        </label>
+                                        <div class="relative">
+                                            <input type="number" id="autoWithdrawalThreshold" step="0.1" min="0"
+                                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                            <span class="absolute right-3 top-2 text-gray-500">SOL</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Automatically withdraw when balance exceeds this amount</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Auto-Collect Schedule (hours)
+                                        </label>
+                                        <input type="number" id="autoCollectScheduleHours" step="1" min="1"
+                                               class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                        <p class="text-xs text-gray-500 mt-1">How often to collect fees automatically</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Min Balance for Auto-Collect
+                                        </label>
+                                        <div class="relative">
+                                            <input type="number" id="minBalanceForAutoCollect" step="0.1" min="0"
+                                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                            <span class="absolute right-3 top-2 text-gray-500">SOL</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Minimum fee balance before auto-collection triggers</p>
+                                    </div>
                                 </div>
                                 <div class="mt-6 space-y-3">
                                     <label class="flex items-center space-x-3 cursor-pointer">
@@ -424,6 +454,10 @@
                                     <label class="flex items-center space-x-3 cursor-pointer">
                                         <input type="checkbox" id="autoCollectFees" class="form-checkbox h-5 w-5 text-green-500">
                                         <span class="text-gray-700 font-semibold">Auto-Collect Fees</span>
+                                    </label>
+                                    <label class="flex items-center space-x-3 cursor-pointer">
+                                        <input type="checkbox" id="feeCollectionWalletRotation" class="form-checkbox h-5 w-5 text-purple-500">
+                                        <span class="text-gray-700 font-semibold">Enable Fee Wallet Rotation</span>
                                     </label>
                                 </div>
                             </div>
@@ -486,6 +520,17 @@
                                         </div>
                                         <p class="text-xs text-gray-500 mt-1">Alert when user exceeds this amount</p>
                                     </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            New User Cooldown Period
+                                        </label>
+                                        <div class="relative">
+                                            <input type="number" id="newUserCooldownHours" step="1" min="0"
+                                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                            <span class="absolute right-3 top-2 text-gray-500">hours</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Waiting period before new users can trade</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -542,6 +587,26 @@
                                         <input type="number" id="adminNotificationTelegramId" step="1"
                                                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
                                     </div>
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Admin IP Whitelist
+                                        </label>
+                                        <textarea id="adminIpWhitelist" rows="4"
+                                                  class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+                                                  placeholder="Enter IP addresses, one per line&#10;Example:&#10;192.168.1.100&#10;203.0.113.0/24"></textarea>
+                                        <p class="text-xs text-gray-500 mt-1">Only these IPs can access admin dashboard (leave empty to allow all)</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Require KYC Above Amount
+                                        </label>
+                                        <div class="relative">
+                                            <input type="number" id="requireKycAboveLimit" step="1" min="0"
+                                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                            <span class="absolute right-3 top-2 text-gray-500">SOL</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Users must complete KYC to trade above this amount</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -584,6 +649,26 @@
                                         </label>
                                         <input type="number" id="apiRateLimitPerMinute" step="1" min="1"
                                                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Max Gas Price (EVM Chains)
+                                        </label>
+                                        <div class="relative">
+                                            <input type="number" id="maxGasPriceGwei" step="0.1" min="0"
+                                                   class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                            <span class="absolute right-3 top-2 text-gray-500">Gwei</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Maximum allowed gas price for Ethereum/BSC transactions</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            Last Health Check
+                                        </label>
+                                        <div class="px-4 py-2 bg-gray-50 border rounded-lg text-gray-700">
+                                            <span id="lastHealthCheck">Never</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">System automatically monitors bot health</p>
                                     </div>
                                 </div>
                             </div>
