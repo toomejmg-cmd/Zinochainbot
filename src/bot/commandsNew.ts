@@ -33,14 +33,20 @@ import {
 
 const TERMS_MESSAGE = `🚀 *Welcome to Zinobot!*
 
-Your AI-powered Solana trading companion for instant token swaps, transfers, and portfolio management.
+Your AI-powered multi-chain trading companion for instant token swaps, transfers, and portfolio management across Solana, Ethereum, and BSC.
 
-⚡ *What We Offer:*
-• Lightning-fast token swaps via Jupiter
+🌐 *Multi-Chain Support:*
+⚡ Solana - Lightning-fast swaps via Jupiter
+🔷 Ethereum - ERC-20 token trading
+🟡 BSC - BEP-20 token trading
+
+✨ *What We Offer:*
+• Instant token swaps across all chains
 • Secure P2P transfers
-• Real-time portfolio tracking  
+• Real-time multi-chain portfolio tracking
 • Referral rewards program
 • Bank-grade AES-256 encryption
+• Non-custodial wallet management
 
 ⚠️ *Before You Continue:*
 By using Zinobot, you agree to our Terms of Service and Privacy Policy.
@@ -48,37 +54,42 @@ By using Zinobot, you agree to our Terms of Service and Privacy Policy.
 📄 [Terms of Service](https://zinochain.com/terms)
 🔒 [Privacy Policy](https://zinochain.com/privacy)
 
-*Network:* ${process.env.SOLANA_NETWORK || 'devnet'} 🟢
-
 Tap "Continue" to accept and proceed.`;
 
-const MAIN_DASHBOARD_MESSAGE = (walletAddress: string, solBalance: number, solPrice: number) => `
-💼 *Zinobot Trading Dashboard*
+const MAIN_DASHBOARD_MESSAGE = (walletAddress: string, balance: number, price: number, chain: string, nativeSymbol: string) => {
+  const chainEmoji = chain === 'ethereum' ? '🔷' : chain === 'bsc' ? '🟡' : '⚡';
+  const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
+  
+  return `💼 *Zinobot Trading Dashboard* ${chainEmoji}
+
+🌐 *Active Chain:* ${chainName}
 
 📍 *Your Wallet Address:*
 \`${walletAddress}\`
 _(Tap to copy)_
 
 💰 *Balance:*
-${solBalance.toFixed(4)} SOL${solPrice > 0 ? ` ($${(solBalance * solPrice).toFixed(2)})` : ''}
+${balance.toFixed(4)} ${nativeSymbol}${price > 0 ? ` ($${(balance * price).toFixed(2)})` : ''}
 
-🎯 *Quick Actions:*
-• Buy tokens with best rates via Jupiter
-• Sell tokens instantly
-• Transfer SOL & tokens P2P
-• Track your full portfolio
-• Earn rewards through referrals
+🎯 *Multi-Chain Features:*
+⚡ Solana - Jupiter DEX swaps
+🔷 Ethereum - 1inch aggregated swaps
+🟡 BSC - 1inch aggregated swaps
 
-⚡ *Trading Features:*
-✅ Limit orders for precise entries
-✅ DCA (Dollar Cost Averaging)
-✅ Sniper for new token launches
-✅ Real-time price alerts
+✨ *Trading Features:*
+✅ Cross-chain portfolio tracking
+✅ Limit orders & DCA strategies
+✅ Token sniper & price alerts
+✅ P2P transfers on all chains
+✅ Referral rewards program
+
+🔄 Switch between chains anytime using the menu!
 
 🌐 [zinochain.com](https://zinochain.com) | 🐦 [@zinochain](https://x.com/zinochain)
 
 Choose an action below to get started! 👇
 `;
+};
 
 interface UserState {
   awaitingBuyAmount?: boolean;
@@ -1647,13 +1658,19 @@ _(Tap to copy)_
       const multiChainWallet = new MultiChainWalletService();
       const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
       const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
-      const chainInfo = multiChainWallet.getChainManager().getChainInfo(currentChain);
+      const adapter = multiChainWallet.getChainManager().getAdapter(currentChain);
+      const nativeToken = adapter.getNativeToken();
+      const price = await coinGeckoService.getNativePrice(currentChain);
 
       if (!wallet) return;
 
-      const solPrice = 0; // We can fetch from CoinGecko if needed
-
-      const message = MAIN_DASHBOARD_MESSAGE(wallet.publicKey, parseFloat(balance), solPrice);
+      const message = MAIN_DASHBOARD_MESSAGE(
+        wallet.publicKey, 
+        parseFloat(balance), 
+        price, 
+        currentChain, 
+        nativeToken.symbol
+      );
 
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
@@ -1674,11 +1691,19 @@ _(Tap to copy)_
         const multiChainWallet = new MultiChainWalletService();
         const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
         const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+        const adapter = multiChainWallet.getChainManager().getAdapter(currentChain);
+        const nativeToken = adapter.getNativeToken();
+        const price = await coinGeckoService.getNativePrice(currentChain);
 
         if (!wallet) return;
 
-        const solPrice = 0;
-        const message = MAIN_DASHBOARD_MESSAGE(wallet.publicKey, parseFloat(balance), solPrice);
+        const message = MAIN_DASHBOARD_MESSAGE(
+          wallet.publicKey, 
+          parseFloat(balance), 
+          price, 
+          currentChain, 
+          nativeToken.symbol
+        );
 
         await ctx.editMessageText(message, {
           parse_mode: 'Markdown',

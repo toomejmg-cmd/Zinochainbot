@@ -55,6 +55,18 @@ export class CoinGeckoService {
     return price || 0;
   }
 
+  async getNativePrice(chain: 'solana' | 'ethereum' | 'bsc'): Promise<number> {
+    const chainIdMap = {
+      solana: 'solana',
+      ethereum: 'ethereum',
+      bsc: 'binancecoin'
+    };
+
+    const coinGeckoId = chainIdMap[chain];
+    const price = await this.getTokenPrice(coinGeckoId);
+    return price || 0;
+  }
+
   private async getCachedPrice(symbol: string): Promise<number | null> {
     try {
       const result = await query(
