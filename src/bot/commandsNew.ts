@@ -126,6 +126,38 @@ function getLastNavigation(userId: number): NavigationHistory | undefined {
   return history[history.length - 1];
 }
 
+// Helper function to get help message and keyboard
+function getHelpContent(): { message: string; keyboard: InlineKeyboard } {
+  const message = `❓ *Help and Support*\n\n` +
+    `*How do I use Zinobot?*\n` +
+    `Visit our detailed [documentation](https://zinobot.io) where we explain it all, and join our support chat @zinogroup for additional resources.\n\n` +
+    `*Where can I find my referral code?*\n` +
+    `Go to "Refer Friends" and click 🔗 Referrals.\n\n` +
+    `*What are the fees for using Zinobot?*\n` +
+    `We charge a 0.5% fee per transaction. If you refer users, you may earn a small commission. We don't charge a subscription fee or paywall any features.\n\n` +
+    `*Security Tips: How can I protect my account from scammers?*\n` +
+    `• *Beware of fake accounts* trying to impersonate the bot\n` +
+    `• *NEVER search for bots in Telegram.* Use only official links\n` +
+    `• *Always verify* token addresses and liquidity before trading\n\n` +
+    `*For an additional layer of security, setup your Secure Action Password (SAP)* in Settings. Once enabled, you'll need to enter the password to perform any sensitive actions like withdrawing funds, exporting a wallet, or resetting a wallet. You can set SAP to expire after a certain time.\n\n` +
+    `*Trading Tips: Common Failure Reasons*\n` +
+    `• Adjust slippage for volatile pairs (see Menu → Settings)\n` +
+    `• Increase balance for your transactions; you need more SOL or reduce your amount\n` +
+    `• *Timed out?* Can occur with heavy network loads; consider adjusting gas/priority fees\n\n` +
+    `*My PNL doesn't appear, why is that?*\n` +
+    `PNL indicators compute automatically after the transaction completes. Confirm your gas fee settings and ensure your slippage aligns with your trading style. Wait 15–30 seconds, then check your trade on [Solscan](https://solscan.io) to verify net profit.\n\n` +
+    `*Join our community*\n` +
+    `Join our Telegram group @zinogroup and one of our admins can assist you.`;
+
+  const keyboard = new InlineKeyboard()
+    .url('📱 Join Community', 'https://t.me/zinogroup')
+    .row()
+    .text('🏠 Main Menu', 'menu_main')
+    .text('❌ Close', 'close_menu');
+
+  return { message, keyboard };
+}
+
 export function registerCommands(
   bot: Bot,
   walletManager: WalletManager,
@@ -2098,24 +2130,14 @@ _(Tap to copy)_
     if (!userId) return;
 
     await ctx.answerCallbackQuery();
-    await ctx.editMessageText(
-      `❓ *Help and Support*\n\n` +
-      `*Available Commands:*\n` +
-      `/start - Main menu\n` +
-      `/create_wallet - Generate wallet\n` +
-      `/wallet - View wallet info\n` +
-      `/history - Transaction history\n\n` +
-      `*Quick Actions:*\n` +
-      `Use the menu buttons for easy navigation.\n\n` +
-      `*Common Token Addresses (Devnet):*\n` +
-      `USDC: \`${USDC_MINT}\`\n\n` +
-      `*Need Help?*\n` +
-      `Check our documentation or contact support.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: getBackToMainMenu()
-      }
-    );
+    
+    const { message, keyboard } = getHelpContent();
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      link_preview_options: { is_disabled: true },
+      reply_markup: keyboard
+    });
 
     pushNavigation(userId, 'help');
   });
@@ -2898,67 +2920,11 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
   });
 
   bot.command('help', async (ctx) => {
-    const helpMessage = `
-📚 *Zinobot Command Guide*
+    const { message, keyboard } = getHelpContent();
 
-━━━━━━━━━━━━━━━━━━━━━━━
-*🚀 Getting Started*
-━━━━━━━━━━━━━━━━━━━━━━━
-/start - Register & open main menu
-/create_wallet - Generate new wallet
-/wallet - View wallet & balance
-
-━━━━━━━━━━━━━━━━━━━━━━━
-*💰 Trading Commands*
-━━━━━━━━━━━━━━━━━━━━━━━
-/buy - Swap SOL for tokens
-/sell - Swap tokens for SOL
-
-*Example:*
-\`/buy EPj...SSq 0.1\` (Buy with 0.1 SOL)
-\`/sell EPj...SSq 10\` (Sell 10 tokens)
-
-━━━━━━━━━━━━━━━━━━━━━━━
-*📤 Transfer Commands*
-━━━━━━━━━━━━━━━━━━━━━━━
-/transfer - Send tokens to others
-
-*Examples:*
-\`/transfer SOL 0.1 @username\`
-\`/transfer SOL 0.5 5Z8F...Abc123\`
-\`/transfer EPj...SSq 10 @friend\`
-
-━━━━━━━━━━━━━━━━━━━━━━━
-*📊 Portfolio & Info*
-━━━━━━━━━━━━━━━━━━━━━━━
-/portfolio - View token holdings
-/history - See recent transactions
-/refer - Get referral code & earnings
-
-━━━━━━━━━━━━━━━━━━━━━━━
-*🎁 Referral Program*
-━━━━━━━━━━━━━━━━━━━━━━━
-Share your referral code with friends!
-You earn ${feeService.getReferralPercentage()}% of their trading fees.
-
-Use /refer to get your code and track earnings.
-
-━━━━━━━━━━━━━━━━━━━━━━━
-*💡 Tips*
-━━━━━━━━━━━━━━━━━━━━━━━
-• All wallets are encrypted (AES-256)
-• Trading fee: ${feeService.getFeePercentage()}%
-• Network: ${process.env.SOLANA_NETWORK || 'devnet'}
-• Non-custodial (you control funds)
-
-*Need help?* Contact support or visit our docs!
-`;
-
-    const keyboard = new InlineKeyboard()
-      .text('🏠 Main Menu', 'menu_main');
-
-    await ctx.reply(helpMessage, { 
+    await ctx.reply(message, { 
       parse_mode: 'Markdown',
+      link_preview_options: { is_disabled: true },
       reply_markup: keyboard
     });
   });
