@@ -36,7 +36,7 @@ const TERMS_MESSAGE = `🚀 *Welcome to Zinochain Bot!*
 Your AI-powered multi-chain trading companion for instant token swaps, transfers, and portfolio management across Solana, Ethereum, and BSC.
 
 🌐 *Multi-Chain Support:*
-⚡ Solana - Lightning-fast swaps via Jupiter
+⚡ Solana - Lightning-fast token swaps
 🔷 Ethereum - ERC-20 token trading
 🟡 BSC - BEP-20 token trading
 
@@ -72,9 +72,9 @@ _(Tap to copy)_
 ${balance.toFixed(4)} ${nativeSymbol}${price > 0 ? ` ($${(balance * price).toFixed(2)})` : ''}
 
 🎯 *Multi-Chain Features:*
-⚡ Solana - Jupiter DEX swaps
-🔷 Ethereum - 1inch aggregated swaps
-🟡 BSC - 1inch aggregated swaps
+⚡ Solana - Fast & secure token swaps
+🔷 Ethereum - Optimized token swaps
+🟡 BSC - Optimized token swaps
 
 ✨ *Trading Features:*
 ✅ Cross-chain portfolio tracking

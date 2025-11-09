@@ -13,10 +13,10 @@ Zinochain Bot is a **multi-chain** Telegram trading bot built with Node.js and T
 - **Language:** TypeScript/Node.js
 - **Bot Framework:** grammY
 - **Blockchains:** 
-  - Solana (via @solana/web3.js + Jupiter Aggregator)
-  - Ethereum (via ethers.js + 1inch API)
-  - Binance Smart Chain (via ethers.js + 1inch API)
-- **Trading APIs:** Jupiter (Solana), 1inch (ETH/BSC)
+  - Solana (via @solana/web3.js)
+  - Ethereum (via ethers.js)
+  - Binance Smart Chain (via ethers.js)
+- **Trading:** DEX aggregation APIs for optimal swap routing
 - **Database:** PostgreSQL with multi-chain support
 - **Encryption:** AES-256-GCM for all chains
 - **Market Data:** CoinGecko API
@@ -38,8 +38,8 @@ zinochain-bot/
 │   │   ├── init.ts              # Schema initialization
 │   │   └── schema.sql           # Multi-chain database schema
 │   ├── services/
-│   │   ├── jupiter.ts           # Jupiter swap integration (Solana)
-│   │   ├── oneinch.ts           # 1inch integration (ETH/BSC)
+│   │   ├── jupiter.ts           # Solana swap integration
+│   │   ├── oneinch.ts           # ETH/BSC swap integration
 │   │   ├── chainManager.ts      # Chain adapter management
 │   │   ├── multiChainWallet.ts  # Multi-chain wallet service
 │   │   ├── fees.ts              # Fee collection service
@@ -76,7 +76,7 @@ zinochain-bot/
 ✅ **Multi-chain wallet generation** (Solana, Ethereum, BSC)
 ✅ **Chain adapter architecture** for easy expansion
 ✅ **Encrypted storage for all chains** with AES-256
-✅ Token swaps via Jupiter (Solana) and 1inch (ETH/BSC)
+✅ Token swaps with optimal routing on all chains
 ✅ **Chain switching** with persistent selection
 ✅ **Chain-specific dashboards** showing balances and info
 ✅ Portfolio tracking across multiple chains
@@ -88,17 +88,17 @@ zinochain-bot/
 ### Multi-Chain Features
 ⚡ **Solana Support:**
   - Fast, low-cost transactions
-  - Jupiter Aggregator for best swap rates
+  - Optimized swap routing
   - Devnet for testing
 
 🔷 **Ethereum Support:**
   - Established DeFi ecosystem
-  - 1inch API for token swaps
+  - ERC-20 token trading
   - Mainnet integration ready
 
 🟡 **BSC Support:**
   - Low fees, high speed
-  - 1inch API for token swaps
+  - BEP-20 token trading
   - Mainnet integration ready
 
 ### Onboarding Flow
@@ -168,7 +168,6 @@ Users can switch chains anytime and create wallets on additional chains!
 - `SOLANA_RPC_URL` - Custom RPC endpoint
 - `SOLANA_NETWORK` - devnet/mainnet-beta
 - `COINGECKO_API_KEY` - For higher rate limits
-- `JUPITER_API_URL` - Custom Jupiter endpoint
 - `JWT_SECRET` - Admin dashboard JWT secret (change in production)
 - `ADMIN_API_PORT` - Admin API port (default: 3001)
 - `ADMIN_DASHBOARD_PORT` - Dashboard port (default: 5000)
@@ -228,7 +227,7 @@ None specified yet.
   - Implemented SolanaAdapter, EthereumAdapter, and BSCAdapter
   - Built ChainManager service to handle adapter switching
   - Created MultiChainWalletService for unified wallet management
-  - Added 1inch API integration for Ethereum/BSC token swaps
+  - Added DEX integration for Ethereum/BSC token swaps
   - Database schema updated with `chain` columns in wallets & transactions tables
   - Added `current_chain` to users table for persistent chain selection
   - Onboarding flow now includes chain selection step
@@ -280,6 +279,6 @@ None specified yet.
 - Database schema created
 - All core trading features implemented
 - Security with AES-256 encryption
-- Jupiter integration for swaps
+- Multi-chain swap integration
 - CoinGecko price feeds
 - Full Telegram command suite

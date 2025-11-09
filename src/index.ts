@@ -66,7 +66,7 @@ async function main() {
 Trade smarter, not harder! Swap tokens, transfer assets, and manage your portfolio across Solana, Ethereum, and BSC directly in Telegram.
 
 ✨ Features:
-• Multi-chain token swaps (Jupiter & 1inch)
+• Multi-chain token swaps (Solana, Ethereum & BSC)
 • P2P transfers across all chains
 • Cross-chain portfolio tracking
 • Referral rewards

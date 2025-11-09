@@ -1,6 +1,6 @@
 # Zinochain Bot - Multi-Chain Trading Bot for Telegram
 
-A comprehensive, production-ready Telegram trading bot supporting Solana, Ethereum, and BSC blockchains, featuring non-custodial wallet management, token swaps via Jupiter and 1inch, admin controls, fee collection, and referral system.
+A comprehensive, production-ready Telegram trading bot supporting Solana, Ethereum, and BSC blockchains, featuring non-custodial wallet management, multi-chain token swaps, admin controls, fee collection, and referral system.
 
 **Bot Status**: ✅ Running as @Zinochainbot  
 **Network**: Solana Devnet (for testing)  
@@ -11,7 +11,7 @@ A comprehensive, production-ready Telegram trading bot supporting Solana, Ethere
 ### Core Trading
 - 🌐 **Multi-Chain Support**: Trade on Solana, Ethereum, and BSC with seamless chain switching
 - 🔐 **Non-Custodial Wallets**: Users control their own wallets with AES-256 encrypted private keys
-- 💱 **Token Swaps**: Buy and sell tokens via Jupiter (Solana) and 1inch (ETH/BSC) with optimal routing
+- 💱 **Token Swaps**: Buy and sell tokens across all supported chains with optimal routing
 - 📊 **Portfolio Tracking**: Real-time cross-chain portfolio with SOL, ETH, BNB, and token balances
 - 💰 **Fee Collection**: Automated 0.5% trading fee (configurable by admins)
 - 📝 **Transaction History**: Complete audit trail with block explorer links
@@ -122,7 +122,7 @@ grammY Bot Framework
 Command Handlers
     ↓
 ├─ Wallet Manager (Encryption/Decryption)
-├─ Trading Engine (Jupiter API)
+├─ Trading Engine (Multi-Chain DEX Integration)
 ├─ Market Data (CoinGecko API)
 └─ Database (PostgreSQL)
 ```
@@ -179,7 +179,7 @@ To deploy to mainnet:
 
 ### Implemented ✅
 - Non-custodial wallet management
-- Token swaps via Jupiter v6
+- Multi-chain token swaps (Solana, Ethereum, BSC)
 - Portfolio tracking with USD values
 - Transaction history
 - Fee collection system
