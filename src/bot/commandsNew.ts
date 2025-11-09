@@ -162,6 +162,9 @@ export function registerCommands(
     const onboardingCompleted = result.rows[0].onboarding_completed;
     const currentChain = (result.rows[0].current_chain as ChainType) || 'solana';
 
+    // Ensure user has default settings
+    await userSettingsService.getSettings(dbUserId);
+
     const startPayload = ctx.match;
     if (startPayload && startPayload.startsWith('ref-')) {
       try {
@@ -2358,6 +2361,12 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
       const dbUserId = userResult.rows[0].id;
       
+      const settings = await userSettingsService.getSettings(dbUserId);
+      
+      if (settings.tradingMode === 'ai') {
+        await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
+      }
+      
       // Use multi-chain wallet service
       const multiChainWallet = new MultiChainWalletService();
       const wallet = await multiChainWallet.getWallet(dbUserId, chain);
@@ -2407,7 +2416,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         NATIVE_SOL_MINT,
         tokenAddress,
         amountLamportsAfterFee,
-        100
+        settings.slippageBps
       );
 
       const txResult = await query(
@@ -3788,6 +3797,13 @@ Tap a setting to change it:
       try {
         const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
         const dbUserId = userResult.rows[0].id;
+        
+        const settings = await userSettingsService.getSettings(dbUserId);
+        
+        if (settings.tradingMode === 'ai') {
+          await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
+        }
+        
         const wallet = await walletManager.getActiveWallet(dbUserId);
 
         if (!wallet) {
@@ -3828,7 +3844,7 @@ Tap a setting to change it:
           NATIVE_SOL_MINT,
           tokenAddress,
           amountLamportsAfterFee,
-          100
+          settings.slippageBps
         );
 
         const txResult = await query(
@@ -3875,6 +3891,13 @@ Tap a setting to change it:
       try {
         const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
         const dbUserId = userResult.rows[0].id;
+        
+        const settings = await userSettingsService.getSettings(dbUserId);
+        
+        if (settings.tradingMode === 'ai') {
+          await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
+        }
+        
         const wallet = await walletManager.getActiveWallet(dbUserId);
 
         if (!wallet) {
@@ -3895,7 +3918,7 @@ Tap a setting to change it:
           tokenMint,
           NATIVE_SOL_MINT,
           amountInSmallestUnit,
-          100
+          settings.slippageBps
         );
 
         const balanceAfter = await walletManager.getBalance(wallet.publicKey);
