@@ -1138,8 +1138,8 @@ _(Tap to copy)_
     await ctx.deleteMessage();
   });
 
-  // Back button handler
-  bot.callbackQuery('back', async (ctx) => {
+  // Back button handlers
+  bot.callbackQuery(/^(back|back_button)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -1359,7 +1359,7 @@ _(Tap to copy)_
       
       const dcaResult = await query(
         `SELECT * FROM dca_jobs 
-         WHERE user_id = $1 AND status = 'active' 
+         WHERE user_id = $1 AND is_active = true 
          ORDER BY created_at DESC 
          LIMIT 10`,
         [dbUserId]
@@ -1379,10 +1379,14 @@ _(Tap to copy)_
       } else {
         message += `*Active DCA Jobs (${dcaResult.rows.length}):*\n\n`;
         for (const job of dcaResult.rows) {
-          message += `📌 ${job.token_symbol || 'Token'}\n`;
-          message += `   Amount: ${parseFloat(job.amount_per_buy).toFixed(4)} per buy\n`;
-          message += `   Frequency: ${job.frequency}\n`;
-          message += `   Total buys: ${job.total_buys || 'Unlimited'}\n\n`;
+          const fromToken = job.from_token ? `${job.from_token.substring(0, 6)}...` : 'Native';
+          const toToken = job.to_token ? `${job.to_token.substring(0, 6)}...` : 'Token';
+          const amount = job.amount ? parseFloat(job.amount) : 0;
+          const nextExec = job.next_execution ? new Date(job.next_execution).toLocaleDateString() : 'Not set';
+          message += `📌 ${fromToken} → ${toToken}\n`;
+          message += `   Amount: ${amount.toFixed(4)} per buy\n`;
+          message += `   Frequency: ${job.frequency || 'Not set'}\n`;
+          message += `   Next: ${nextExec}\n\n`;
         }
       }
 
@@ -1536,13 +1540,255 @@ _(Tap to copy)_
     pushNavigation(userId, 'rewards');
   });
 
+  // Sub-menu handlers for Limit Orders
+  bot.callbackQuery('limit_view_all', async (ctx) => {
+    await ctx.answerCallbackQuery('Viewing all limit orders...');
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) return;
+
+      const dbUserId = userResult.rows[0].id;
+      const ordersResult = await query(
+        `SELECT o.*, w.public_key 
+         FROM orders o 
+         JOIN wallets w ON o.wallet_id = w.id 
+         WHERE o.user_id = $1 
+         ORDER BY o.created_at DESC 
+         LIMIT 50`,
+        [dbUserId]
+      );
+
+      let message = `⏰ *All Limit Orders*\n\n`;
+      if (ordersResult.rows.length === 0) {
+        message += `No limit orders found.`;
+      } else {
+        message += `Total orders: ${ordersResult.rows.length}\n\n`;
+        for (const order of ordersResult.rows.slice(0, 20)) {
+          const status = order.status === 'active' ? '🟢' : order.status === 'executed' ? '✅' : '❌';
+          message += `${status} ${order.order_type.toUpperCase()}\n`;
+          message += `   Amount: ${parseFloat(order.amount).toFixed(4)}\n`;
+          message += `   Target: $${parseFloat(order.target_price).toFixed(6)}\n`;
+          message += `   Status: ${order.status}\n\n`;
+        }
+        if (ordersResult.rows.length > 20) {
+          message += `\n_Showing 20 of ${ordersResult.rows.length} orders_`;
+        }
+      }
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🔙 Back to Limit Orders', 'menu_limit')
+          .text('❌ Close', 'close_menu')
+      });
+    } catch (error: any) {
+      console.error('View all orders error:', error);
+      await ctx.reply('❌ Error loading orders.');
+    }
+  });
+
+  // Sub-menu handlers for DCA
+  bot.callbackQuery('dca_create', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    let message = `➕ *Create DCA Order*\n\n`;
+    message += `Dollar Cost Averaging helps you invest gradually over time.\n\n`;
+    message += `*To create a DCA order:*\n`;
+    message += `1. Click "Buy" from main menu\n`;
+    message += `2. Enter token contract address\n`;
+    message += `3. Click "DCA" button\n`;
+    message += `4. Set your parameters:\n`;
+    message += `   • Amount per purchase\n`;
+    message += `   • Frequency (daily/weekly/monthly)\n`;
+    message += `   • Total number of purchases\n\n`;
+    message += `The bot will automatically execute purchases at your chosen intervals.`;
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: new InlineKeyboard()
+        .text('💰 Go to Buy', 'menu_buy').row()
+        .text('🔙 Back to DCA', 'menu_dca')
+        .text('❌ Close', 'close_menu')
+    });
+  });
+
+  bot.callbackQuery('dca_view_all', async (ctx) => {
+    await ctx.answerCallbackQuery('Loading all DCA orders...');
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) return;
+
+      const dbUserId = userResult.rows[0].id;
+      const dcaResult = await query(
+        `SELECT * FROM dca_jobs 
+         WHERE user_id = $1 
+         ORDER BY created_at DESC 
+         LIMIT 50`,
+        [dbUserId]
+      );
+
+      let message = `🔄 *All DCA Orders*\n\n`;
+      if (dcaResult.rows.length === 0) {
+        message += `No DCA orders found.`;
+      } else {
+        const activeCount = dcaResult.rows.filter(j => j.is_active).length;
+        const inactiveCount = dcaResult.rows.length - activeCount;
+        message += `Active: ${activeCount} | Inactive: ${inactiveCount}\n\n`;
+        
+        for (const job of dcaResult.rows.slice(0, 15)) {
+          const status = job.is_active ? '🟢' : '⏸️';
+          const fromToken = job.from_token ? `${job.from_token.substring(0, 6)}...` : 'Native';
+          const toToken = job.to_token ? `${job.to_token.substring(0, 6)}...` : 'Token';
+          const amount = job.amount ? parseFloat(job.amount) : 0;
+          const nextExec = job.next_execution ? new Date(job.next_execution).toLocaleDateString() : 'Not set';
+          message += `${status} ${fromToken} → ${toToken}\n`;
+          message += `   Amount: ${amount.toFixed(4)}\n`;
+          message += `   Freq: ${job.frequency || 'Not set'}\n`;
+          message += `   Next: ${nextExec}\n\n`;
+        }
+        if (dcaResult.rows.length > 15) {
+          message += `\n_Showing 15 of ${dcaResult.rows.length} orders_`;
+        }
+      }
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🔙 Back to DCA', 'menu_dca')
+          .text('❌ Close', 'close_menu')
+      });
+    } catch (error: any) {
+      console.error('View all DCA error:', error);
+      await ctx.reply('❌ Error loading DCA orders.');
+    }
+  });
+
+  // Sub-menu handlers for Sniper
+  bot.callbackQuery('sniper_config', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    let message = `⚙️ *Configure Token Sniper*\n\n`;
+    message += `Set your auto-buy parameters for new token launches.\n\n`;
+    message += `*Available Settings:*\n`;
+    message += `• 💰 Buy amount per snipe\n`;
+    message += `• ⛽ Maximum gas price\n`;
+    message += `• 💧 Minimum liquidity required\n`;
+    message += `• 🔒 Anti-rug checks (enabled/disabled)\n`;
+    message += `• ⏱️ Max slippage tolerance\n\n`;
+    message += `*Safety Features:*\n`;
+    message += `• Contract verification\n`;
+    message += `• Liquidity lock detection\n`;
+    message += `• Ownership renouncement check\n`;
+    message += `• Honeypot detection\n\n`;
+    message += `⚠️ Sniping is high risk. Only invest what you can afford to lose.`;
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: new InlineKeyboard()
+        .text('💰 Set Buy Amount', 'sniper_set_amount').row()
+        .text('🔒 Toggle Safety', 'sniper_toggle_safety').row()
+        .text('🔙 Back to Sniper', 'menu_sniper')
+        .text('❌ Close', 'close_menu')
+    });
+  });
+
+  bot.callbackQuery('sniper_history', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) return;
+
+      const dbUserId = userResult.rows[0].id;
+      
+      const snipeResult = await query(
+        `SELECT * FROM transactions 
+         WHERE user_id = $1 AND transaction_type = 'snipe' 
+         ORDER BY created_at DESC 
+         LIMIT 20`,
+        [dbUserId]
+      );
+
+      let message = `📜 *Snipe History*\n\n`;
+      if (snipeResult.rows.length === 0) {
+        message += `No snipe history found.\n\n`;
+        message += `When you successfully snipe a token, it will appear here with:\n`;
+        message += `• Token details\n`;
+        message += `• Purchase price\n`;
+        message += `• Transaction signature\n`;
+        message += `• Profit/loss status`;
+      } else {
+        message += `Total snipes: ${snipeResult.rows.length}\n\n`;
+        for (const snipe of snipeResult.rows.slice(0, 10)) {
+          const date = new Date(snipe.created_at).toLocaleDateString();
+          const status = snipe.status === 'confirmed' ? '✅' : '⏳';
+          message += `${status} ${date}\n`;
+          message += `   Token: ${snipe.to_token.substring(0, 8)}...\n`;
+          message += `   Amount: ${parseFloat(snipe.from_amount).toFixed(4)} SOL\n`;
+          message += `   Tx: \`${snipe.signature.substring(0, 20)}...\`\n\n`;
+        }
+      }
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🔙 Back to Sniper', 'menu_sniper')
+          .text('❌ Close', 'close_menu')
+      });
+    } catch (error: any) {
+      console.error('Sniper history error:', error);
+      await ctx.reply('❌ Error loading snipe history.');
+    }
+  });
+
+  // Sub-menu handlers for Alerts
+  bot.callbackQuery('alert_create', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    let message = `➕ *Create Price Alert*\n\n`;
+    message += `Get notified when a token reaches your target price.\n\n`;
+    message += `*To create an alert:*\n`;
+    message += `1. Add token to your watchlist first\n`;
+    message += `2. Click "⭐ From Watchlist" button\n`;
+    message += `3. Select the token\n`;
+    message += `4. Set your target price\n`;
+    message += `5. Choose alert type:\n`;
+    message += `   • Above target (take profit)\n`;
+    message += `   • Below target (buy the dip)\n\n`;
+    message += `You'll receive a Telegram notification when the price is reached!`;
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: new InlineKeyboard()
+        .text('⭐ Add to Watchlist First', 'menu_watchlist').row()
+        .text('🔙 Back to Alerts', 'menu_alerts')
+        .text('❌ Close', 'close_menu')
+    });
+  });
+
+  // Placeholder handlers for future features
+  bot.callbackQuery(/^(sniper_set_amount|sniper_toggle_safety)$/, async (ctx) => {
+    await ctx.answerCallbackQuery('Feature coming soon!');
+  });
+
   bot.callbackQuery('menu_help', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
     await ctx.answerCallbackQuery();
     await ctx.editMessageText(
-      `❓ *Help \\& Support*\n\n` +
+      `❓ *Help & Support*\n\n` +
       `*Available Commands:*\n` +
       `/start - Main menu\n` +
       `/create_wallet - Generate wallet\n` +
