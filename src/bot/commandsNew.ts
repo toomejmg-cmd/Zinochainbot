@@ -739,6 +739,22 @@ Choose an action below! 👇
         return;
       }
 
+      // Debug: Check if public key is valid
+      console.log('Wallet public key:', wallet.publicKey);
+      
+      if (!wallet.publicKey || wallet.publicKey.trim() === '') {
+        console.error('Invalid public key - empty or null');
+        await ctx.editMessageText(
+          `💸 *Sell Tokens*\n\n` +
+          `❌ Your wallet has an invalid public key. Please create a new wallet using /create_wallet`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: getBackToMainMenu()
+          }
+        );
+        return;
+      }
+
       const portfolio = await walletManager.getPortfolio(wallet.publicKey);
 
       if (portfolio.tokens.length === 0) {
