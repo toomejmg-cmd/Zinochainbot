@@ -228,7 +228,7 @@ router.get('/settings', async (req, res) => {
 
 router.put('/settings', async (req, res) => {
   try {
-    const adminId = (req as any).user.id;
+    const adminId = (req as any).adminId;
     const s = req.body;
 
     // Validate required fields
