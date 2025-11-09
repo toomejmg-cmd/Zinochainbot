@@ -1283,32 +1283,257 @@ _(Tap to copy)_
     pushNavigation(userId, 'withdraw');
   });
 
-  bot.callbackQuery(/menu_(limit|dca|sniper|alerts|rewards)/, async (ctx) => {
-    const feature = ctx.match[1];
-    const featureNames: any = {
-      limit: 'Limit Orders',
-      dca: 'DCA Orders',
-      sniper: 'Token Sniper',
-      alerts: 'Price Alerts',
-      rewards: 'Rewards'
-    };
+  // Limit Orders Menu
+  bot.callbackQuery('menu_limit', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
-    await ctx.answerCallbackQuery(`${featureNames[feature]} - Coming Soon!`);
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) return;
+
+      const dbUserId = userResult.rows[0].id;
+      
+      const ordersResult = await query(
+        `SELECT o.*, w.public_key 
+         FROM orders o 
+         JOIN wallets w ON o.wallet_id = w.id 
+         WHERE o.user_id = $1 AND o.status = 'active' 
+         ORDER BY o.created_at DESC 
+         LIMIT 10`,
+        [dbUserId]
+      );
+
+      let message = `⏰ *Limit Orders*\n\n`;
+      
+      if (ordersResult.rows.length === 0) {
+        message += `You have no active limit orders.\n\n`;
+        message += `Limit orders let you buy or sell tokens automatically when they reach your target price.\n\n`;
+        message += `To create a limit order:\n`;
+        message += `1. Go to Buy or Sell menu\n`;
+        message += `2. Enter token address\n`;
+        message += `3. Click "Limit" button\n`;
+        message += `4. Set your target price`;
+      } else {
+        message += `*Active Orders (${ordersResult.rows.length}):*\n\n`;
+        for (const order of ordersResult.rows) {
+          const createdDate = new Date(order.created_at).toLocaleDateString();
+          message += `📌 ${order.order_type.toUpperCase()}\n`;
+          message += `   Amount: ${parseFloat(order.amount).toFixed(4)}\n`;
+          message += `   Target: $${parseFloat(order.target_price).toFixed(6)}\n`;
+          message += `   Created: ${createdDate}\n\n`;
+        }
+      }
+
+      const keyboard = new InlineKeyboard()
+        .text('📊 View All Orders', 'limit_view_all').row()
+        .text('🔙 Back', 'back_button')
+        .text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+      pushNavigation(userId, 'limit_orders');
+    } catch (error: any) {
+      console.error('Limit orders error:', error);
+      await ctx.reply('❌ Error loading limit orders.');
+    }
+  });
+
+  // DCA Orders Menu
+  bot.callbackQuery('menu_dca', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) return;
+
+      const dbUserId = userResult.rows[0].id;
+      
+      const dcaResult = await query(
+        `SELECT * FROM dca_jobs 
+         WHERE user_id = $1 AND status = 'active' 
+         ORDER BY created_at DESC 
+         LIMIT 10`,
+        [dbUserId]
+      );
+
+      let message = `🔄 *DCA Orders*\n\n`;
+      message += `*Dollar Cost Averaging*\n`;
+      message += `Automatically buy tokens at regular intervals to average your entry price.\n\n`;
+      
+      if (dcaResult.rows.length === 0) {
+        message += `You have no active DCA orders.\n\n`;
+        message += `To create a DCA order:\n`;
+        message += `1. Go to Buy menu\n`;
+        message += `2. Enter token address\n`;
+        message += `3. Click "DCA" button\n`;
+        message += `4. Set amount and frequency`;
+      } else {
+        message += `*Active DCA Jobs (${dcaResult.rows.length}):*\n\n`;
+        for (const job of dcaResult.rows) {
+          message += `📌 ${job.token_symbol || 'Token'}\n`;
+          message += `   Amount: ${parseFloat(job.amount_per_buy).toFixed(4)} per buy\n`;
+          message += `   Frequency: ${job.frequency}\n`;
+          message += `   Total buys: ${job.total_buys || 'Unlimited'}\n\n`;
+        }
+      }
+
+      const keyboard = new InlineKeyboard()
+        .text('➕ Create DCA', 'dca_create').row()
+        .text('📊 View All', 'dca_view_all').row()
+        .text('🔙 Back', 'back_button')
+        .text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+      pushNavigation(userId, 'dca_orders');
+    } catch (error: any) {
+      console.error('DCA orders error:', error);
+      await ctx.reply('❌ Error loading DCA orders.');
+    }
+  });
+
+  // Token Sniper Menu
+  bot.callbackQuery('menu_sniper', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    let message = `🎯 *Token Sniper*\n\n`;
+    message += `Auto-buy new token listings the moment they launch!\n\n`;
+    message += `*Features:*\n`;
+    message += `• 🚀 Instant execution on new pairs\n`;
+    message += `• 💎 Buy within first block\n`;
+    message += `• 🔒 Anti-rug protection\n`;
+    message += `• 📊 Minimum liquidity filters\n\n`;
+    message += `*How it works:*\n`;
+    message += `1. Set your snipe parameters\n`;
+    message += `2. Monitor DEX for new listings\n`;
+    message += `3. Auto-buy when conditions met\n`;
+    message += `4. Get instant notification\n\n`;
+    message += `⚠️ High risk, high reward!`;
+
+    const keyboard = new InlineKeyboard()
+      .text('⚙️ Configure Sniper', 'sniper_config').row()
+      .text('📜 Snipe History', 'sniper_history').row()
+      .text('🔙 Back', 'back_button')
+      .text('❌ Close', 'close_menu');
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+    });
+
+    pushNavigation(userId, 'sniper');
+  });
+
+  // Price Alerts Menu
+  bot.callbackQuery('menu_alerts', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) return;
+
+      const dbUserId = userResult.rows[0].id;
+
+      let message = `🔔 *Price Alerts*\n\n`;
+      message += `Get notified when tokens hit your target prices!\n\n`;
+      message += `*Set alerts for:*\n`;
+      message += `• 📈 Price increases (take profit)\n`;
+      message += `• 📉 Price drops (buy the dip)\n`;
+      message += `• 💰 Portfolio value milestones\n`;
+      message += `• 🎯 Percentage changes\n\n`;
+      message += `You currently have no active alerts.\n\n`;
+      message += `Add tokens to your watchlist to set price alerts!`;
+
+      const keyboard = new InlineKeyboard()
+        .text('➕ Create Alert', 'alert_create').row()
+        .text('⭐ From Watchlist', 'menu_watchlist').row()
+        .text('🔙 Back', 'back_button')
+        .text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+      pushNavigation(userId, 'alerts');
+    } catch (error: any) {
+      console.error('Alerts error:', error);
+      await ctx.reply('❌ Error loading alerts.');
+    }
+  });
+
+  // Rewards Menu - redirect to referral dashboard
+  bot.callbackQuery('menu_rewards', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const dashboard = await referralService.getDashboard(dbUserId);
+    const settings = await referralService.getSettings();
+
+    const lastUpdated = new Date(dashboard.lastUpdated).toLocaleString('en-US', { 
+      month: '2-digit', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' 
+    });
+
     await ctx.editMessageText(
-      `🚧 *${featureNames[feature]}*\n\n` +
-      `This feature is coming in the next update!\n\n` +
-      `We're working hard to bring you:\n` +
-      `${feature === 'limit' ? '⏰ Set target prices and auto-execute trades' : ''}` +
-      `${feature === 'dca' ? '🔄 Schedule recurring token purchases' : ''}` +
-      `${feature === 'sniper' ? '🎯 Auto-buy new token listings instantly' : ''}` +
-      `${feature === 'alerts' ? '🔔 Get notified on price targets' : ''}` +
-      `${feature === 'rewards' ? '🎁 Earn rewards for trading activity' : ''}` +
-      `\n\nStay tuned!`,
+      `*Trade. Refer. Earn More.*\n\n` +
+      `Share your unique link to get 50% cashback on trading fees and up to 55% from referred traders!\n\n` +
+      `Cashback and rewards are paid out every 12 hours and airdropped to your Rewards Wallet. To qualify, maintain at least 0.005 SOL in rewards.\n\n` +
+      `All Zinobot users enjoy a 15% boost to tier rewards and 25% cashback on trading fees.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*📊 Referral Rewards*\n` +
+      `• Users referred: ${dashboard.referralRewards.usersReferred}\n` +
+      `• Direct: ${dashboard.referralRewards.directReferrals}, Indirect: ${dashboard.referralRewards.indirectReferrals}\n` +
+      `• Earned rewards: ${dashboard.referralRewards.earnedRewards.toFixed(4)} SOL ($${(dashboard.referralRewards.earnedRewards * 0).toFixed(2)})\n\n` +
+      `*Layer Breakdown:*\n` +
+      `• Layer 1 - ${settings.layer_1_percent}%: ${dashboard.layerBreakdown.layer1.count} users, ${dashboard.layerBreakdown.layer1.rewards.toFixed(4)} SOL\n` +
+      `• Layer 2 - ${settings.layer_2_percent}%: ${dashboard.layerBreakdown.layer2.count} users, ${dashboard.layerBreakdown.layer2.rewards.toFixed(4)} SOL\n` +
+      `• Layer 3 - ${settings.layer_3_percent}%: ${dashboard.layerBreakdown.layer3.count} users, ${dashboard.layerBreakdown.layer3.rewards.toFixed(4)} SOL\n\n` +
+      `*💰 Cashback Rewards*\n` +
+      `• Earned rewards: ${dashboard.cashbackRewards.earnedRewards.toFixed(4)} SOL ($${(dashboard.cashbackRewards.earnedRewards * 0).toFixed(2)})\n\n` +
+      `*💎 Total Rewards*\n` +
+      `• Total paid: ${dashboard.totalRewards.totalPaid.toFixed(4)} SOL ($${(dashboard.totalRewards.totalPaid * 0).toFixed(2)})\n` +
+      `• Total unpaid: ${dashboard.totalRewards.totalUnpaid.toFixed(4)} SOL ($${(dashboard.totalRewards.totalUnpaid * 0).toFixed(2)})\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `*🔗 Your Referral Link*\n` +
+      `${dashboard.referralLink}\n` +
+      `_Your friends earn 10% more with your link_\n\n` +
+      `*💼 Rewards Wallet*\n` +
+      `\`${dashboard.rewardsWallet}\`\n\n` +
+      `Last updated at ${lastUpdated} UTC (every 5 min)`,
       {
         parse_mode: 'Markdown',
-        reply_markup: getBackToMainMenu()
+        reply_markup: new InlineKeyboard()
+          .text('🔁 Update Your Referral Link', 'referral_refresh_link').row()
+          .text('🔙 Back', 'back_button')
+          .text('❌ Close', 'close_menu')
       }
     );
+
+    pushNavigation(userId, 'rewards');
   });
 
   bot.callbackQuery('menu_help', async (ctx) => {
