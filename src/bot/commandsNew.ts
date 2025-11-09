@@ -15,6 +15,7 @@ import { MultiChainWalletService } from '../services/multiChainWallet';
 import { ChainType } from '../adapters/IChainAdapter';
 import { URLParserService } from '../services/urlParser';
 import { TokenInfoService } from '../services/tokenInfo';
+import { userSettingsService } from '../services/userSettings';
 import {
   getMainMenu,
   getBackToMainMenu,
@@ -93,6 +94,7 @@ interface UserState {
   withdrawType?: 'sol' | 'token';
   selectedChain?: 'solana' | 'ethereum' | 'bsc';
   currentChain?: 'solana' | 'ethereum' | 'bsc';
+  awaitingSettingInput?: string;
 }
 
 interface NavigationHistory {
@@ -780,31 +782,337 @@ Choose an action below! 👇
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
-    const dbUserId = userResult.rows[0].id;
-    const settingsResult = await query(
-      `SELECT slippage_bps, notifications_enabled, auto_approve_trades 
-       FROM user_settings WHERE user_id = $1`,
-      [dbUserId]
-    );
+    const settingsMessage = `
+⚙️ *Settings Menu*
 
-    let settings = { slippage_bps: 100, notifications_enabled: true, auto_approve_trades: false };
-    if (settingsResult.rows.length > 0) {
-      settings = settingsResult.rows[0];
-    }
+Configure your Zinobot experience by selecting a category below:
 
-    await ctx.editMessageText(
-      `⚙️ *Settings*\n\n` +
-      `⚡ Slippage: ${(settings.slippage_bps / 100).toFixed(2)}%\n` +
-      `🔔 Notifications: ${settings.notifications_enabled ? 'ON' : 'OFF'}\n` +
-      `✅ Auto-Approve: ${settings.auto_approve_trades ? 'ON' : 'OFF'}\n\n` +
-      `Click an option to change it.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: getSettingsMenu()
-      }
-    );
+💱 *Trading Settings*
+Set slippage, fees, and trade preferences
+
+🤖 *AI Trader Settings*
+Configure AI trading mode and risk levels
+
+🔒 *Security & Privacy*
+MEV protection, anti-rug, and confirmations
+
+🔔 *Notifications*
+Manage alerts and notifications
+
+🎨 *Display & Preferences*
+Chain, currency, and UI preferences
+
+📊 *Advanced*
+RPC endpoints, transaction speed, debug mode
+
+Select a category to view and modify settings:
+`;
+
+    const settingsKeyboard = new InlineKeyboard()
+      .text('💱 Trading', 'settings_trading').row()
+      .text('🤖 AI Trader', 'settings_ai').row()
+      .text('🔒 Security', 'settings_security').row()
+      .text('🔔 Notifications', 'settings_notifications').row()
+      .text('🎨 Display', 'settings_display').row()
+      .text('📊 Advanced', 'settings_advanced').row()
+      .text('🔙 Back', 'menu_main');
+
+    await ctx.editMessageText(settingsMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: settingsKeyboard
+    });
 
     pushNavigation(userId, 'settings');
+  });
+
+  bot.callbackQuery('settings_trading', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const tradingMessage = `
+💱 *Trading Settings*
+
+⚡ *Slippage:* ${(settings.slippageBps / 100).toFixed(2)}%
+Set maximum price slippage tolerance
+
+🎯 *Priority Fee Mode:* ${settings.priorityFeeMode.toUpperCase()}
+Control transaction priority fees
+
+${settings.autoApproveTrades ? '✅' : '❌'} *Auto-Approve Trades*
+Skip confirmation for each trade
+
+💰 *Max Trade Amount:* ${settings.maxTradeAmount ? `${settings.maxTradeAmount} SOL` : 'Unlimited'}
+Maximum amount per trade
+
+💵 *Default Buy Amount:* ${settings.defaultBuyAmount} SOL
+Default amount for buy orders
+
+Tap a setting to change it:
+`;
+
+    const tradingKeyboard = new InlineKeyboard()
+      .text('⚡ Change Slippage', 'input_slippage').row()
+      .text('🎯 Priority Fee Mode', 'cycle_priority_fee').row()
+      .text(`${settings.autoApproveTrades ? '✅' : '❌'} Auto-Approve`, 'toggle_autoApproveTrades').row()
+      .text('💰 Max Trade Amount', 'input_maxTradeAmount').row()
+      .text('💵 Default Buy Amount', 'input_defaultBuyAmount').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+
+    await ctx.editMessageText(tradingMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: tradingKeyboard
+    });
+
+    pushNavigation(userId, 'settings_trading');
+  });
+
+  bot.callbackQuery('settings_ai', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const aiMessage = `
+🤖 *AI Trader Settings*
+
+🎮 *Trading Mode:* ${settings.tradingMode === 'ai' ? '🤖 AI' : '👤 Manual'}
+Enable or disable AI trading
+
+⚖️ *Risk Level:* ${settings.aiRiskLevel.charAt(0).toUpperCase() + settings.aiRiskLevel.slice(1)}
+Conservative, Balanced, or Aggressive
+
+💎 *Max Trade Size:* ${settings.aiMaxTradeSize} SOL
+Maximum AI trade size
+
+💰 *Daily Budget:* ${settings.aiDailyBudget} SOL
+Daily AI trading budget
+
+🛑 *Stop Loss:* ${settings.aiStopLossPercent}%
+Automatic stop loss percentage
+
+✋ *Require Confirmation:* ${settings.aiRequireConfirmation.replace('_', ' ').charAt(0).toUpperCase() + settings.aiRequireConfirmation.replace('_', ' ').slice(1)}
+When to ask for confirmation
+
+${settings.aiShowReasoning ? '✅' : '❌'} *Show AI Reasoning*
+Display AI decision explanations
+
+Tap a setting to change it:
+`;
+
+    const aiKeyboard = new InlineKeyboard()
+      .text(`🎮 Mode: ${settings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
+      .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
+      .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
+      .text('💰 Daily Budget', 'input_aiDailyBudget').row()
+      .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
+      .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
+      .text(`${settings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+
+    await ctx.editMessageText(aiMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: aiKeyboard
+    });
+
+    pushNavigation(userId, 'settings_ai');
+  });
+
+  bot.callbackQuery('settings_security', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const securityMessage = `
+🔒 *Security & Privacy Settings*
+
+${settings.mevProtection ? '✅' : '❌'} *MEV Protection*
+Protect against front-running
+
+${settings.antiRugDetection ? '✅' : '❌'} *Anti-Rug Detection*
+Warn about potential rug pulls
+
+🔐 *Transaction Confirmations:* ${settings.transactionConfirmations.charAt(0).toUpperCase() + settings.transactionConfirmations.slice(1)}
+Security level for confirmations
+
+💾 *Backup Reminder:* ${settings.walletBackupReminder.charAt(0).toUpperCase() + settings.walletBackupReminder.slice(1)}
+Frequency of backup reminders
+
+Your security is our priority!
+
+Tap a setting to change it:
+`;
+
+    const securityKeyboard = new InlineKeyboard()
+      .text(`${settings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
+      .text(`${settings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
+      .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
+      .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+
+    await ctx.editMessageText(securityMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: securityKeyboard
+    });
+
+    pushNavigation(userId, 'settings_security');
+  });
+
+  bot.callbackQuery('settings_notifications', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const notificationsMessage = `
+🔔 *Notification Settings*
+
+${settings.notificationsEnabled ? '✅' : '❌'} *Notifications Enabled*
+Master notification toggle
+
+${settings.tradeAlerts ? '✅' : '❌'} *Trade Alerts*
+Notifications for completed trades
+
+${settings.priceAlerts ? '✅' : '❌'} *Price Alerts*
+Watchlist price notifications
+
+${settings.aiTradeAlerts ? '✅' : '❌'} *AI Trade Alerts*
+Notifications for AI trades
+
+${settings.referralAlerts ? '✅' : '❌'} *Referral Alerts*
+Referral rewards notifications
+
+📊 *Portfolio Summary:* ${settings.portfolioSummary.charAt(0).toUpperCase() + settings.portfolioSummary.slice(1)}
+How often to receive summaries
+
+Stay informed about your trading activity!
+
+Tap a setting to change it:
+`;
+
+    const notificationsKeyboard = new InlineKeyboard()
+      .text(`${settings.notificationsEnabled ? '✅' : '❌'} Master Toggle`, 'toggle_notificationsEnabled').row()
+      .text(`${settings.tradeAlerts ? '✅' : '❌'} Trade Alerts`, 'toggle_tradeAlerts').row()
+      .text(`${settings.priceAlerts ? '✅' : '❌'} Price Alerts`, 'toggle_priceAlerts').row()
+      .text(`${settings.aiTradeAlerts ? '✅' : '❌'} AI Alerts`, 'toggle_aiTradeAlerts').row()
+      .text(`${settings.referralAlerts ? '✅' : '❌'} Referral Alerts`, 'toggle_referralAlerts').row()
+      .text('📊 Portfolio Summary', 'cycle_portfolioSummary').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+
+    await ctx.editMessageText(notificationsMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: notificationsKeyboard
+    });
+
+    pushNavigation(userId, 'settings_notifications');
+  });
+
+  bot.callbackQuery('settings_display', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const displayMessage = `
+🎨 *Display & Preferences*
+
+🌐 *Default Chain:* ${settings.defaultChain.charAt(0).toUpperCase() + settings.defaultChain.slice(1)}
+Preferred blockchain network
+
+💵 *Currency Display:* ${settings.currencyDisplay}
+Preferred fiat currency
+
+${settings.hideSmallBalances ? '✅' : '❌'} *Hide Small Balances*
+Hide dust and small amounts
+
+Customize your interface!
+
+Tap a setting to change it:
+`;
+
+    const displayKeyboard = new InlineKeyboard()
+      .text('🌐 Default Chain', 'cycle_defaultChain').row()
+      .text('💵 Currency', 'cycle_currencyDisplay').row()
+      .text(`${settings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+
+    await ctx.editMessageText(displayMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: displayKeyboard
+    });
+
+    pushNavigation(userId, 'settings_display');
+  });
+
+  bot.callbackQuery('settings_advanced', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const advancedMessage = `
+📊 *Advanced Settings*
+
+⚡ *Transaction Speed:* ${settings.transactionSpeed.charAt(0).toUpperCase() + settings.transactionSpeed.slice(1)}
+Speed vs. cost trade-off
+
+${settings.debugMode ? '✅' : '❌'} *Debug Mode*
+Show detailed logs and errors
+
+⚠️ *Warning:* Advanced settings are for experienced users only!
+
+Tap a setting to change it:
+`;
+
+    const advancedKeyboard = new InlineKeyboard()
+      .text('⚡ Transaction Speed', 'cycle_transactionSpeed').row()
+      .text(`${settings.debugMode ? '✅' : '❌'} Debug Mode`, 'toggle_debugMode').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+
+    await ctx.editMessageText(advancedMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: advancedKeyboard
+    });
+
+    pushNavigation(userId, 'settings_advanced');
   });
 
   bot.callbackQuery('menu_referral', async (ctx) => {
@@ -2646,6 +2954,679 @@ Use /refer to get your code and track earnings.
     });
   });
 
+  bot.callbackQuery(/^toggle_(.+)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^toggle_(.+)$/);
+    if (!match) return;
+
+    const field = match[1];
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+
+    try {
+      const newValue = await userSettingsService.toggleSetting(dbUserId, field);
+      await ctx.answerCallbackQuery(`✅ ${newValue ? 'Enabled' : 'Disabled'}`);
+
+      const lastNav = getLastNavigation(userId);
+      if (lastNav?.menuName) {
+        ctx.callbackQuery.data = lastNav.menuName;
+        await ctx.answerCallbackQuery();
+        
+        if (lastNav.menuName === 'settings_trading') {
+          const settings = await userSettingsService.getSettings(dbUserId);
+          const tradingMessage = `
+💱 *Trading Settings*
+
+⚡ *Slippage:* ${(settings.slippageBps / 100).toFixed(2)}%
+Set maximum price slippage tolerance
+
+🎯 *Priority Fee Mode:* ${settings.priorityFeeMode.toUpperCase()}
+Control transaction priority fees
+
+${settings.autoApproveTrades ? '✅' : '❌'} *Auto-Approve Trades*
+Skip confirmation for each trade
+
+💰 *Max Trade Amount:* ${settings.maxTradeAmount ? `${settings.maxTradeAmount} SOL` : 'Unlimited'}
+Maximum amount per trade
+
+💵 *Default Buy Amount:* ${settings.defaultBuyAmount} SOL
+Default amount for buy orders
+
+Tap a setting to change it:
+`;
+          const tradingKeyboard = new InlineKeyboard()
+            .text('⚡ Change Slippage', 'input_slippage').row()
+            .text('🎯 Priority Fee Mode', 'cycle_priority_fee').row()
+            .text(`${settings.autoApproveTrades ? '✅' : '❌'} Auto-Approve`, 'toggle_autoApproveTrades').row()
+            .text('💰 Max Trade Amount', 'input_maxTradeAmount').row()
+            .text('💵 Default Buy Amount', 'input_defaultBuyAmount').row()
+            .text('🔙 Back to Settings', 'menu_settings');
+          await ctx.editMessageText(tradingMessage, { parse_mode: 'Markdown', reply_markup: tradingKeyboard });
+        } else if (lastNav.menuName === 'settings_ai') {
+          const settings = await userSettingsService.getSettings(dbUserId);
+          const aiMessage = `
+🤖 *AI Trader Settings*
+
+🎮 *Trading Mode:* ${settings.tradingMode === 'ai' ? '🤖 AI' : '👤 Manual'}
+Enable or disable AI trading
+
+⚖️ *Risk Level:* ${settings.aiRiskLevel.charAt(0).toUpperCase() + settings.aiRiskLevel.slice(1)}
+Conservative, Balanced, or Aggressive
+
+💎 *Max Trade Size:* ${settings.aiMaxTradeSize} SOL
+Maximum AI trade size
+
+💰 *Daily Budget:* ${settings.aiDailyBudget} SOL
+Daily AI trading budget
+
+🛑 *Stop Loss:* ${settings.aiStopLossPercent}%
+Automatic stop loss percentage
+
+✋ *Require Confirmation:* ${settings.aiRequireConfirmation.replace('_', ' ').charAt(0).toUpperCase() + settings.aiRequireConfirmation.replace('_', ' ').slice(1)}
+When to ask for confirmation
+
+${settings.aiShowReasoning ? '✅' : '❌'} *Show AI Reasoning*
+Display AI decision explanations
+
+Tap a setting to change it:
+`;
+          const aiKeyboard = new InlineKeyboard()
+            .text(`🎮 Mode: ${settings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
+            .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
+            .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
+            .text('💰 Daily Budget', 'input_aiDailyBudget').row()
+            .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
+            .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
+            .text(`${settings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
+            .text('🔙 Back to Settings', 'menu_settings');
+          await ctx.editMessageText(aiMessage, { parse_mode: 'Markdown', reply_markup: aiKeyboard });
+        } else if (lastNav.menuName === 'settings_security') {
+          const settings = await userSettingsService.getSettings(dbUserId);
+          const securityMessage = `
+🔒 *Security & Privacy Settings*
+
+${settings.mevProtection ? '✅' : '❌'} *MEV Protection*
+Protect against front-running
+
+${settings.antiRugDetection ? '✅' : '❌'} *Anti-Rug Detection*
+Warn about potential rug pulls
+
+🔐 *Transaction Confirmations:* ${settings.transactionConfirmations.charAt(0).toUpperCase() + settings.transactionConfirmations.slice(1)}
+Security level for confirmations
+
+💾 *Backup Reminder:* ${settings.walletBackupReminder.charAt(0).toUpperCase() + settings.walletBackupReminder.slice(1)}
+Frequency of backup reminders
+
+Your security is our priority!
+
+Tap a setting to change it:
+`;
+          const securityKeyboard = new InlineKeyboard()
+            .text(`${settings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
+            .text(`${settings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
+            .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
+            .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
+            .text('🔙 Back to Settings', 'menu_settings');
+          await ctx.editMessageText(securityMessage, { parse_mode: 'Markdown', reply_markup: securityKeyboard });
+        } else if (lastNav.menuName === 'settings_notifications') {
+          const settings = await userSettingsService.getSettings(dbUserId);
+          const notificationsMessage = `
+🔔 *Notification Settings*
+
+${settings.notificationsEnabled ? '✅' : '❌'} *Notifications Enabled*
+Master notification toggle
+
+${settings.tradeAlerts ? '✅' : '❌'} *Trade Alerts*
+Notifications for completed trades
+
+${settings.priceAlerts ? '✅' : '❌'} *Price Alerts*
+Watchlist price notifications
+
+${settings.aiTradeAlerts ? '✅' : '❌'} *AI Trade Alerts*
+Notifications for AI trades
+
+${settings.referralAlerts ? '✅' : '❌'} *Referral Alerts*
+Referral rewards notifications
+
+📊 *Portfolio Summary:* ${settings.portfolioSummary.charAt(0).toUpperCase() + settings.portfolioSummary.slice(1)}
+How often to receive summaries
+
+Stay informed about your trading activity!
+
+Tap a setting to change it:
+`;
+          const notificationsKeyboard = new InlineKeyboard()
+            .text(`${settings.notificationsEnabled ? '✅' : '❌'} Master Toggle`, 'toggle_notificationsEnabled').row()
+            .text(`${settings.tradeAlerts ? '✅' : '❌'} Trade Alerts`, 'toggle_tradeAlerts').row()
+            .text(`${settings.priceAlerts ? '✅' : '❌'} Price Alerts`, 'toggle_priceAlerts').row()
+            .text(`${settings.aiTradeAlerts ? '✅' : '❌'} AI Alerts`, 'toggle_aiTradeAlerts').row()
+            .text(`${settings.referralAlerts ? '✅' : '❌'} Referral Alerts`, 'toggle_referralAlerts').row()
+            .text('📊 Portfolio Summary', 'cycle_portfolioSummary').row()
+            .text('🔙 Back to Settings', 'menu_settings');
+          await ctx.editMessageText(notificationsMessage, { parse_mode: 'Markdown', reply_markup: notificationsKeyboard });
+        } else if (lastNav.menuName === 'settings_display') {
+          const settings = await userSettingsService.getSettings(dbUserId);
+          const displayMessage = `
+🎨 *Display & Preferences*
+
+🌐 *Default Chain:* ${settings.defaultChain.charAt(0).toUpperCase() + settings.defaultChain.slice(1)}
+Preferred blockchain network
+
+💵 *Currency Display:* ${settings.currencyDisplay}
+Preferred fiat currency
+
+${settings.hideSmallBalances ? '✅' : '❌'} *Hide Small Balances*
+Hide dust and small amounts
+
+Customize your interface!
+
+Tap a setting to change it:
+`;
+          const displayKeyboard = new InlineKeyboard()
+            .text('🌐 Default Chain', 'cycle_defaultChain').row()
+            .text('💵 Currency', 'cycle_currencyDisplay').row()
+            .text(`${settings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
+            .text('🔙 Back to Settings', 'menu_settings');
+          await ctx.editMessageText(displayMessage, { parse_mode: 'Markdown', reply_markup: displayKeyboard });
+        } else if (lastNav.menuName === 'settings_advanced') {
+          const settings = await userSettingsService.getSettings(dbUserId);
+          const advancedMessage = `
+📊 *Advanced Settings*
+
+⚡ *Transaction Speed:* ${settings.transactionSpeed.charAt(0).toUpperCase() + settings.transactionSpeed.slice(1)}
+Speed vs. cost trade-off
+
+${settings.debugMode ? '✅' : '❌'} *Debug Mode*
+Show detailed logs and errors
+
+⚠️ *Warning:* Advanced settings are for experienced users only!
+
+Tap a setting to change it:
+`;
+          const advancedKeyboard = new InlineKeyboard()
+            .text('⚡ Transaction Speed', 'cycle_transactionSpeed').row()
+            .text(`${settings.debugMode ? '✅' : '❌'} Debug Mode`, 'toggle_debugMode').row()
+            .text('🔙 Back to Settings', 'menu_settings');
+          await ctx.editMessageText(advancedMessage, { parse_mode: 'Markdown', reply_markup: advancedKeyboard });
+        }
+      }
+    } catch (error) {
+      console.error('Toggle error:', error);
+      await ctx.answerCallbackQuery('❌ Error updating setting');
+    }
+  });
+
+  bot.callbackQuery('cycle_priority_fee', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const modes = ['auto', 'low', 'medium', 'high'];
+    const currentIndex = modes.indexOf(settings.priorityFeeMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'priorityFeeMode', nextMode);
+    await ctx.answerCallbackQuery(`✅ Priority Fee: ${nextMode.toUpperCase()}`);
+
+    ctx.callbackQuery.data = 'settings_trading';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const tradingMessage = `
+💱 *Trading Settings*
+
+⚡ *Slippage:* ${(updatedSettings.slippageBps / 100).toFixed(2)}%
+Set maximum price slippage tolerance
+
+🎯 *Priority Fee Mode:* ${updatedSettings.priorityFeeMode.toUpperCase()}
+Control transaction priority fees
+
+${updatedSettings.autoApproveTrades ? '✅' : '❌'} *Auto-Approve Trades*
+Skip confirmation for each trade
+
+💰 *Max Trade Amount:* ${updatedSettings.maxTradeAmount ? `${updatedSettings.maxTradeAmount} SOL` : 'Unlimited'}
+Maximum amount per trade
+
+💵 *Default Buy Amount:* ${updatedSettings.defaultBuyAmount} SOL
+Default amount for buy orders
+
+Tap a setting to change it:
+`;
+    const tradingKeyboard = new InlineKeyboard()
+      .text('⚡ Change Slippage', 'input_slippage').row()
+      .text('🎯 Priority Fee Mode', 'cycle_priority_fee').row()
+      .text(`${updatedSettings.autoApproveTrades ? '✅' : '❌'} Auto-Approve`, 'toggle_autoApproveTrades').row()
+      .text('💰 Max Trade Amount', 'input_maxTradeAmount').row()
+      .text('💵 Default Buy Amount', 'input_defaultBuyAmount').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(tradingMessage, { parse_mode: 'Markdown', reply_markup: tradingKeyboard });
+  });
+
+  bot.callbackQuery('cycle_aiRiskLevel', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const levels: ('conservative' | 'balanced' | 'aggressive')[] = ['conservative', 'balanced', 'aggressive'];
+    const currentIndex = levels.indexOf(settings.aiRiskLevel);
+    const nextLevel = levels[(currentIndex + 1) % levels.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'aiRiskLevel', nextLevel);
+    await ctx.answerCallbackQuery(`✅ Risk Level: ${nextLevel.charAt(0).toUpperCase() + nextLevel.slice(1)}`);
+
+    ctx.callbackQuery.data = 'settings_ai';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const aiMessage = `
+🤖 *AI Trader Settings*
+
+🎮 *Trading Mode:* ${updatedSettings.tradingMode === 'ai' ? '🤖 AI' : '👤 Manual'}
+Enable or disable AI trading
+
+⚖️ *Risk Level:* ${updatedSettings.aiRiskLevel.charAt(0).toUpperCase() + updatedSettings.aiRiskLevel.slice(1)}
+Conservative, Balanced, or Aggressive
+
+💎 *Max Trade Size:* ${updatedSettings.aiMaxTradeSize} SOL
+Maximum AI trade size
+
+💰 *Daily Budget:* ${updatedSettings.aiDailyBudget} SOL
+Daily AI trading budget
+
+🛑 *Stop Loss:* ${updatedSettings.aiStopLossPercent}%
+Automatic stop loss percentage
+
+✋ *Require Confirmation:* ${updatedSettings.aiRequireConfirmation.replace('_', ' ').charAt(0).toUpperCase() + updatedSettings.aiRequireConfirmation.replace('_', ' ').slice(1)}
+When to ask for confirmation
+
+${updatedSettings.aiShowReasoning ? '✅' : '❌'} *Show AI Reasoning*
+Display AI decision explanations
+
+Tap a setting to change it:
+`;
+    const aiKeyboard = new InlineKeyboard()
+      .text(`🎮 Mode: ${updatedSettings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
+      .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
+      .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
+      .text('💰 Daily Budget', 'input_aiDailyBudget').row()
+      .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
+      .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
+      .text(`${updatedSettings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(aiMessage, { parse_mode: 'Markdown', reply_markup: aiKeyboard });
+  });
+
+  bot.callbackQuery('cycle_aiRequireConfirmation', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const modes: ('always' | 'large_trades' | 'never')[] = ['always', 'large_trades', 'never'];
+    const currentIndex = modes.indexOf(settings.aiRequireConfirmation);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'aiRequireConfirmation', nextMode);
+    await ctx.answerCallbackQuery(`✅ Confirmation: ${nextMode.replace('_', ' ')}`);
+
+    ctx.callbackQuery.data = 'settings_ai';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const aiMessage = `
+🤖 *AI Trader Settings*
+
+🎮 *Trading Mode:* ${updatedSettings.tradingMode === 'ai' ? '🤖 AI' : '👤 Manual'}
+Enable or disable AI trading
+
+⚖️ *Risk Level:* ${updatedSettings.aiRiskLevel.charAt(0).toUpperCase() + updatedSettings.aiRiskLevel.slice(1)}
+Conservative, Balanced, or Aggressive
+
+💎 *Max Trade Size:* ${updatedSettings.aiMaxTradeSize} SOL
+Maximum AI trade size
+
+💰 *Daily Budget:* ${updatedSettings.aiDailyBudget} SOL
+Daily AI trading budget
+
+🛑 *Stop Loss:* ${updatedSettings.aiStopLossPercent}%
+Automatic stop loss percentage
+
+✋ *Require Confirmation:* ${updatedSettings.aiRequireConfirmation.replace('_', ' ').charAt(0).toUpperCase() + updatedSettings.aiRequireConfirmation.replace('_', ' ').slice(1)}
+When to ask for confirmation
+
+${updatedSettings.aiShowReasoning ? '✅' : '❌'} *Show AI Reasoning*
+Display AI decision explanations
+
+Tap a setting to change it:
+`;
+    const aiKeyboard = new InlineKeyboard()
+      .text(`🎮 Mode: ${updatedSettings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
+      .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
+      .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
+      .text('💰 Daily Budget', 'input_aiDailyBudget').row()
+      .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
+      .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
+      .text(`${updatedSettings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(aiMessage, { parse_mode: 'Markdown', reply_markup: aiKeyboard });
+  });
+
+  bot.callbackQuery('cycle_transactionConfirmations', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const modes = ['fast', 'smart', 'secure'];
+    const currentIndex = modes.indexOf(settings.transactionConfirmations);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'transactionConfirmations', nextMode);
+    await ctx.answerCallbackQuery(`✅ Confirmations: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}`);
+
+    ctx.callbackQuery.data = 'settings_security';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const securityMessage = `
+🔒 *Security & Privacy Settings*
+
+${updatedSettings.mevProtection ? '✅' : '❌'} *MEV Protection*
+Protect against front-running
+
+${updatedSettings.antiRugDetection ? '✅' : '❌'} *Anti-Rug Detection*
+Warn about potential rug pulls
+
+🔐 *Transaction Confirmations:* ${updatedSettings.transactionConfirmations.charAt(0).toUpperCase() + updatedSettings.transactionConfirmations.slice(1)}
+Security level for confirmations
+
+💾 *Backup Reminder:* ${updatedSettings.walletBackupReminder.charAt(0).toUpperCase() + updatedSettings.walletBackupReminder.slice(1)}
+Frequency of backup reminders
+
+Your security is our priority!
+
+Tap a setting to change it:
+`;
+    const securityKeyboard = new InlineKeyboard()
+      .text(`${updatedSettings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
+      .text(`${updatedSettings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
+      .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
+      .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(securityMessage, { parse_mode: 'Markdown', reply_markup: securityKeyboard });
+  });
+
+  bot.callbackQuery('cycle_walletBackupReminder', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const modes = ['daily', 'weekly', 'monthly', 'never'];
+    const currentIndex = modes.indexOf(settings.walletBackupReminder);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'walletBackupReminder', nextMode);
+    await ctx.answerCallbackQuery(`✅ Backup Reminder: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}`);
+
+    ctx.callbackQuery.data = 'settings_security';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const securityMessage = `
+🔒 *Security & Privacy Settings*
+
+${updatedSettings.mevProtection ? '✅' : '❌'} *MEV Protection*
+Protect against front-running
+
+${updatedSettings.antiRugDetection ? '✅' : '❌'} *Anti-Rug Detection*
+Warn about potential rug pulls
+
+🔐 *Transaction Confirmations:* ${updatedSettings.transactionConfirmations.charAt(0).toUpperCase() + updatedSettings.transactionConfirmations.slice(1)}
+Security level for confirmations
+
+💾 *Backup Reminder:* ${updatedSettings.walletBackupReminder.charAt(0).toUpperCase() + updatedSettings.walletBackupReminder.slice(1)}
+Frequency of backup reminders
+
+Your security is our priority!
+
+Tap a setting to change it:
+`;
+    const securityKeyboard = new InlineKeyboard()
+      .text(`${updatedSettings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
+      .text(`${updatedSettings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
+      .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
+      .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(securityMessage, { parse_mode: 'Markdown', reply_markup: securityKeyboard });
+  });
+
+  bot.callbackQuery('cycle_portfolioSummary', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const modes = ['daily', 'weekly', 'monthly', 'never'];
+    const currentIndex = modes.indexOf(settings.portfolioSummary);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'portfolioSummary', nextMode);
+    await ctx.answerCallbackQuery(`✅ Portfolio Summary: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}`);
+
+    ctx.callbackQuery.data = 'settings_notifications';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const notificationsMessage = `
+🔔 *Notification Settings*
+
+${updatedSettings.notificationsEnabled ? '✅' : '❌'} *Notifications Enabled*
+Master notification toggle
+
+${updatedSettings.tradeAlerts ? '✅' : '❌'} *Trade Alerts*
+Notifications for completed trades
+
+${updatedSettings.priceAlerts ? '✅' : '❌'} *Price Alerts*
+Watchlist price notifications
+
+${updatedSettings.aiTradeAlerts ? '✅' : '❌'} *AI Trade Alerts*
+Notifications for AI trades
+
+${updatedSettings.referralAlerts ? '✅' : '❌'} *Referral Alerts*
+Referral rewards notifications
+
+📊 *Portfolio Summary:* ${updatedSettings.portfolioSummary.charAt(0).toUpperCase() + updatedSettings.portfolioSummary.slice(1)}
+How often to receive summaries
+
+Stay informed about your trading activity!
+
+Tap a setting to change it:
+`;
+    const notificationsKeyboard = new InlineKeyboard()
+      .text(`${updatedSettings.notificationsEnabled ? '✅' : '❌'} Master Toggle`, 'toggle_notificationsEnabled').row()
+      .text(`${updatedSettings.tradeAlerts ? '✅' : '❌'} Trade Alerts`, 'toggle_tradeAlerts').row()
+      .text(`${updatedSettings.priceAlerts ? '✅' : '❌'} Price Alerts`, 'toggle_priceAlerts').row()
+      .text(`${updatedSettings.aiTradeAlerts ? '✅' : '❌'} AI Alerts`, 'toggle_aiTradeAlerts').row()
+      .text(`${updatedSettings.referralAlerts ? '✅' : '❌'} Referral Alerts`, 'toggle_referralAlerts').row()
+      .text('📊 Portfolio Summary', 'cycle_portfolioSummary').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(notificationsMessage, { parse_mode: 'Markdown', reply_markup: notificationsKeyboard });
+  });
+
+  bot.callbackQuery('cycle_defaultChain', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const chains = ['solana', 'ethereum', 'bsc'];
+    const currentIndex = chains.indexOf(settings.defaultChain);
+    const nextChain = chains[(currentIndex + 1) % chains.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'defaultChain', nextChain);
+    await ctx.answerCallbackQuery(`✅ Default Chain: ${nextChain.charAt(0).toUpperCase() + nextChain.slice(1)}`);
+
+    ctx.callbackQuery.data = 'settings_display';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const displayMessage = `
+🎨 *Display & Preferences*
+
+🌐 *Default Chain:* ${updatedSettings.defaultChain.charAt(0).toUpperCase() + updatedSettings.defaultChain.slice(1)}
+Preferred blockchain network
+
+💵 *Currency Display:* ${updatedSettings.currencyDisplay}
+Preferred fiat currency
+
+${updatedSettings.hideSmallBalances ? '✅' : '❌'} *Hide Small Balances*
+Hide dust and small amounts
+
+Customize your interface!
+
+Tap a setting to change it:
+`;
+    const displayKeyboard = new InlineKeyboard()
+      .text('🌐 Default Chain', 'cycle_defaultChain').row()
+      .text('💵 Currency', 'cycle_currencyDisplay').row()
+      .text(`${updatedSettings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(displayMessage, { parse_mode: 'Markdown', reply_markup: displayKeyboard });
+  });
+
+  bot.callbackQuery('cycle_currencyDisplay', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const currencies = ['USD', 'EUR'];
+    const currentIndex = currencies.indexOf(settings.currencyDisplay);
+    const nextCurrency = currencies[(currentIndex + 1) % currencies.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'currencyDisplay', nextCurrency);
+    await ctx.answerCallbackQuery(`✅ Currency: ${nextCurrency}`);
+
+    ctx.callbackQuery.data = 'settings_display';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const displayMessage = `
+🎨 *Display & Preferences*
+
+🌐 *Default Chain:* ${updatedSettings.defaultChain.charAt(0).toUpperCase() + updatedSettings.defaultChain.slice(1)}
+Preferred blockchain network
+
+💵 *Currency Display:* ${updatedSettings.currencyDisplay}
+Preferred fiat currency
+
+${updatedSettings.hideSmallBalances ? '✅' : '❌'} *Hide Small Balances*
+Hide dust and small amounts
+
+Customize your interface!
+
+Tap a setting to change it:
+`;
+    const displayKeyboard = new InlineKeyboard()
+      .text('🌐 Default Chain', 'cycle_defaultChain').row()
+      .text('💵 Currency', 'cycle_currencyDisplay').row()
+      .text(`${updatedSettings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(displayMessage, { parse_mode: 'Markdown', reply_markup: displayKeyboard });
+  });
+
+  bot.callbackQuery('cycle_transactionSpeed', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    const settings = await userSettingsService.getSettings(dbUserId);
+
+    const speeds = ['slow', 'normal', 'fast'];
+    const currentIndex = speeds.indexOf(settings.transactionSpeed);
+    const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+
+    await userSettingsService.updateSetting(dbUserId, 'transactionSpeed', nextSpeed);
+    await ctx.answerCallbackQuery(`✅ Transaction Speed: ${nextSpeed.charAt(0).toUpperCase() + nextSpeed.slice(1)}`);
+
+    ctx.callbackQuery.data = 'settings_advanced';
+    const updatedSettings = await userSettingsService.getSettings(dbUserId);
+    const advancedMessage = `
+📊 *Advanced Settings*
+
+⚡ *Transaction Speed:* ${updatedSettings.transactionSpeed.charAt(0).toUpperCase() + updatedSettings.transactionSpeed.slice(1)}
+Speed vs. cost trade-off
+
+${updatedSettings.debugMode ? '✅' : '❌'} *Debug Mode*
+Show detailed logs and errors
+
+⚠️ *Warning:* Advanced settings are for experienced users only!
+
+Tap a setting to change it:
+`;
+    const advancedKeyboard = new InlineKeyboard()
+      .text('⚡ Transaction Speed', 'cycle_transactionSpeed').row()
+      .text(`${updatedSettings.debugMode ? '✅' : '❌'} Debug Mode`, 'toggle_debugMode').row()
+      .text('🔙 Back to Settings', 'menu_settings');
+    await ctx.editMessageText(advancedMessage, { parse_mode: 'Markdown', reply_markup: advancedKeyboard });
+  });
+
+  bot.callbackQuery(/^input_(.+)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^input_(.+)$/);
+    if (!match) return;
+
+    const field = match[1];
+
+    await ctx.answerCallbackQuery();
+
+    const promptMessages: Record<string, string> = {
+      slippage: '⚡ *Enter Slippage Percentage*\n\nEnter a value between 0.1 and 50:\nExample: `1.5` for 1.5% slippage',
+      maxTradeAmount: '💰 *Enter Max Trade Amount*\n\nEnter maximum trade amount in SOL:\nExample: `10` for 10 SOL max\nSend `0` for unlimited',
+      defaultBuyAmount: '💵 *Enter Default Buy Amount*\n\nEnter default buy amount in SOL:\nExample: `1` for 1 SOL',
+      aiMaxTradeSize: '💎 *Enter AI Max Trade Size*\n\nEnter maximum AI trade size in SOL:\nExample: `5` for 5 SOL max',
+      aiDailyBudget: '💰 *Enter AI Daily Budget*\n\nEnter daily AI trading budget in SOL:\nExample: `10` for 10 SOL per day',
+      aiStopLossPercent: '🛑 *Enter Stop Loss Percentage*\n\nEnter stop loss percentage (1-100):\nExample: `20` for 20% stop loss'
+    };
+
+    const promptMessage = promptMessages[field] || 'Enter a numeric value:';
+
+    await ctx.reply(promptMessage, { parse_mode: 'Markdown' });
+
+    const state = userStates.get(userId) || {};
+    state.awaitingSettingInput = field;
+    userStates.set(userId, state);
+  });
+
   bot.on('message:text', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
@@ -3038,6 +4019,70 @@ Use /refer to get your code and track earnings.
       } catch (error: any) {
         console.error('Watchlist add error:', error);
         await ctx.reply(`❌ Failed to add token. Please try again.`);
+      }
+    } else if (state.awaitingSettingInput) {
+      const field = state.awaitingSettingInput;
+      const value = parseFloat(text);
+
+      userStates.delete(userId);
+
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) return;
+
+      const dbUserId = userResult.rows[0].id;
+
+      const validationRules: Record<string, { min: number, max: number, message: string, transform?: (val: number) => number }> = {
+        slippage: { min: 0.1, max: 50, message: 'Slippage must be between 0.1% and 50%', transform: (val) => Math.round(val * 100) },
+        maxTradeAmount: { min: 0, max: 1000000, message: 'Max trade amount must be between 0 and 1,000,000 SOL' },
+        defaultBuyAmount: { min: 0.01, max: 1000, message: 'Default buy amount must be between 0.01 and 1,000 SOL' },
+        aiMaxTradeSize: { min: 0.1, max: 1000, message: 'AI max trade size must be between 0.1 and 1,000 SOL' },
+        aiDailyBudget: { min: 1, max: 10000, message: 'AI daily budget must be between 1 and 10,000 SOL' },
+        aiStopLossPercent: { min: 1, max: 100, message: 'Stop loss must be between 1% and 100%' }
+      };
+
+      if (isNaN(value)) {
+        await ctx.reply(`❌ Invalid input. Please enter a valid number.`);
+        return;
+      }
+
+      const validation = validationRules[field];
+      if (validation && (value < validation.min || value > validation.max)) {
+        await ctx.reply(`❌ ${validation.message}`);
+        return;
+      }
+
+      try {
+        const actualValue = validation?.transform ? validation.transform(value) : value;
+        
+        const fieldMap: Record<string, string> = {
+          slippage: 'slippageBps',
+          maxTradeAmount: 'maxTradeAmount',
+          defaultBuyAmount: 'defaultBuyAmount',
+          aiMaxTradeSize: 'aiMaxTradeSize',
+          aiDailyBudget: 'aiDailyBudget',
+          aiStopLossPercent: 'aiStopLossPercent'
+        };
+
+        const actualField = fieldMap[field] || field;
+        await userSettingsService.updateSetting(dbUserId, actualField, actualValue);
+
+        const displayValue = field === 'slippage' ? `${value}%` : 
+                           field === 'aiStopLossPercent' ? `${value}%` :
+                           `${value} SOL`;
+
+        await ctx.reply(
+          `✅ *Setting Updated!*\n\n` +
+          `Setting updated to: *${displayValue}*`,
+          { 
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard()
+              .text('🔙 Back to Settings', 'menu_settings')
+              .text('🏠 Main Menu', 'menu_main')
+          }
+        );
+      } catch (error) {
+        console.error('Setting update error:', error);
+        await ctx.reply(`❌ Failed to update setting. Please try again.`);
       }
     }
   });
