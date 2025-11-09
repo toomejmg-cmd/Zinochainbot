@@ -863,8 +863,8 @@ Tap a setting to change it:
 
     const tradingKeyboard = new InlineKeyboard()
       .text('⚡ Change Slippage', 'input_slippage').row()
-      .text('🎯 Priority Fee Mode', 'cycle_priority_fee').row()
-      .text(`${settings.autoApproveTrades ? '✅' : '❌'} Auto-Approve`, 'toggle_autoApproveTrades').row()
+      .text('🎯 Priority Fee Mode', 'show_priority_fee_options').row()
+      .text(`${settings.autoApproveTrades ? '✅' : '❌'} Auto-Approve`, 'show_auto_approve_options').row()
       .text('💰 Max Trade Amount', 'input_maxTradeAmount').row()
       .text('💵 Default Buy Amount', 'input_defaultBuyAmount').row()
       .text('🔙 Back to Settings', 'menu_settings');
@@ -917,13 +917,13 @@ Tap a setting to change it:
 `;
 
     const aiKeyboard = new InlineKeyboard()
-      .text(`🎮 Mode: ${settings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
-      .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
+      .text(`🎮 Mode: ${settings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'show_trading_mode_options').row()
+      .text('⚖️ Risk Level', 'show_risk_level_options').row()
       .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
       .text('💰 Daily Budget', 'input_aiDailyBudget').row()
       .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
-      .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
-      .text(`${settings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
+      .text('✋ Confirmation', 'show_confirmation_options').row()
+      .text(`${settings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'show_reasoning_options').row()
       .text('🔙 Back to Settings', 'menu_settings');
 
     await ctx.editMessageText(aiMessage, {
@@ -967,10 +967,10 @@ Tap a setting to change it:
 `;
 
     const securityKeyboard = new InlineKeyboard()
-      .text(`${settings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
-      .text(`${settings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
-      .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
-      .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
+      .text(`${settings.mevProtection ? '✅' : '❌'} MEV Protection`, 'show_mev_protection_options').row()
+      .text(`${settings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'show_anti_rug_options').row()
+      .text('🔐 Confirmations Mode', 'show_confirmation_mode_options').row()
+      .text('💾 Backup Reminder', 'show_backup_reminder_options').row()
       .text('🔙 Back to Settings', 'menu_settings');
 
     await ctx.editMessageText(securityMessage, {
@@ -1020,12 +1020,12 @@ Tap a setting to change it:
 `;
 
     const notificationsKeyboard = new InlineKeyboard()
-      .text(`${settings.notificationsEnabled ? '✅' : '❌'} Master Toggle`, 'toggle_notificationsEnabled').row()
-      .text(`${settings.tradeAlerts ? '✅' : '❌'} Trade Alerts`, 'toggle_tradeAlerts').row()
-      .text(`${settings.priceAlerts ? '✅' : '❌'} Price Alerts`, 'toggle_priceAlerts').row()
-      .text(`${settings.aiTradeAlerts ? '✅' : '❌'} AI Alerts`, 'toggle_aiTradeAlerts').row()
-      .text(`${settings.referralAlerts ? '✅' : '❌'} Referral Alerts`, 'toggle_referralAlerts').row()
-      .text('📊 Portfolio Summary', 'cycle_portfolioSummary').row()
+      .text(`${settings.notificationsEnabled ? '✅' : '❌'} Master Toggle`, 'show_notifications_enabled_options').row()
+      .text(`${settings.tradeAlerts ? '✅' : '❌'} Trade Alerts`, 'show_trade_alerts_options').row()
+      .text(`${settings.priceAlerts ? '✅' : '❌'} Price Alerts`, 'show_price_alerts_options').row()
+      .text(`${settings.aiTradeAlerts ? '✅' : '❌'} AI Alerts`, 'show_ai_alerts_options').row()
+      .text(`${settings.referralAlerts ? '✅' : '❌'} Referral Alerts`, 'show_referral_alerts_options').row()
+      .text('📊 Portfolio Summary', 'show_portfolio_summary_options').row()
       .text('🔙 Back to Settings', 'menu_settings');
 
     await ctx.editMessageText(notificationsMessage, {
@@ -1066,9 +1066,9 @@ Tap a setting to change it:
 `;
 
     const displayKeyboard = new InlineKeyboard()
-      .text('🌐 Default Chain', 'cycle_defaultChain').row()
-      .text('💵 Currency', 'cycle_currencyDisplay').row()
-      .text(`${settings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
+      .text('🌐 Default Chain', 'show_default_chain_options').row()
+      .text('💵 Currency', 'show_currency_options').row()
+      .text(`${settings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'show_hide_balances_options').row()
       .text('🔙 Back to Settings', 'menu_settings');
 
     await ctx.editMessageText(displayMessage, {
@@ -1106,8 +1106,8 @@ Tap a setting to change it:
 `;
 
     const advancedKeyboard = new InlineKeyboard()
-      .text('⚡ Transaction Speed', 'cycle_transactionSpeed').row()
-      .text(`${settings.debugMode ? '✅' : '❌'} Debug Mode`, 'toggle_debugMode').row()
+      .text('⚡ Transaction Speed', 'show_transaction_speed_options').row()
+      .text(`${settings.debugMode ? '✅' : '❌'} Debug Mode`, 'show_debug_mode_options').row()
       .text('🔙 Back to Settings', 'menu_settings');
 
     await ctx.editMessageText(advancedMessage, {
@@ -2963,650 +2963,728 @@ Use /refer to get your code and track earnings.
     });
   });
 
-  bot.callbackQuery(/^toggle_(.+)$/, async (ctx) => {
+  // ==================== TRADING SETTINGS HANDLERS ====================
+  
+  // Priority Fee Options Grid
+  bot.callbackQuery('show_priority_fee_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🎯 *Priority Fee Mode*\n\nSelect your preferred priority fee mode:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🟣 Auto', 'set_priority_fee_auto').text('🔵 Fast', 'set_priority_fee_fast').row()
+          .text('🟢 Normal', 'set_priority_fee_normal').text('🟡 Custom', 'set_priority_fee_custom').row()
+          .text('🔙 Back', 'settings_trading')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_priority_fee_(auto|fast|normal|custom)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    const match = ctx.callbackQuery.data.match(/^toggle_(.+)$/);
+    const match = ctx.callbackQuery.data.match(/^set_priority_fee_(auto|fast|normal|custom)$/);
     if (!match) return;
 
-    const field = match[1];
+    const mode = match[1] === 'fast' ? 'high' : match[1] === 'normal' ? 'medium' : match[1] === 'custom' ? 'low' : 'auto';
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-
-    try {
-      const newValue = await userSettingsService.toggleSetting(dbUserId, field);
-      await ctx.answerCallbackQuery(`✅ ${newValue ? 'Enabled' : 'Disabled'}`);
-
-      const lastNav = getLastNavigation(userId);
-      if (lastNav?.menuName) {
-        ctx.callbackQuery.data = lastNav.menuName;
-        await ctx.answerCallbackQuery();
-        
-        if (lastNav.menuName === 'settings_trading') {
-          const settings = await userSettingsService.getSettings(dbUserId);
-          const tradingMessage = `
-💱 *Trading Settings*
-
-⚡ *Slippage:* ${(settings.slippageBps / 100).toFixed(2)}%
-Set maximum price slippage tolerance
-
-🎯 *Priority Fee Mode:* ${settings.priorityFeeMode.toUpperCase()}
-Control transaction priority fees
-
-${settings.autoApproveTrades ? '✅' : '❌'} *Auto-Approve Trades*
-Skip confirmation for each trade
-
-💰 *Max Trade Amount:* ${settings.maxTradeAmount ? `${settings.maxTradeAmount} SOL` : 'Unlimited'}
-Maximum amount per trade
-
-💵 *Default Buy Amount:* ${settings.defaultBuyAmount} SOL
-Default amount for buy orders
-
-Tap a setting to change it:
-`;
-          const tradingKeyboard = new InlineKeyboard()
-            .text('⚡ Change Slippage', 'input_slippage').row()
-            .text('🎯 Priority Fee Mode', 'cycle_priority_fee').row()
-            .text(`${settings.autoApproveTrades ? '✅' : '❌'} Auto-Approve`, 'toggle_autoApproveTrades').row()
-            .text('💰 Max Trade Amount', 'input_maxTradeAmount').row()
-            .text('💵 Default Buy Amount', 'input_defaultBuyAmount').row()
-            .text('🔙 Back to Settings', 'menu_settings');
-          await ctx.editMessageText(tradingMessage, { parse_mode: 'Markdown', reply_markup: tradingKeyboard });
-        } else if (lastNav.menuName === 'settings_ai') {
-          const settings = await userSettingsService.getSettings(dbUserId);
-          const aiMessage = `
-🤖 *AI Trader Settings*
-
-🎮 *Trading Mode:* ${settings.tradingMode === 'ai' ? '🤖 AI' : '👤 Manual'}
-Enable or disable AI trading
-
-⚖️ *Risk Level:* ${settings.aiRiskLevel.charAt(0).toUpperCase() + settings.aiRiskLevel.slice(1)}
-Conservative, Balanced, or Aggressive
-
-💎 *Max Trade Size:* ${settings.aiMaxTradeSize} SOL
-Maximum AI trade size
-
-💰 *Daily Budget:* ${settings.aiDailyBudget} SOL
-Daily AI trading budget
-
-🛑 *Stop Loss:* ${settings.aiStopLossPercent}%
-Automatic stop loss percentage
-
-✋ *Require Confirmation:* ${settings.aiRequireConfirmation.replace('_', ' ').charAt(0).toUpperCase() + settings.aiRequireConfirmation.replace('_', ' ').slice(1)}
-When to ask for confirmation
-
-${settings.aiShowReasoning ? '✅' : '❌'} *Show AI Reasoning*
-Display AI decision explanations
-
-Tap a setting to change it:
-`;
-          const aiKeyboard = new InlineKeyboard()
-            .text(`🎮 Mode: ${settings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
-            .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
-            .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
-            .text('💰 Daily Budget', 'input_aiDailyBudget').row()
-            .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
-            .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
-            .text(`${settings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
-            .text('🔙 Back to Settings', 'menu_settings');
-          await ctx.editMessageText(aiMessage, { parse_mode: 'Markdown', reply_markup: aiKeyboard });
-        } else if (lastNav.menuName === 'settings_security') {
-          const settings = await userSettingsService.getSettings(dbUserId);
-          const securityMessage = `
-🔒 *Security & Privacy Settings*
-
-${settings.mevProtection ? '✅' : '❌'} *MEV Protection*
-Protect against front-running
-
-${settings.antiRugDetection ? '✅' : '❌'} *Anti-Rug Detection*
-Warn about potential rug pulls
-
-🔐 *Transaction Confirmations:* ${settings.transactionConfirmations.charAt(0).toUpperCase() + settings.transactionConfirmations.slice(1)}
-Security level for confirmations
-
-💾 *Backup Reminder:* ${settings.walletBackupReminder.charAt(0).toUpperCase() + settings.walletBackupReminder.slice(1)}
-Frequency of backup reminders
-
-Your security is our priority!
-
-Tap a setting to change it:
-`;
-          const securityKeyboard = new InlineKeyboard()
-            .text(`${settings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
-            .text(`${settings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
-            .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
-            .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
-            .text('🔙 Back to Settings', 'menu_settings');
-          await ctx.editMessageText(securityMessage, { parse_mode: 'Markdown', reply_markup: securityKeyboard });
-        } else if (lastNav.menuName === 'settings_notifications') {
-          const settings = await userSettingsService.getSettings(dbUserId);
-          const notificationsMessage = `
-🔔 *Notification Settings*
-
-${settings.notificationsEnabled ? '✅' : '❌'} *Notifications Enabled*
-Master notification toggle
-
-${settings.tradeAlerts ? '✅' : '❌'} *Trade Alerts*
-Notifications for completed trades
-
-${settings.priceAlerts ? '✅' : '❌'} *Price Alerts*
-Watchlist price notifications
-
-${settings.aiTradeAlerts ? '✅' : '❌'} *AI Trade Alerts*
-Notifications for AI trades
-
-${settings.referralAlerts ? '✅' : '❌'} *Referral Alerts*
-Referral rewards notifications
-
-📊 *Portfolio Summary:* ${settings.portfolioSummary.charAt(0).toUpperCase() + settings.portfolioSummary.slice(1)}
-How often to receive summaries
-
-Stay informed about your trading activity!
-
-Tap a setting to change it:
-`;
-          const notificationsKeyboard = new InlineKeyboard()
-            .text(`${settings.notificationsEnabled ? '✅' : '❌'} Master Toggle`, 'toggle_notificationsEnabled').row()
-            .text(`${settings.tradeAlerts ? '✅' : '❌'} Trade Alerts`, 'toggle_tradeAlerts').row()
-            .text(`${settings.priceAlerts ? '✅' : '❌'} Price Alerts`, 'toggle_priceAlerts').row()
-            .text(`${settings.aiTradeAlerts ? '✅' : '❌'} AI Alerts`, 'toggle_aiTradeAlerts').row()
-            .text(`${settings.referralAlerts ? '✅' : '❌'} Referral Alerts`, 'toggle_referralAlerts').row()
-            .text('📊 Portfolio Summary', 'cycle_portfolioSummary').row()
-            .text('🔙 Back to Settings', 'menu_settings');
-          await ctx.editMessageText(notificationsMessage, { parse_mode: 'Markdown', reply_markup: notificationsKeyboard });
-        } else if (lastNav.menuName === 'settings_display') {
-          const settings = await userSettingsService.getSettings(dbUserId);
-          const displayMessage = `
-🎨 *Display & Preferences*
-
-🌐 *Default Chain:* ${settings.defaultChain.charAt(0).toUpperCase() + settings.defaultChain.slice(1)}
-Preferred blockchain network
-
-💵 *Currency Display:* ${settings.currencyDisplay}
-Preferred fiat currency
-
-${settings.hideSmallBalances ? '✅' : '❌'} *Hide Small Balances*
-Hide dust and small amounts
-
-Customize your interface!
-
-Tap a setting to change it:
-`;
-          const displayKeyboard = new InlineKeyboard()
-            .text('🌐 Default Chain', 'cycle_defaultChain').row()
-            .text('💵 Currency', 'cycle_currencyDisplay').row()
-            .text(`${settings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
-            .text('🔙 Back to Settings', 'menu_settings');
-          await ctx.editMessageText(displayMessage, { parse_mode: 'Markdown', reply_markup: displayKeyboard });
-        } else if (lastNav.menuName === 'settings_advanced') {
-          const settings = await userSettingsService.getSettings(dbUserId);
-          const advancedMessage = `
-📊 *Advanced Settings*
-
-⚡ *Transaction Speed:* ${settings.transactionSpeed.charAt(0).toUpperCase() + settings.transactionSpeed.slice(1)}
-Speed vs. cost trade-off
-
-${settings.debugMode ? '✅' : '❌'} *Debug Mode*
-Show detailed logs and errors
-
-⚠️ *Warning:* Advanced settings are for experienced users only!
-
-Tap a setting to change it:
-`;
-          const advancedKeyboard = new InlineKeyboard()
-            .text('⚡ Transaction Speed', 'cycle_transactionSpeed').row()
-            .text(`${settings.debugMode ? '✅' : '❌'} Debug Mode`, 'toggle_debugMode').row()
-            .text('🔙 Back to Settings', 'menu_settings');
-          await ctx.editMessageText(advancedMessage, { parse_mode: 'Markdown', reply_markup: advancedKeyboard });
-        }
-      }
-    } catch (error) {
-      console.error('Toggle error:', error);
-      await ctx.answerCallbackQuery('❌ Error updating setting');
-    }
-  });
-
-  bot.callbackQuery('cycle_priority_fee', async (ctx) => {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-
-    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-    if (userResult.rows.length === 0) return;
-
-    const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
-
-    const modes = ['auto', 'low', 'medium', 'high'];
-    const currentIndex = modes.indexOf(settings.priorityFeeMode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-
-    await userSettingsService.updateSetting(dbUserId, 'priorityFeeMode', nextMode);
-    await ctx.answerCallbackQuery(`✅ Priority Fee: ${nextMode.toUpperCase()}`);
-
+    await userSettingsService.updateSetting(dbUserId, 'priorityFeeMode', mode);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_trading';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const tradingMessage = `
-💱 *Trading Settings*
-
-⚡ *Slippage:* ${(updatedSettings.slippageBps / 100).toFixed(2)}%
-Set maximum price slippage tolerance
-
-🎯 *Priority Fee Mode:* ${updatedSettings.priorityFeeMode.toUpperCase()}
-Control transaction priority fees
-
-${updatedSettings.autoApproveTrades ? '✅' : '❌'} *Auto-Approve Trades*
-Skip confirmation for each trade
-
-💰 *Max Trade Amount:* ${updatedSettings.maxTradeAmount ? `${updatedSettings.maxTradeAmount} SOL` : 'Unlimited'}
-Maximum amount per trade
-
-💵 *Default Buy Amount:* ${updatedSettings.defaultBuyAmount} SOL
-Default amount for buy orders
-
-Tap a setting to change it:
-`;
-    const tradingKeyboard = new InlineKeyboard()
-      .text('⚡ Change Slippage', 'input_slippage').row()
-      .text('🎯 Priority Fee Mode', 'cycle_priority_fee').row()
-      .text(`${updatedSettings.autoApproveTrades ? '✅' : '❌'} Auto-Approve`, 'toggle_autoApproveTrades').row()
-      .text('💰 Max Trade Amount', 'input_maxTradeAmount').row()
-      .text('💵 Default Buy Amount', 'input_defaultBuyAmount').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(tradingMessage, { parse_mode: 'Markdown', reply_markup: tradingKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_aiRiskLevel', async (ctx) => {
+  // Auto-Approve Options Grid
+  bot.callbackQuery('show_auto_approve_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `✅ *Auto-Approve Trades*\n\nEnable or disable automatic trade approval:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_auto_approve_on').text('❌ Off', 'set_auto_approve_off').row()
+          .text('🔙 Back', 'settings_trading')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_auto_approve_(on|off)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_auto_approve_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
+    await userSettingsService.updateSetting(dbUserId, 'autoApproveTrades', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_trading';
+    // Navigate back handled by callback
+  });
 
-    const levels: ('conservative' | 'balanced' | 'aggressive')[] = ['conservative', 'balanced', 'aggressive'];
-    const currentIndex = levels.indexOf(settings.aiRiskLevel);
-    const nextLevel = levels[(currentIndex + 1) % levels.length];
+  // ==================== AI TRADER SETTINGS HANDLERS ====================
+  
+  // Trading Mode Options Grid
+  bot.callbackQuery('show_trading_mode_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🎮 *Trading Mode*\n\nSelect your preferred trading mode:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('👤 Manual', 'set_trading_mode_manual').text('🤖 AI', 'set_trading_mode_ai').row()
+          .text('🔙 Back', 'settings_ai')
+      }
+    );
+  });
 
-    await userSettingsService.updateSetting(dbUserId, 'aiRiskLevel', nextLevel);
-    await ctx.answerCallbackQuery(`✅ Risk Level: ${nextLevel.charAt(0).toUpperCase() + nextLevel.slice(1)}`);
+  bot.callbackQuery(/^set_trading_mode_(manual|ai)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
+    const match = ctx.callbackQuery.data.match(/^set_trading_mode_(manual|ai)$/);
+    if (!match) return;
+
+    const mode = match[1];
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'tradingMode', mode);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_ai';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const aiMessage = `
-🤖 *AI Trader Settings*
-
-🎮 *Trading Mode:* ${updatedSettings.tradingMode === 'ai' ? '🤖 AI' : '👤 Manual'}
-Enable or disable AI trading
-
-⚖️ *Risk Level:* ${updatedSettings.aiRiskLevel.charAt(0).toUpperCase() + updatedSettings.aiRiskLevel.slice(1)}
-Conservative, Balanced, or Aggressive
-
-💎 *Max Trade Size:* ${updatedSettings.aiMaxTradeSize} SOL
-Maximum AI trade size
-
-💰 *Daily Budget:* ${updatedSettings.aiDailyBudget} SOL
-Daily AI trading budget
-
-🛑 *Stop Loss:* ${updatedSettings.aiStopLossPercent}%
-Automatic stop loss percentage
-
-✋ *Require Confirmation:* ${updatedSettings.aiRequireConfirmation.replace('_', ' ').charAt(0).toUpperCase() + updatedSettings.aiRequireConfirmation.replace('_', ' ').slice(1)}
-When to ask for confirmation
-
-${updatedSettings.aiShowReasoning ? '✅' : '❌'} *Show AI Reasoning*
-Display AI decision explanations
-
-Tap a setting to change it:
-`;
-    const aiKeyboard = new InlineKeyboard()
-      .text(`🎮 Mode: ${updatedSettings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
-      .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
-      .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
-      .text('💰 Daily Budget', 'input_aiDailyBudget').row()
-      .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
-      .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
-      .text(`${updatedSettings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(aiMessage, { parse_mode: 'Markdown', reply_markup: aiKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_aiRequireConfirmation', async (ctx) => {
+  // Risk Level Options Grid
+  bot.callbackQuery('show_risk_level_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `⚖️ *Risk Level*\n\nSelect your AI trading risk level:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🛡️ Conservative', 'set_risk_conservative').row()
+          .text('⚖️ Balanced', 'set_risk_balanced').row()
+          .text('⚡ Aggressive', 'set_risk_aggressive').row()
+          .text('🔙 Back', 'settings_ai')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_risk_(conservative|balanced|aggressive)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_risk_(conservative|balanced|aggressive)$/);
+    if (!match) return;
+
+    const level = match[1];
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
-
-    const modes: ('always' | 'large_trades' | 'never')[] = ['always', 'large_trades', 'never'];
-    const currentIndex = modes.indexOf(settings.aiRequireConfirmation);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-
-    await userSettingsService.updateSetting(dbUserId, 'aiRequireConfirmation', nextMode);
-    await ctx.answerCallbackQuery(`✅ Confirmation: ${nextMode.replace('_', ' ')}`);
-
+    await userSettingsService.updateSetting(dbUserId, 'aiRiskLevel', level);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_ai';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const aiMessage = `
-🤖 *AI Trader Settings*
-
-🎮 *Trading Mode:* ${updatedSettings.tradingMode === 'ai' ? '🤖 AI' : '👤 Manual'}
-Enable or disable AI trading
-
-⚖️ *Risk Level:* ${updatedSettings.aiRiskLevel.charAt(0).toUpperCase() + updatedSettings.aiRiskLevel.slice(1)}
-Conservative, Balanced, or Aggressive
-
-💎 *Max Trade Size:* ${updatedSettings.aiMaxTradeSize} SOL
-Maximum AI trade size
-
-💰 *Daily Budget:* ${updatedSettings.aiDailyBudget} SOL
-Daily AI trading budget
-
-🛑 *Stop Loss:* ${updatedSettings.aiStopLossPercent}%
-Automatic stop loss percentage
-
-✋ *Require Confirmation:* ${updatedSettings.aiRequireConfirmation.replace('_', ' ').charAt(0).toUpperCase() + updatedSettings.aiRequireConfirmation.replace('_', ' ').slice(1)}
-When to ask for confirmation
-
-${updatedSettings.aiShowReasoning ? '✅' : '❌'} *Show AI Reasoning*
-Display AI decision explanations
-
-Tap a setting to change it:
-`;
-    const aiKeyboard = new InlineKeyboard()
-      .text(`🎮 Mode: ${updatedSettings.tradingMode === 'ai' ? 'AI' : 'Manual'}`, 'toggle_tradingMode').row()
-      .text('⚖️ Risk Level', 'cycle_aiRiskLevel').row()
-      .text('💎 Max Trade Size', 'input_aiMaxTradeSize').row()
-      .text('💰 Daily Budget', 'input_aiDailyBudget').row()
-      .text('🛑 Stop Loss %', 'input_aiStopLossPercent').row()
-      .text('✋ Confirmation', 'cycle_aiRequireConfirmation').row()
-      .text(`${updatedSettings.aiShowReasoning ? '✅' : '❌'} Show Reasoning`, 'toggle_aiShowReasoning').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(aiMessage, { parse_mode: 'Markdown', reply_markup: aiKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_transactionConfirmations', async (ctx) => {
+  // AI Confirmation Options Grid
+  bot.callbackQuery('show_confirmation_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `✋ *Require Confirmation*\n\nWhen should AI ask for confirmation?`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🔴 Always', 'set_confirmation_always').row()
+          .text('🟡 Large Trades', 'set_confirmation_large_trades').row()
+          .text('🟢 Never', 'set_confirmation_never').row()
+          .text('🔙 Back', 'settings_ai')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_confirmation_(always|large_trades|never)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_confirmation_(always|large_trades|never)$/);
+    if (!match) return;
+
+    const mode = match[1];
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
+    await userSettingsService.updateSetting(dbUserId, 'aiRequireConfirmation', mode);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_ai';
+    // Navigate back handled by callback
+  });
 
-    const modes = ['fast', 'smart', 'secure'];
-    const currentIndex = modes.indexOf(settings.transactionConfirmations);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
+  // AI Reasoning Options Grid
+  bot.callbackQuery('show_reasoning_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🧠 *Show AI Reasoning*\n\nDisplay AI decision explanations:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_reasoning_on').text('❌ Off', 'set_reasoning_off').row()
+          .text('🔙 Back', 'settings_ai')
+      }
+    );
+  });
 
-    await userSettingsService.updateSetting(dbUserId, 'transactionConfirmations', nextMode);
-    await ctx.answerCallbackQuery(`✅ Confirmations: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}`);
+  bot.callbackQuery(/^set_reasoning_(on|off)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
+    const match = ctx.callbackQuery.data.match(/^set_reasoning_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'aiShowReasoning', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_ai';
+    // Navigate back handled by callback
+  });
+
+  // ==================== SECURITY SETTINGS HANDLERS ====================
+  
+  // MEV Protection Options Grid
+  bot.callbackQuery('show_mev_protection_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🔒 *MEV Protection*\n\nProtect against front-running:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_mev_protection_on').text('❌ Off', 'set_mev_protection_off').row()
+          .text('🔙 Back', 'settings_security')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_mev_protection_(on|off)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_mev_protection_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'mevProtection', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_security';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const securityMessage = `
-🔒 *Security & Privacy Settings*
-
-${updatedSettings.mevProtection ? '✅' : '❌'} *MEV Protection*
-Protect against front-running
-
-${updatedSettings.antiRugDetection ? '✅' : '❌'} *Anti-Rug Detection*
-Warn about potential rug pulls
-
-🔐 *Transaction Confirmations:* ${updatedSettings.transactionConfirmations.charAt(0).toUpperCase() + updatedSettings.transactionConfirmations.slice(1)}
-Security level for confirmations
-
-💾 *Backup Reminder:* ${updatedSettings.walletBackupReminder.charAt(0).toUpperCase() + updatedSettings.walletBackupReminder.slice(1)}
-Frequency of backup reminders
-
-Your security is our priority!
-
-Tap a setting to change it:
-`;
-    const securityKeyboard = new InlineKeyboard()
-      .text(`${updatedSettings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
-      .text(`${updatedSettings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
-      .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
-      .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(securityMessage, { parse_mode: 'Markdown', reply_markup: securityKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_walletBackupReminder', async (ctx) => {
+  // Anti-Rug Detection Options Grid
+  bot.callbackQuery('show_anti_rug_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `⚠️ *Anti-Rug Detection*\n\nWarn about potential rug pulls:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_anti_rug_on').text('❌ Off', 'set_anti_rug_off').row()
+          .text('🔙 Back', 'settings_security')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_anti_rug_(on|off)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_anti_rug_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
-
-    const modes = ['daily', 'weekly', 'monthly', 'never'];
-    const currentIndex = modes.indexOf(settings.walletBackupReminder);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-
-    await userSettingsService.updateSetting(dbUserId, 'walletBackupReminder', nextMode);
-    await ctx.answerCallbackQuery(`✅ Backup Reminder: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}`);
-
+    await userSettingsService.updateSetting(dbUserId, 'antiRugDetection', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_security';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const securityMessage = `
-🔒 *Security & Privacy Settings*
-
-${updatedSettings.mevProtection ? '✅' : '❌'} *MEV Protection*
-Protect against front-running
-
-${updatedSettings.antiRugDetection ? '✅' : '❌'} *Anti-Rug Detection*
-Warn about potential rug pulls
-
-🔐 *Transaction Confirmations:* ${updatedSettings.transactionConfirmations.charAt(0).toUpperCase() + updatedSettings.transactionConfirmations.slice(1)}
-Security level for confirmations
-
-💾 *Backup Reminder:* ${updatedSettings.walletBackupReminder.charAt(0).toUpperCase() + updatedSettings.walletBackupReminder.slice(1)}
-Frequency of backup reminders
-
-Your security is our priority!
-
-Tap a setting to change it:
-`;
-    const securityKeyboard = new InlineKeyboard()
-      .text(`${updatedSettings.mevProtection ? '✅' : '❌'} MEV Protection`, 'toggle_mevProtection').row()
-      .text(`${updatedSettings.antiRugDetection ? '✅' : '❌'} Anti-Rug`, 'toggle_antiRugDetection').row()
-      .text('🔐 Confirmations Mode', 'cycle_transactionConfirmations').row()
-      .text('💾 Backup Reminder', 'cycle_walletBackupReminder').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(securityMessage, { parse_mode: 'Markdown', reply_markup: securityKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_portfolioSummary', async (ctx) => {
+  // Confirmation Mode Options Grid
+  bot.callbackQuery('show_confirmation_mode_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🔐 *Transaction Confirmations*\n\nSelect security level:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('⚡ Fast', 'set_confirmation_mode_fast').row()
+          .text('🧠 Smart', 'set_confirmation_mode_smart').row()
+          .text('🔒 Secure', 'set_confirmation_mode_secure').row()
+          .text('🔙 Back', 'settings_security')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_confirmation_mode_(fast|smart|secure)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_confirmation_mode_(fast|smart|secure)$/);
+    if (!match) return;
+
+    const mode = match[1];
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
+    await userSettingsService.updateSetting(dbUserId, 'transactionConfirmations', mode);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_security';
+    // Navigate back handled by callback
+  });
 
-    const modes = ['daily', 'weekly', 'monthly', 'never'];
-    const currentIndex = modes.indexOf(settings.portfolioSummary);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
+  // Backup Reminder Options Grid
+  bot.callbackQuery('show_backup_reminder_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `💾 *Backup Reminder*\n\nHow often should we remind you?`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('📅 Daily', 'set_backup_reminder_daily').text('📅 Weekly', 'set_backup_reminder_weekly').row()
+          .text('📅 Monthly', 'set_backup_reminder_monthly').text('❌ Never', 'set_backup_reminder_never').row()
+          .text('🔙 Back', 'settings_security')
+      }
+    );
+  });
 
-    await userSettingsService.updateSetting(dbUserId, 'portfolioSummary', nextMode);
-    await ctx.answerCallbackQuery(`✅ Portfolio Summary: ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}`);
+  bot.callbackQuery(/^set_backup_reminder_(daily|weekly|monthly|never)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
+    const match = ctx.callbackQuery.data.match(/^set_backup_reminder_(daily|weekly|monthly|never)$/);
+    if (!match) return;
+
+    const frequency = match[1];
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'walletBackupReminder', frequency);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_security';
+    // Navigate back handled by callback
+  });
+
+  // ==================== NOTIFICATIONS SETTINGS HANDLERS ====================
+  
+  // Master Notifications Toggle Grid
+  bot.callbackQuery('show_notifications_enabled_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🔔 *Master Notifications Toggle*\n\nEnable or disable all notifications:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_notifications_enabled_on').text('❌ Off', 'set_notifications_enabled_off').row()
+          .text('🔙 Back', 'settings_notifications')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_notifications_enabled_(on|off)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_notifications_enabled_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'notificationsEnabled', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_notifications';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const notificationsMessage = `
-🔔 *Notification Settings*
-
-${updatedSettings.notificationsEnabled ? '✅' : '❌'} *Notifications Enabled*
-Master notification toggle
-
-${updatedSettings.tradeAlerts ? '✅' : '❌'} *Trade Alerts*
-Notifications for completed trades
-
-${updatedSettings.priceAlerts ? '✅' : '❌'} *Price Alerts*
-Watchlist price notifications
-
-${updatedSettings.aiTradeAlerts ? '✅' : '❌'} *AI Trade Alerts*
-Notifications for AI trades
-
-${updatedSettings.referralAlerts ? '✅' : '❌'} *Referral Alerts*
-Referral rewards notifications
-
-📊 *Portfolio Summary:* ${updatedSettings.portfolioSummary.charAt(0).toUpperCase() + updatedSettings.portfolioSummary.slice(1)}
-How often to receive summaries
-
-Stay informed about your trading activity!
-
-Tap a setting to change it:
-`;
-    const notificationsKeyboard = new InlineKeyboard()
-      .text(`${updatedSettings.notificationsEnabled ? '✅' : '❌'} Master Toggle`, 'toggle_notificationsEnabled').row()
-      .text(`${updatedSettings.tradeAlerts ? '✅' : '❌'} Trade Alerts`, 'toggle_tradeAlerts').row()
-      .text(`${updatedSettings.priceAlerts ? '✅' : '❌'} Price Alerts`, 'toggle_priceAlerts').row()
-      .text(`${updatedSettings.aiTradeAlerts ? '✅' : '❌'} AI Alerts`, 'toggle_aiTradeAlerts').row()
-      .text(`${updatedSettings.referralAlerts ? '✅' : '❌'} Referral Alerts`, 'toggle_referralAlerts').row()
-      .text('📊 Portfolio Summary', 'cycle_portfolioSummary').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(notificationsMessage, { parse_mode: 'Markdown', reply_markup: notificationsKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_defaultChain', async (ctx) => {
+  // Trade Alerts Options Grid
+  bot.callbackQuery('show_trade_alerts_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `💱 *Trade Alerts*\n\nNotifications for completed trades:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_trade_alerts_on').text('❌ Off', 'set_trade_alerts_off').row()
+          .text('🔙 Back', 'settings_notifications')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_trade_alerts_(on|off)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_trade_alerts_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
+    await userSettingsService.updateSetting(dbUserId, 'tradeAlerts', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_notifications';
+    // Navigate back handled by callback
+  });
 
-    const chains = ['solana', 'ethereum', 'bsc'];
-    const currentIndex = chains.indexOf(settings.defaultChain);
-    const nextChain = chains[(currentIndex + 1) % chains.length];
+  // Price Alerts Options Grid
+  bot.callbackQuery('show_price_alerts_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `📈 *Price Alerts*\n\nWatchlist price notifications:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_price_alerts_on').text('❌ Off', 'set_price_alerts_off').row()
+          .text('🔙 Back', 'settings_notifications')
+      }
+    );
+  });
 
-    await userSettingsService.updateSetting(dbUserId, 'defaultChain', nextChain);
-    await ctx.answerCallbackQuery(`✅ Default Chain: ${nextChain.charAt(0).toUpperCase() + nextChain.slice(1)}`);
+  bot.callbackQuery(/^set_price_alerts_(on|off)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
+    const match = ctx.callbackQuery.data.match(/^set_price_alerts_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'priceAlerts', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_notifications';
+    // Navigate back handled by callback
+  });
+
+  // AI Alerts Options Grid
+  bot.callbackQuery('show_ai_alerts_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🤖 *AI Trade Alerts*\n\nNotifications for AI trades:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_ai_alerts_on').text('❌ Off', 'set_ai_alerts_off').row()
+          .text('🔙 Back', 'settings_notifications')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_ai_alerts_(on|off)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_ai_alerts_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'aiTradeAlerts', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_notifications';
+    // Navigate back handled by callback
+  });
+
+  // Referral Alerts Options Grid
+  bot.callbackQuery('show_referral_alerts_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🎁 *Referral Alerts*\n\nReferral rewards notifications:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_referral_alerts_on').text('❌ Off', 'set_referral_alerts_off').row()
+          .text('🔙 Back', 'settings_notifications')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_referral_alerts_(on|off)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_referral_alerts_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'referralAlerts', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_notifications';
+    // Navigate back handled by callback
+  });
+
+  // Portfolio Summary Options Grid
+  bot.callbackQuery('show_portfolio_summary_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `📊 *Portfolio Summary*\n\nHow often to receive summaries:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('❌ Never', 'set_portfolio_summary_never').row()
+          .text('📅 Daily', 'set_portfolio_summary_daily').row()
+          .text('📅 Weekly', 'set_portfolio_summary_weekly').row()
+          .text('📅 Monthly', 'set_portfolio_summary_monthly').row()
+          .text('🔙 Back', 'settings_notifications')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_portfolio_summary_(never|daily|weekly|monthly)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_portfolio_summary_(never|daily|weekly|monthly)$/);
+    if (!match) return;
+
+    const frequency = match[1];
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'portfolioSummary', frequency);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_notifications';
+    // Navigate back handled by callback
+  });
+
+  // ==================== DISPLAY SETTINGS HANDLERS ====================
+  
+  // Default Chain Options Grid
+  bot.callbackQuery('show_default_chain_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🌐 *Default Chain*\n\nSelect your preferred blockchain:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('⚡ Solana', 'set_default_chain_solana').row()
+          .text('🔷 Ethereum', 'set_default_chain_ethereum').row()
+          .text('🟡 BSC', 'set_default_chain_bsc').row()
+          .text('🔙 Back', 'settings_display')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_default_chain_(solana|ethereum|bsc)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_default_chain_(solana|ethereum|bsc)$/);
+    if (!match) return;
+
+    const chain = match[1];
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'defaultChain', chain);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_display';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const displayMessage = `
-🎨 *Display & Preferences*
-
-🌐 *Default Chain:* ${updatedSettings.defaultChain.charAt(0).toUpperCase() + updatedSettings.defaultChain.slice(1)}
-Preferred blockchain network
-
-💵 *Currency Display:* ${updatedSettings.currencyDisplay}
-Preferred fiat currency
-
-${updatedSettings.hideSmallBalances ? '✅' : '❌'} *Hide Small Balances*
-Hide dust and small amounts
-
-Customize your interface!
-
-Tap a setting to change it:
-`;
-    const displayKeyboard = new InlineKeyboard()
-      .text('🌐 Default Chain', 'cycle_defaultChain').row()
-      .text('💵 Currency', 'cycle_currencyDisplay').row()
-      .text(`${updatedSettings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(displayMessage, { parse_mode: 'Markdown', reply_markup: displayKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_currencyDisplay', async (ctx) => {
+  // Currency Display Options Grid
+  bot.callbackQuery('show_currency_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `💵 *Currency Display*\n\nSelect your preferred currency:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('💵 USD', 'set_currency_usd').text('💶 EUR', 'set_currency_eur').row()
+          .text('🔙 Back', 'settings_display')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_currency_(usd|eur)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_currency_(usd|eur)$/);
+    if (!match) return;
+
+    const currency = match[1].toUpperCase();
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
-
-    const currencies = ['USD', 'EUR'];
-    const currentIndex = currencies.indexOf(settings.currencyDisplay);
-    const nextCurrency = currencies[(currentIndex + 1) % currencies.length];
-
-    await userSettingsService.updateSetting(dbUserId, 'currencyDisplay', nextCurrency);
-    await ctx.answerCallbackQuery(`✅ Currency: ${nextCurrency}`);
-
+    await userSettingsService.updateSetting(dbUserId, 'currencyDisplay', currency);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_display';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const displayMessage = `
-🎨 *Display & Preferences*
-
-🌐 *Default Chain:* ${updatedSettings.defaultChain.charAt(0).toUpperCase() + updatedSettings.defaultChain.slice(1)}
-Preferred blockchain network
-
-💵 *Currency Display:* ${updatedSettings.currencyDisplay}
-Preferred fiat currency
-
-${updatedSettings.hideSmallBalances ? '✅' : '❌'} *Hide Small Balances*
-Hide dust and small amounts
-
-Customize your interface!
-
-Tap a setting to change it:
-`;
-    const displayKeyboard = new InlineKeyboard()
-      .text('🌐 Default Chain', 'cycle_defaultChain').row()
-      .text('💵 Currency', 'cycle_currencyDisplay').row()
-      .text(`${updatedSettings.hideSmallBalances ? '✅' : '❌'} Hide Small Balances`, 'toggle_hideSmallBalances').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(displayMessage, { parse_mode: 'Markdown', reply_markup: displayKeyboard });
+    // Navigate back handled by callback
   });
 
-  bot.callbackQuery('cycle_transactionSpeed', async (ctx) => {
+  // Hide Small Balances Options Grid
+  bot.callbackQuery('show_hide_balances_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `💰 *Hide Small Balances*\n\nHide dust and small amounts:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_hide_balances_on').text('❌ Off', 'set_hide_balances_off').row()
+          .text('🔙 Back', 'settings_display')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_hide_balances_(on|off)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_hide_balances_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
 
     const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
     if (userResult.rows.length === 0) return;
 
     const dbUserId = userResult.rows[0].id;
-    const settings = await userSettingsService.getSettings(dbUserId);
+    await userSettingsService.updateSetting(dbUserId, 'hideSmallBalances', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_display';
+    // Navigate back handled by callback
+  });
 
-    const speeds = ['slow', 'normal', 'fast'];
-    const currentIndex = speeds.indexOf(settings.transactionSpeed);
-    const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+  // ==================== ADVANCED SETTINGS HANDLERS ====================
+  
+  // Transaction Speed Options Grid
+  bot.callbackQuery('show_transaction_speed_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `⚡ *Transaction Speed*\n\nSelect speed vs. cost trade-off:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('🐌 Slow', 'set_transaction_speed_slow').row()
+          .text('⚖️ Normal', 'set_transaction_speed_normal').row()
+          .text('⚡ Fast', 'set_transaction_speed_fast').row()
+          .text('🔙 Back', 'settings_advanced')
+      }
+    );
+  });
 
-    await userSettingsService.updateSetting(dbUserId, 'transactionSpeed', nextSpeed);
-    await ctx.answerCallbackQuery(`✅ Transaction Speed: ${nextSpeed.charAt(0).toUpperCase() + nextSpeed.slice(1)}`);
+  bot.callbackQuery(/^set_transaction_speed_(slow|normal|fast)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
+    const match = ctx.callbackQuery.data.match(/^set_transaction_speed_(slow|normal|fast)$/);
+    if (!match) return;
+
+    const speed = match[1];
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'transactionSpeed', speed);
+    await ctx.answerCallbackQuery('✅ Updated!');
     ctx.callbackQuery.data = 'settings_advanced';
-    const updatedSettings = await userSettingsService.getSettings(dbUserId);
-    const advancedMessage = `
-📊 *Advanced Settings*
-
-⚡ *Transaction Speed:* ${updatedSettings.transactionSpeed.charAt(0).toUpperCase() + updatedSettings.transactionSpeed.slice(1)}
-Speed vs. cost trade-off
-
-${updatedSettings.debugMode ? '✅' : '❌'} *Debug Mode*
-Show detailed logs and errors
-
-⚠️ *Warning:* Advanced settings are for experienced users only!
-
-Tap a setting to change it:
-`;
-    const advancedKeyboard = new InlineKeyboard()
-      .text('⚡ Transaction Speed', 'cycle_transactionSpeed').row()
-      .text(`${updatedSettings.debugMode ? '✅' : '❌'} Debug Mode`, 'toggle_debugMode').row()
-      .text('🔙 Back to Settings', 'menu_settings');
-    await ctx.editMessageText(advancedMessage, { parse_mode: 'Markdown', reply_markup: advancedKeyboard });
+    // Navigate back handled by callback
   });
 
+  // Debug Mode Options Grid
+  bot.callbackQuery('show_debug_mode_options', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageText(
+      `🐛 *Debug Mode*\n\nShow detailed logs and errors:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard()
+          .text('✅ On', 'set_debug_mode_on').text('❌ Off', 'set_debug_mode_off').row()
+          .text('🔙 Back', 'settings_advanced')
+      }
+    );
+  });
+
+  bot.callbackQuery(/^set_debug_mode_(on|off)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const match = ctx.callbackQuery.data.match(/^set_debug_mode_(on|off)$/);
+    if (!match) return;
+
+    const value = match[1] === 'on';
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) return;
+
+    const dbUserId = userResult.rows[0].id;
+    await userSettingsService.updateSetting(dbUserId, 'debugMode', value);
+    await ctx.answerCallbackQuery('✅ Updated!');
+    ctx.callbackQuery.data = 'settings_advanced';
+    // Navigate back handled by callback
+  });
+
+  // ==================== INPUT HANDLERS (unchanged) ====================
+  
   bot.callbackQuery(/^input_(.+)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
@@ -3651,12 +3729,10 @@ Tap a setting to change it:
       try {
         await ctx.reply('🔍 Analyzing token...');
         
-        // Get user's current chain
         const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
         const dbUserId = userResult.rows[0].id;
         const userChain = userResult.rows[0].current_chain || 'solana';
         
-        // Try to parse URL or token address
         const parsed = urlParser.parseURL(text);
         let tokenAddress: string | null = null;
         let chain: string = userChain;
@@ -3665,7 +3741,6 @@ Tap a setting to change it:
           tokenAddress = parsed.tokenAddress;
           chain = parsed.chain || userChain;
         } else {
-          // Try as ticker symbol search using user's current chain
           const searchResults = await tokenInfoService.searchToken(text, userChain);
           if (searchResults.length === 0) {
             await ctx.reply(
@@ -3681,7 +3756,6 @@ Tap a setting to change it:
           tokenAddress = searchResults[0].address;
         }
 
-        // Fetch token information
         const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
         
         if (!tokenInfo) {
@@ -3696,7 +3770,6 @@ Tap a setting to change it:
           return;
         }
 
-        // Get user wallet for the detected chain
         const multiChainWallet = new MultiChainWalletService();
         const wallet = await multiChainWallet.getWallet(dbUserId, chain as ChainType);
 
@@ -3705,14 +3778,11 @@ Tap a setting to change it:
           return;
         }
 
-        // Get balance using the appropriate chain adapter
         const nativeBalance = await multiChainWallet.getBalance(dbUserId, chain as ChainType);
         const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain as ChainType).getNativeToken().symbol;
         
-        // Calculate price impact for different amounts
         const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
 
-        // Build token preview message
         let previewMessage = ``;
         
         if (parsed?.platform) {
@@ -3728,14 +3798,12 @@ Tap a setting to change it:
         previewMessage += `*${tokenInfo.name} | ${tokenInfo.symbol} |*\n`;
         previewMessage += `\`${tokenInfo.address}\`\n`;
         
-        // Explorer links
         const explorerLink = urlParser.getExplorerLink(tokenInfo.address, chain);
         const chartLink = urlParser.getChartLink(tokenInfo.address, chain);
         const scanLink = urlParser.getScanLink(tokenInfo.address, parsed?.platform || 'dexscreener', chain);
         
         previewMessage += `[Explorer](${explorerLink}) | [Chart](${chartLink}) | [Scan](${scanLink})\n\n`;
         
-        // Price and market data
         previewMessage += `*Price:* $${parseFloat(tokenInfo.priceUsd).toFixed(6)}\n`;
         previewMessage += `*5m:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.m5)}, `;
         previewMessage += `*1h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h1)}, `;
@@ -3743,13 +3811,10 @@ Tap a setting to change it:
         previewMessage += `*24h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h24)}\n`;
         previewMessage += `*Market Cap:* ${tokenInfoService.formatLargeNumber(tokenInfo.marketCap)}\n\n`;
         
-        // Price impact
         previewMessage += `*Price Impact (5.0000 ${nativeSymbol}):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
         
-        // Wallet balance
         previewMessage += `*Wallet Balance:* ${parseFloat(nativeBalance).toFixed(4)} ${nativeSymbol}\n\n`;
         
-        // Social links if available
         if (tokenInfo.socials?.twitter || tokenInfo.socials?.telegram) {
           previewMessage += `🔗 `;
           if (tokenInfo.socials.twitter) previewMessage += `[Twitter](${tokenInfo.socials.twitter}) `;
@@ -3759,7 +3824,6 @@ Tap a setting to change it:
         
         previewMessage += `*To buy press one of the buttons below.*`;
 
-        // Build inline keyboard with buy options - chain-specific labels
         const buyKeyboard = new InlineKeyboard()
           .text('DCA', `menu_dca`)
           .text('✅ Swap', `execute_swap_${chain}_${tokenAddress}`)
@@ -3864,367 +3928,13 @@ Tap a setting to change it:
           `💰 Amount: ${solAmount} SOL\n` +
           `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
           `📝 Signature: \`${signature}\`\n\n` +
-          `🔗 View: https://solscan.io/tx/${signature}?cluster=${process.env.SOLANA_NETWORK}`,
+          `🔗 [View on Solscan](https://solscan.io/tx/${signature}?cluster=devnet)`,
           { parse_mode: 'Markdown', reply_markup: getMainMenu() }
         );
       } catch (error: any) {
         console.error('Buy custom amount error:', error);
         await ctx.reply(`❌ Swap failed: ${error.message}`);
       }
-    } else if (state.awaitingSellToken) {
-      const parts = text.split(' ');
-      if (parts.length !== 2) {
-        await ctx.reply('❌ Invalid format. Use: `<token_mint> <token_amount>`', { parse_mode: 'Markdown' });
-        return;
-      }
-
-      const [tokenMint, tokenAmountStr] = parts;
-      const tokenAmount = parseFloat(tokenAmountStr);
-
-      if (isNaN(tokenAmount) || tokenAmount <= 0) {
-        await ctx.reply('❌ Invalid token amount.');
-        return;
-      }
-
-      userStates.delete(userId);
-
-      try {
-        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-        const dbUserId = userResult.rows[0].id;
-        
-        const settings = await userSettingsService.getSettings(dbUserId);
-        
-        if (settings.tradingMode === 'ai') {
-          await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
-        }
-        
-        const wallet = await walletManager.getActiveWallet(dbUserId);
-
-        if (!wallet) {
-          await ctx.reply('❌ No wallet found. Use /create_wallet first.');
-          return;
-        }
-
-        await ctx.reply(`🔄 Executing swap: ${tokenAmount} Token → SOL...`);
-
-        const keypair = await walletManager.getKeypair(wallet.id);
-        const decimals = await jupiterService.getTokenDecimals(tokenMint);
-        const amountInSmallestUnit = Math.floor(tokenAmount * Math.pow(10, decimals));
-
-        const balanceBefore = await walletManager.getBalance(wallet.publicKey);
-
-        const signature = await jupiterService.swap(
-          keypair,
-          tokenMint,
-          NATIVE_SOL_MINT,
-          amountInSmallestUnit,
-          settings.slippageBps
-        );
-
-        const balanceAfter = await walletManager.getBalance(wallet.publicKey);
-        const solReceived = balanceAfter - balanceBefore;
-        const feeAmount = feeService.calculateFee(solReceived > 0 ? solReceived : 0);
-        
-        const feeWallet = feeService.getFeeWallet();
-        let feeTransferSuccess = false;
-        if (feeWallet && feeAmount > 0 && balanceAfter > feeAmount) {
-          try {
-            await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-            feeTransferSuccess = true;
-          } catch (feeError) {
-            console.error('Fee transfer failed:', feeError);
-            await ctx.reply(`⚠️ Swap completed but fee collection failed. Please contact support. Tx: ${signature}`);
-          }
-        } else {
-          feeTransferSuccess = true;
-        }
-
-        const txResult = await query(
-          `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
-           VALUES ($1, $2, 'sell', $3, $4, $5, $6, $7, 'confirmed')
-           RETURNING id`,
-          [wallet.id, dbUserId, signature, tokenMint, NATIVE_SOL_MINT, tokenAmount, feeTransferSuccess ? feeAmount : 0]
-        );
-
-        if (feeTransferSuccess && feeAmount > 0) {
-          await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-          await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
-        }
-
-        await ctx.reply(
-          `✅ *Swap Successful!*\n\n` +
-          `💰 Amount: ${tokenAmount} tokens\n` +
-          `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
-          `📝 Signature: \`${signature}\`\n\n` +
-          `🔗 View: https://solscan.io/tx/${signature}?cluster=${process.env.SOLANA_NETWORK}`,
-          { parse_mode: 'Markdown', reply_markup: getMainMenu() }
-        );
-      } catch (error: any) {
-        console.error('Sell error:', error);
-        await ctx.reply(`❌ Swap failed: ${error.message}`);
-      }
-    } else if (state.awaitingImportSeed) {
-      userStates.delete(userId);
-
-      try {
-        await ctx.deleteMessage().catch(() => {});
-        
-        await ctx.reply('🔐 Importing wallet...');
-
-        const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
-        const dbUserId = userResult.rows[0].id;
-        const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
-
-        const result = await multiChainWalletService.importWalletFromMnemonic(
-          dbUserId,
-          currentChain,
-          text,
-          { setActive: true, replaceExisting: true }
-        );
-
-        if (result.success) {
-          await ctx.reply(
-            `✅ *Wallet Imported Successfully!*\n\n` +
-            `*Chain:* ${currentChain.toUpperCase()}\n` +
-            `*Address:*\n\`${result.publicKey}\`\n\n` +
-            `Your wallet is now active and ready to use!`,
-            { parse_mode: 'Markdown', reply_markup: getMainMenu(currentChain) }
-          );
-        } else {
-          await ctx.reply(
-            `❌ *Import Failed*\n\n${result.error || 'Unknown error occurred'}\n\n` +
-            `Please try again with a valid seed phrase.`,
-            { parse_mode: 'Markdown' }
-          );
-        }
-      } catch (error: any) {
-        console.error('Wallet import error:', error);
-        await ctx.reply(`❌ Import failed. Please try again.`);
-      }
-    } else if (state.awaitingWatchlistToken) {
-      userStates.delete(userId);
-
-      try {
-        await ctx.reply('🔍 Adding token to watchlist...');
-
-        const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
-        const dbUserId = userResult.rows[0].id;
-        const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
-
-        const result = await watchlistService.addToken(dbUserId, currentChain, text);
-
-        if (result.success && result.token) {
-          const tokenDisplay = result.token.tokenName 
-            ? `${result.token.tokenName} (${result.token.tokenSymbol || 'TOKEN'})` 
-            : result.token.tokenAddress.substring(0, 8) + '...';
-
-          await ctx.reply(
-            `✅ *Token Added to Watchlist!*\n\n` +
-            `*Token:* ${tokenDisplay}\n` +
-            `*Chain:* ${result.token.chain.toUpperCase()}\n` +
-            `*Address:*\n\`${result.token.tokenAddress}\``,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: new InlineKeyboard()
-                .text('📋 View Watchlist', 'watchlist_view_all').row()
-                .text('➕ Add Another', 'watchlist_add').row()
-                .text('🔙 Back', 'back_button')
-                .text('❌ Close', 'close_menu')
-            }
-          );
-        } else {
-          await ctx.reply(
-            `❌ *Failed to Add Token*\n\n${result.error || 'Unknown error'}\n\n` +
-            `Please try again with a valid token address or URL.`,
-            { parse_mode: 'Markdown' }
-          );
-        }
-      } catch (error: any) {
-        console.error('Watchlist add error:', error);
-        await ctx.reply(`❌ Failed to add token. Please try again.`);
-      }
-    } else if (state.awaitingSettingInput) {
-      const field = state.awaitingSettingInput;
-      const value = parseFloat(text);
-
-      userStates.delete(userId);
-
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-      if (userResult.rows.length === 0) return;
-
-      const dbUserId = userResult.rows[0].id;
-
-      const validationRules: Record<string, { min: number, max: number, message: string, transform?: (val: number) => number }> = {
-        slippage: { min: 0.1, max: 50, message: 'Slippage must be between 0.1% and 50%', transform: (val) => Math.round(val * 100) },
-        maxTradeAmount: { min: 0, max: 1000000, message: 'Max trade amount must be between 0 and 1,000,000 SOL' },
-        defaultBuyAmount: { min: 0.01, max: 1000, message: 'Default buy amount must be between 0.01 and 1,000 SOL' },
-        aiMaxTradeSize: { min: 0.1, max: 1000, message: 'AI max trade size must be between 0.1 and 1,000 SOL' },
-        aiDailyBudget: { min: 1, max: 10000, message: 'AI daily budget must be between 1 and 10,000 SOL' },
-        aiStopLossPercent: { min: 1, max: 100, message: 'Stop loss must be between 1% and 100%' }
-      };
-
-      if (isNaN(value)) {
-        await ctx.reply(`❌ Invalid input. Please enter a valid number.`);
-        return;
-      }
-
-      const validation = validationRules[field];
-      if (validation && (value < validation.min || value > validation.max)) {
-        await ctx.reply(`❌ ${validation.message}`);
-        return;
-      }
-
-      try {
-        const actualValue = validation?.transform ? validation.transform(value) : value;
-        
-        const fieldMap: Record<string, string> = {
-          slippage: 'slippageBps',
-          maxTradeAmount: 'maxTradeAmount',
-          defaultBuyAmount: 'defaultBuyAmount',
-          aiMaxTradeSize: 'aiMaxTradeSize',
-          aiDailyBudget: 'aiDailyBudget',
-          aiStopLossPercent: 'aiStopLossPercent'
-        };
-
-        const actualField = fieldMap[field] || field;
-        await userSettingsService.updateSetting(dbUserId, actualField, actualValue);
-
-        const displayValue = field === 'slippage' ? `${value}%` : 
-                           field === 'aiStopLossPercent' ? `${value}%` :
-                           `${value} SOL`;
-
-        await ctx.reply(
-          `✅ *Setting Updated!*\n\n` +
-          `Setting updated to: *${displayValue}*`,
-          { 
-            parse_mode: 'Markdown',
-            reply_markup: new InlineKeyboard()
-              .text('🔙 Back to Settings', 'menu_settings')
-              .text('🏠 Main Menu', 'menu_main')
-          }
-        );
-      } catch (error) {
-        console.error('Setting update error:', error);
-        await ctx.reply(`❌ Failed to update setting. Please try again.`);
-      }
-    }
-  });
-
-  bot.command('transfer', async (ctx) => {
-    const userId = ctx.from?.id;
-    if (!userId) return;
-
-    const dbUser = await query('SELECT id FROM users WHERE telegram_id = $1', [userId]);
-    if (dbUser.rows.length === 0) {
-      return ctx.reply('❌ Please /start the bot first.');
-    }
-
-    const args = ctx.message?.text?.split(' ').slice(1);
-    if (!args || args.length < 3) {
-      return ctx.reply(
-        `📤 *Transfer Tokens*\n\n` +
-        `Usage: \`/transfer <token_mint> <amount> <recipient>\`\n\n` +
-        `Examples:\n` +
-        `• \`/transfer SOL 0.1 @username\`\n` +
-        `• \`/transfer SOL 0.1 5Z8F...Abc123\`\n` +
-        `• \`/transfer EPj...SSq 10 @username\`\n\n` +
-        `Notes:\n` +
-        `• Use "SOL" for native Solana transfers\n` +
-        `• Recipient can be @username or wallet address\n` +
-        `• Make sure you have enough balance`,
-        { parse_mode: 'Markdown' }
-      );
-    }
-
-    try {
-      const [tokenInput, amountStr, recipientStr] = args;
-      const amount = parseFloat(amountStr);
-
-      if (isNaN(amount) || amount <= 0) {
-        return ctx.reply('❌ Invalid amount. Must be a positive number.');
-      }
-
-      const wallet = await query(
-        'SELECT * FROM wallets WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT 1',
-        [dbUser.rows[0].id]
-      );
-
-      if (wallet.rows.length === 0) {
-        return ctx.reply('❌ No active wallet found. Create one with /create_wallet');
-      }
-
-      const keypair = await walletManager.getKeypair(wallet.rows[0].encrypted_key);
-      
-      let recipientWallet: string;
-      let recipientId: number | null = null;
-
-      if (recipientStr.startsWith('@')) {
-        const username = recipientStr.substring(1);
-        const recipientUser = await query(
-          'SELECT u.id, w.public_key FROM users u JOIN wallets w ON w.user_id = u.id WHERE u.username = $1 AND w.is_active = true LIMIT 1',
-          [username]
-        );
-
-        if (recipientUser.rows.length === 0) {
-          return ctx.reply(`❌ User @${username} not found or has no wallet.`);
-        }
-
-        recipientWallet = recipientUser.rows[0].public_key;
-        recipientId = recipientUser.rows[0].id;
-      } else {
-        try {
-          new PublicKey(recipientStr);
-          recipientWallet = recipientStr;
-        } catch {
-          return ctx.reply('❌ Invalid wallet address or username.');
-        }
-      }
-
-      await ctx.reply('⏳ Processing transfer...');
-
-      let signature: string;
-
-      if (tokenInput.toUpperCase() === 'SOL') {
-        const balance = await walletManager.getBalance(wallet.rows[0].public_key);
-        if (balance < amount) {
-          return ctx.reply(`❌ Insufficient balance. You have ${balance.toFixed(4)} SOL`);
-        }
-
-        signature = await transferService.transferSOL(
-          keypair,
-          recipientWallet,
-          amount,
-          dbUser.rows[0].id,
-          recipientId
-        );
-      } else {
-        const tokenMint = tokenInput;
-        
-        signature = await transferService.transferSPLToken(
-          keypair,
-          recipientWallet,
-          tokenMint,
-          amount,
-          9,
-          dbUser.rows[0].id,
-          recipientId,
-          'TOKEN'
-        );
-      }
-
-      const recipientDisplay = recipientId ? `@${recipientStr.substring(1)}` : `${recipientWallet.slice(0, 4)}...${recipientWallet.slice(-4)}`;
-
-      await ctx.reply(
-        `✅ *Transfer Successful!*\n\n` +
-        `📤 Sent: ${amount} ${tokenInput.toUpperCase()}\n` +
-        `👤 To: ${recipientDisplay}\n` +
-        `📝 Signature: \`${signature}\`\n\n` +
-        `🔗 View: https://solscan.io/tx/${signature}?cluster=${process.env.SOLANA_NETWORK}`,
-        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
-      );
-    } catch (error: any) {
-      console.error('Transfer error:', error);
-      await ctx.reply(`❌ Transfer failed: ${error.message || 'Unknown error'}`);
     }
   });
 
