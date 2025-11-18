@@ -1,34 +1,68 @@
-import { Pool } from 'pg';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/zinochain-bot';
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
-});
+let isConnected = false;
 
-export async function query(text: string, params?: any[]) {
-  const start = Date.now();
+export async function connectDB(): Promise<void> {
+  if (isConnected) {
+    console.log('✅ Already connected to MongoDB');
+    return;
+  }
+
   try {
-    const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    console.log('Executed query', { text: text.substring(0, 50), duration, rows: res.rowCount });
-    return res;
+    const options: mongoose.ConnectOptions = {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    };
+
+    await mongoose.connect(MONGODB_URI, options);
+    
+    isConnected = true;
+    console.log('✅ Connected to MongoDB successfully');
+
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+      isConnected = false;
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.warn('⚠️ MongoDB disconnected');
+      isConnected = false;
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      console.log('✅ MongoDB reconnected');
+      isConnected = true;
+    });
+
   } catch (error) {
-    console.error('Database query error:', error);
+    console.error('❌ Failed to connect to MongoDB:', error);
+    isConnected = false;
     throw error;
   }
 }
 
-export async function getClient() {
-  const client = await pool.connect();
-  return client;
+export async function disconnectDB(): Promise<void> {
+  if (!isConnected) {
+    return;
+  }
+
+  try {
+    await mongoose.disconnect();
+    isConnected = false;
+    console.log('✅ Disconnected from MongoDB');
+  } catch (error) {
+    console.error('❌ Error disconnecting from MongoDB:', error);
+    throw error;
+  }
 }
 
-export default pool;
+export function getConnectionStatus(): boolean {
+  return isConnected;
+}
+
+export default mongoose;

@@ -28,6 +28,7 @@
     "@types/express": "^5.0.5",
     "@types/form-data": "^2.2.1",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/mongoose": "^5.11.96",
     "axios": "^1.6.7",
     "bcrypt": "^6.0.0",
     "bip39": "^3.1.0",
@@ -41,13 +42,12 @@
     "form-data": "^4.0.4",
     "grammy": "^1.21.1",
     "jsonwebtoken": "^9.0.2",
-    "node-cron": "^3.0.3",
-    "pg": "^8.11.3"
+    "mongoose": "^8.20.0",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
     "@types/node-cron": "^3.0.11",
-    "@types/pg": "^8.11.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
