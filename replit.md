@@ -3,9 +3,30 @@
 ## Overview
 Zinochain Bot is a **multi-chain** Telegram trading bot built with Node.js and TypeScript. It supports Solana, Ethereum, and Binance Smart Chain, enabling users to create wallets, trade tokens, and track their portfolio directly through Telegram.
 
-**Current Status:** Multi-chain architecture implemented
+**Current Status:** Multi-chain architecture implemented, ready for Railway deployment
 **Supported Chains:** Solana (Devnet), Ethereum (Mainnet), Binance Smart Chain (Mainnet)
-**Last Updated:** November 8, 2025
+**Deployment:** Railway.app with PostgreSQL
+**Last Updated:** November 18, 2025
+
+## 🚀 Deployment
+
+### Railway.app Setup
+This project is configured for deployment on Railway.app with PostgreSQL. Railway offers:
+- ✅ **Cost Savings:** ~$10-15/month (vs $25-50 on Replit)
+- ✅ **Auto-deployments:** Push to GitHub → Automatic redeploy
+- ✅ **PostgreSQL:** Built-in database service
+- ✅ **Monorepo Support:** All 3 services deploy from one repo
+
+**Quick Start:**
+1. Push code to GitHub (already done)
+2. Follow complete guide: `RAILWAY_DEPLOYMENT.md`
+3. Environment variables reference: `ENV_VARIABLES.md`
+
+**Deployment Files:**
+- `railway.json` - Main bot configuration
+- `admin-api/railway.json` - Admin API configuration
+- `admin-dashboard/railway.json` - Dashboard configuration
+- `.railwayignore` - Optimize build times
 
 ## Architecture
 
