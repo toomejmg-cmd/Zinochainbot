@@ -1,0 +1,75 @@
+[Region: europe-west4]
+=========================
+Using Detected Dockerfile
+=========================
+
+context: 1q3g-zd9O
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for docker.io/library/node:20-alpine
+672ms
+
+auth
+library/node:pull token for registry-1.docker.io
+0ms
+
+internal
+load .dockerignore
+0ms
+
+1
+FROM docker.io/library/node:20-alpine@sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435
+5ms
+
+internal
+load build context
+0ms
+
+2
+WORKDIR /app cached
+0ms
+
+3
+COPY package*.json ./
+286ms
+
+4
+RUN npm ci --include=dev
+998ms
+npm error code EUSAGE
+npm error
+npm error The `npm ci` command can only install with an existing package-lock.json or
+npm error npm-shrinkwrap.json with lockfileVersion >= 1. Run an install with npm@5 or
+npm error later to generate a package-lock.json file, then try again.
+npm error
+npm error Clean install a project
+npm error
+npm error Usage:
+npm error npm ci
+npm error
+npm error Options:
+npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+npm error [--no-bin-links] [--no-fund] [--dry-run]
+npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+npm error
+npm error aliases: clean-install, ic, install-clean, isntall-clean
+npm error
+npm error Run "npm help ci" for more info
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-19T16_22_13_274Z-debug-0.log
+Dockerfile:11
+-------------------
+9 |
+10 |     # Install dependencies
+11 | >>> RUN npm ci --include=dev
+12 |
+13 |     # Copy source code
+-------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c npm ci --include=dev" did not complete successfully: exit code: 1
