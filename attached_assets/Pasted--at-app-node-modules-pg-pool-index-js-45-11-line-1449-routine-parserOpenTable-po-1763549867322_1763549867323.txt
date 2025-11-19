@@ -1,0 +1,109 @@
+    at /app/node_modules/pg-pool/index.js:45:11
+  line: '1449',
+  routine: 'parserOpenTable'
+  position: '15',
+}
+  internalPosition: undefined,
+  internalQuery: undefined,
+  column: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  dataType: undefined,
+  constraint: undefined,
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  file: 'parse_relation.c',
+    at async query (/app/dist/database/db.js:22:21)
+    at async FeeService.loadSettingsFromDatabase (/app/dist/services/fees.js:12:28)
+    at async main (/app/dist/index.js:47:9) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+✅ Bot commands and callbacks registered
+✅ Bot description set successfully
+✅ Bot commands and callbacks registered
+✅ Zinochain Bot is ready!
+📱 Open Telegram and start chatting with your bot
+🤖 Bot @Zinochainbot started successfully!
+❌ Fatal error starting bot: GrammyError: Call to 'getUpdates' failed! (409: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running)
+    at toGrammyError (/app/node_modules/grammy/out/core/error.js:47:12)
+    at ApiClient.callApi (/app/node_modules/grammy/out/core/client.js:97:48)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Bot.fetchUpdates (/app/node_modules/grammy/out/bot.js:422:27)
+    at async Bot.loop (/app/node_modules/grammy/out/bot.js:393:33)
+    at async Bot.start (/app/node_modules/grammy/out/bot.js:314:9)
+    at async main (/app/dist/index.js:81:9) {
+  method: 'getUpdates',
+  payload: { offset: 1, limit: undefined, timeout: 30, allowed_updates: [] },
+  ok: false,
+  error_code: 409,
+  description: 'Conflict: terminated by other getUpdates request; make sure that only one bot instance is running',
+  parameters: {}
+}
+> zinochain-bot@1.0.0 start
+> node dist/index.js
+🚀 Starting Zinobot...
+    at /app/node_modules/pg-pool/index.js:45:11
+  position: '15',
+    at async FeeService.loadSettingsFromDatabase (/app/dist/services/fees.js:12:28)
+  internalPosition: undefined,
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+📡 Solana Network: devnet
+    at async main (/app/dist/index.js:47:9) {
+  schema: undefined,
+  internalQuery: undefined,
+    at async query (/app/dist/database/db.js:22:21)
+npm warn config production Use `--omit=dev` instead.
+🔗 RPC URL: https://api.devnet.solana.com
+  table: undefined,
+  length: 111,
+  where: undefined,
+  severity: 'ERROR',
+  column: undefined,
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+Database query error: error: relation "bot_settings" does not exist
+  file: 'parse_relation.c',
+  line: '1449',
+  routine: 'parserOpenTable'
+}
+✅ Bot commands and callbacks registered
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1449',
+  routine: 'parserOpenTable'
+}
+⚙️  Bot settings loaded from database
+Error loading fee settings from database: error: relation "bot_settings" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async query (/app/dist/database/db.js:22:21)
+    at async FeeService.loadSettingsFromDatabase (/app/dist/services/fees.js:12:28)
+    at async main (/app/dist/index.js:47:9) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '15',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+✅ Bot description set successfully
+✅ Bot commands and callbacks registered
+✅ Zinochain Bot is ready!
+📱 Open Telegram and start chatting with your bot
+🤖 Bot @Zinochainbot started successfully!
+
+
+Zinochainbot | Railway
+10
