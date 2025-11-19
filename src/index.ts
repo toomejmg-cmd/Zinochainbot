@@ -91,10 +91,12 @@ Tap /start to begin or /help for commands!`;
     console.log('✅ Zinochain Bot is ready!');
     console.log('📱 Open Telegram and start chatting with your bot\n');
 
+    // Start bot with long-polling (no HTTP server needed for Railway worker)
     await bot.start({
       drop_pending_updates: true,
       onStart: (botInfo) => {
         console.log(`🤖 Bot @${botInfo.username} started successfully!`);
+        console.log(`🔄 Running in polling mode (Railway worker service)`);
       }
     });
   } catch (error) {

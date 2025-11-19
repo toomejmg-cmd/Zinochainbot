@@ -63,9 +63,17 @@ channel = "stable-25_05"
 packages = ["imagemagick", "ffmpeg"]
 
 [[ports]]
+localPort = 3000
+externalPort = 3001
+
+[[ports]]
 localPort = 3001
 externalPort = 80
 
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[[ports]]
+localPort = 46141
+externalPort = 3000

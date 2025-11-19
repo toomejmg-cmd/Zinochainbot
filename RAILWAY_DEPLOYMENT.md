@@ -2,12 +2,14 @@
 
 Deploy your multi-chain Telegram trading bot to Railway.app with PostgreSQL in under 30 minutes.
 
+> **💰 Cost Savings:** ~$25-50/month on Replit → ~$5-10/month on Railway
+
 ---
 
 ## 📋 Prerequisites
 
 - ✅ GitHub account with your Zinochain Bot repository pushed
-- ✅ Railway account (sign up at https://railway.app)
+- ✅ Railway account (sign up at https://railway.app - free $5 credit)
 - ✅ Telegram Bot Token from @BotFather
 - ✅ API keys (Encryption key, Session secret, etc.)
 
@@ -15,338 +17,398 @@ Deploy your multi-chain Telegram trading bot to Railway.app with PostgreSQL in u
 
 ## 🎯 Architecture Overview
 
-Your project has **3 services** that need to be deployed:
+Your project has **3 services + 1 database** deployed from a **monorepo**:
 
-1. **Zinochain Bot** (Main Telegram bot) - Root directory
-2. **Admin API** (Backend API) - `/admin-api` directory
-3. **Admin Dashboard** (Frontend UI) - `/admin-dashboard` directory
-4. **PostgreSQL Database** (Shared by all services)
+| Service | Directory | Purpose | Port |
+|---------|-----------|---------|------|
+| **Zinochain Bot** | `/` (root) | Main Telegram bot | N/A |
+| **Admin API** | `/admin-api` | Backend REST API | Railway assigns |
+| **Admin Dashboard** | `/admin-dashboard` | Web UI for admins | Railway assigns |
+| **PostgreSQL** | N/A | Shared database | 5432 |
+
+**Important:** All 3 services deploy from the **same GitHub repository** using different root directories.
 
 ---
 
 ## 🚀 Step-by-Step Deployment
 
-### **Step 1: Create Railway Project**
+### **Step 1: Create Railway Project & Database**
 
 1. Go to https://railway.app/dashboard
 2. Click **"New Project"**
-3. Select **"Deploy from GitHub repo"**
-4. Authenticate with GitHub
-5. Select your **`zinochain-bot`** repository
-6. Railway will auto-detect it's a Node.js monorepo
-
----
-
-### **Step 2: Add PostgreSQL Database**
-
-1. In your Railway project dashboard, click **"+ New"**
-2. Select **"Database"** → **"Add PostgreSQL"**
-3. Wait 30 seconds for provisioning
-4. Railway automatically creates a `DATABASE_URL` variable
+3. Select **"Provision PostgreSQL"**
+4. Wait 30 seconds for provisioning
+5. Railway automatically creates these variables:
+   - `DATABASE_URL` (full connection string)
+   - `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
 
 ✅ **Done!** Your PostgreSQL instance is ready.
 
 ---
 
-### **Step 3: Deploy Service 1 - Main Bot**
+### **Step 2: Deploy Service 1 - Main Bot**
 
-1. Click **"+ New"** → **"GitHub Repo"** → Select your repo
-2. Railway will create a service automatically
-3. **Configure the service:**
-   - **Name:** `Zinochain Bot`
-   - **Root Directory:** Leave blank (uses root)
-   - **Build Command:** `npm install && npm run build`
-   - **Start Command:** `node dist/index.js`
-   - **Watch Paths:** `/src/**` (prevents unnecessary rebuilds)
+#### A. Create Service
+1. In your project, click **"+ New"**
+2. Select **"GitHub Repo"**
+3. Authenticate and select your **`zinochain-bot`** repository
+4. Railway creates a service named after your repo
 
-4. **Add Environment Variables:**
-   Click **Variables** tab and add:
-   ```
-   DATABASE_URL=${{Postgres.DATABASE_URL}}
-   TELEGRAM_BOT_TOKEN=<your_bot_token>
-   ENCRYPTION_KEY=<32_character_random_string>
-   SESSION_SECRET=<32_character_random_string>
-   SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-   SOLANA_NETWORK=mainnet-beta
-   ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
-   BSC_RPC_URL=https://bsc-dataseed.binance.org
-   NODE_ENV=production
-   ```
+#### B. Configure Service Settings
+1. Click on the service → **Settings** tab
+2. **Service Name:** `Zinochain Bot`
+3. **Root Directory:** Leave blank (uses root `/`)
+4. Scroll to **Deploy** section
+5. **Custom Build Command:** `npm install && npm run build`
+6. **Custom Start Command:** `node dist/index.js`
 
-   **Note:** `${{Postgres.DATABASE_URL}}` is a Railway reference variable that auto-links to your database.
-
-5. Click **"Deploy"** and wait for build to complete
-
----
-
-### **Step 4: Deploy Service 2 - Admin API**
-
-1. Click **"+ New"** → **"Empty Service"**
-2. Connect to your GitHub repo
-3. **Configure the service:**
-   - **Name:** `Admin API`
-   - **Root Directory:** `/admin-api`
-   - **Build Command:** `npm install && npm run build`
-   - **Start Command:** `node dist/index.js`
-   - **Watch Paths:** `/admin-api/**`
-
-4. **Add Environment Variables:**
-   ```
-   DATABASE_URL=${{Postgres.DATABASE_URL}}
-   SESSION_SECRET=${{Zinochain Bot.SESSION_SECRET}}
-   ENCRYPTION_KEY=${{Zinochain Bot.ENCRYPTION_KEY}}
-   NODE_ENV=production
-   PORT=5000
-   ```
-
-5. **Generate Public Domain:**
-   - Go to **Settings** → **Networking**
-   - Click **"Generate Domain"**
-   - Copy the URL (e.g., `admin-api-production-abc123.up.railway.app`)
-
-6. Click **"Deploy"**
-
----
-
-### **Step 5: Deploy Service 3 - Admin Dashboard**
-
-1. Click **"+ New"** → **"Empty Service"**
-2. Connect to your GitHub repo
-3. **Configure the service:**
-   - **Name:** `Admin Dashboard`
-   - **Root Directory:** `/admin-dashboard`
-   - **Build Command:** `npm install`
-   - **Start Command:** `node server.js`
-   - **Watch Paths:** `/admin-dashboard/**`
-
-4. **Add Environment Variables:**
-   ```
-   ADMIN_API_URL=${{Admin API.RAILWAY_PUBLIC_DOMAIN}}
-   NODE_ENV=production
-   PORT=3000
-   ```
-
-5. **Generate Public Domain:**
-   - Go to **Settings** → **Networking**
-   - Click **"Generate Domain"**
-   - Save this URL for accessing your admin panel
-
-6. Click **"Deploy"**
-
----
-
-### **Step 6: Initialize Database**
-
-Your database is empty on first deploy. You need to run migrations:
-
-1. **Install Railway CLI:**
-   ```bash
-   npm install -g @railway/cli
-   ```
-
-2. **Login and link to your project:**
-   ```bash
-   railway login
-   railway link
-   ```
-
-3. **Select your Zinochain Bot service**
-
-4. **Run database migrations:**
-   ```bash
-   railway run npm run db:init
-   ```
-
-   This will create all tables (users, wallets, transactions, etc.)
-
----
-
-### **Step 7: Create Admin User**
-
-Create your first admin account:
+#### C. Add Environment Variables
+Click **Variables** tab and add these:
 
 ```bash
-railway run --service "Admin API" npm run create-admin
+# Database (Reference to PostgreSQL service)
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=<your_telegram_bot_token_from_botfather>
+
+# Security Keys (Generate 32+ character random strings)
+ENCRYPTION_KEY=<generate_random_32_char_string>
+SESSION_SECRET=<generate_random_32_char_string>
+
+# Blockchain RPC URLs
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+SOLANA_NETWORK=mainnet-beta
+ETHEREUM_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+BSC_RPC_URL=https://bsc-dataseed.binance.org
+
+# Environment
+NODE_ENV=production
 ```
 
-Follow the prompts to set username and password.
+**💡 Tips:**
+- `${{Postgres.DATABASE_URL}}` auto-links to your database
+- Generate secure random strings for `ENCRYPTION_KEY` and `SESSION_SECRET`
+- Get free Alchemy API key at https://www.alchemy.com
+
+#### D. Deploy
+Click **"Deploy"** button (top right) and wait 2-3 minutes for build.
 
 ---
 
-## ✅ Verify Deployment
+### **Step 3: Deploy Service 2 - Admin API**
 
-### **Test Main Bot**
-1. Open Telegram
-2. Search for `@Zinochainbot`
-3. Send `/start`
-4. Expected: Welcome message with command buttons
+#### A. Create Service
+1. Click **"+ New"** → **"GitHub Repo"**
+2. Select your **same repository** again
+3. Railway creates another service
 
-### **Test Admin Dashboard**
-1. Visit your Admin Dashboard URL
-2. Login with admin credentials
-3. Expected: Dashboard showing 0 users, 0 transactions
+#### B. Configure Service Settings
+1. **Service Name:** `Admin API`
+2. **Root Directory:** `admin-api`
+3. **Custom Build Command:** `cd admin-api && npm install && npm run build`
+4. **Custom Start Command:** `cd admin-api && node dist/index.js`
+5. **Watch Paths:** `admin-api/**`
 
----
+#### C. Add Environment Variables
+```bash
+# Database
+DATABASE_URL=${{Postgres.DATABASE_URL}}
 
-## 🔧 Environment Variables Reference
+# Security (Reuse from main bot)
+SESSION_SECRET=${{Zinochain Bot.SESSION_SECRET}}
+ENCRYPTION_KEY=${{Zinochain Bot.ENCRYPTION_KEY}}
 
-### **Required for All Services**
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | Auto-provided by Railway |
-| `NODE_ENV` | Environment mode | `production` |
+# Environment
+NODE_ENV=production
+```
 
-### **Main Bot Only**
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather | `1234567890:ABCdefGHI...` |
-| `ENCRYPTION_KEY` | 32+ char key for wallet encryption | Generate with `openssl rand -hex 32` |
-| `SESSION_SECRET` | 32+ char key for sessions | Generate with `openssl rand -hex 32` |
-| `SOLANA_RPC_URL` | Solana RPC endpoint | `https://api.mainnet-beta.solana.com` |
-| `ETHEREUM_RPC_URL` | Ethereum RPC endpoint | Use Alchemy/Infura |
-| `BSC_RPC_URL` | BSC RPC endpoint | `https://bsc-dataseed.binance.org` |
+**Note:** Railway automatically provides `PORT` variable - do not set it manually!
 
-### **Admin API Only**
-| Variable | Description |
-|----------|-------------|
-| `PORT` | API server port (Railway sets automatically) |
+#### D. Generate Public Domain
+1. Go to **Settings** → **Networking** tab
+2. Click **"Generate Domain"**
+3. Copy the URL (e.g., `admin-api-production-abc123.up.railway.app`)
+4. **Save this URL** - you'll need it for Step 4!
 
-### **Admin Dashboard Only**
-| Variable | Description |
-|----------|-------------|
-| `ADMIN_API_URL` | URL of Admin API service |
-| `PORT` | Dashboard server port |
+#### E. Deploy
+Click **"Deploy"** and wait for build to complete.
 
 ---
 
-## 🔄 Auto-Deployments
+### **Step 4: Deploy Service 3 - Admin Dashboard**
 
-Railway automatically redeploys when you push to GitHub:
+#### A. Create Service
+1. Click **"+ New"** → **"GitHub Repo"**
+2. Select your **same repository** again (3rd time)
+3. Railway creates another service
 
-1. Make code changes locally
-2. Commit and push to GitHub:
+#### B. Configure Service Settings
+1. **Service Name:** `Admin Dashboard`
+2. **Root Directory:** `admin-dashboard`
+3. **Custom Build Command:** `cd admin-dashboard && npm install`
+4. **Custom Start Command:** `cd admin-dashboard && node server.js`
+5. **Watch Paths:** `admin-dashboard/**`
+
+#### C. Add Environment Variables
+```bash
+# Link to Admin API (Use the URL you copied in Step 3D)
+ADMIN_API_URL=https://admin-api-production-abc123.up.railway.app
+
+# Environment
+NODE_ENV=production
+```
+
+**⚠️ Critical:** Replace `admin-api-production-abc123.up.railway.app` with your actual Admin API domain from Step 3D!
+
+#### D. Generate Public Domain
+1. Go to **Settings** → **Networking**
+2. Click **"Generate Domain"**
+3. This is your admin dashboard URL - bookmark it!
+
+#### E. Deploy
+Click **"Deploy"** button.
+
+---
+
+### **Step 5: Create Admin User**
+
+Your admin dashboard needs login credentials. Create an admin user:
+
+#### Option A: Using Railway CLI
+```bash
+# Install Railway CLI
+npm i -g @railway/cli
+
+# Login to Railway
+railway login
+
+# Link to your Admin API service
+railway link
+
+# Run create-admin script
+railway run npm run create-admin
+```
+
+#### Option B: Using Railway Console
+1. Go to your **Admin API** service
+2. Click **Deployments** → Latest deployment → **View Logs**
+3. Click **"Terminal"** icon (console access)
+4. Run: `npm run create-admin`
+5. Enter username, password when prompted
+
+---
+
+## ✅ Verification Checklist
+
+Test your deployment:
+
+### 1. **PostgreSQL Database**
+```bash
+# In any service terminal
+railway run node -e "const {Pool}=require('pg');const pool=new Pool();pool.query('SELECT NOW()').then(r=>console.log(r.rows))"
+```
+Expected: Current timestamp
+
+### 2. **Main Bot**
+- Open Telegram and message your bot
+- Send `/start` command
+- Should receive welcome message
+- Check Railway logs for connection confirmations
+
+### 3. **Admin API**
+```bash
+curl https://your-admin-api-url.up.railway.app/health
+```
+Expected: `{"status":"ok","timestamp":"..."}`
+
+### 4. **Admin Dashboard**
+- Open your dashboard URL in browser
+- Should see login page
+- Login with credentials from Step 5
+- Should see admin panel with statistics
+
+---
+
+## 🔧 Common Issues & Fixes
+
+### ❌ Issue: "Cannot find module"
+**Solution:** Check `buildCommand` includes `cd <directory> &&` prefix for monorepo services
+
+### ❌ Issue: Admin Dashboard can't connect to API
+**Solution:** 
+1. Verify `ADMIN_API_URL` in Dashboard service
+2. Check Admin API has public domain generated
+3. Ensure Admin API is running (check logs)
+
+### ❌ Issue: Database connection errors
+**Solution:**
+1. Verify all services have `DATABASE_URL=${{Postgres.DATABASE_URL}}`
+2. Check PostgreSQL service is running
+3. Ensure no hardcoded database credentials
+
+### ❌ Issue: Bot not responding in Telegram
+**Solution:**
+1. Check `TELEGRAM_BOT_TOKEN` is correct
+2. Verify bot service is running (green status)
+3. Check logs for errors: `Error: 401 Unauthorized` = wrong token
+
+### ❌ Issue: Build fails with TypeScript errors
+**Solution:**
+1. Verify `buildCommand` includes `npm run build`
+2. Check local build works: `npm install && npm run build`
+3. Ensure `tsconfig.json` exists in service directory
+
+### ❌ Issue: Services keep restarting
+**Solution:**
+1. Check logs for crash errors
+2. Verify `PORT` is not hardcoded (Railway assigns it automatically)
+3. Ensure all required environment variables are set
+
+---
+
+## 📊 Cost Breakdown
+
+### Railway Pricing (Pay-as-you-go)
+
+| Resource | Usage | Cost |
+|----------|-------|------|
+| **PostgreSQL** | 500MB storage | $0/month (included) |
+| **Zinochain Bot** | ~100MB RAM | ~$2/month |
+| **Admin API** | ~100MB RAM | ~$2/month |
+| **Admin Dashboard** | ~100MB RAM | ~$2/month |
+| **Network** | 100GB/month | Included |
+| **Total** | | **~$6/month** |
+
+**💰 Savings:** ~$19-44/month vs Replit
+
+**Free Tier:**
+- Railway gives $5 free credit/month
+- First month ~$1 out of pocket
+- Cancel anytime, no minimum commitment
+
+---
+
+## 🔐 Security Best Practices
+
+1. **Never commit secrets** to GitHub
+   - All secrets are in Railway environment variables
+   - Add `.env` to `.gitignore` (already done)
+
+2. **Use strong encryption keys**
+   ```bash
+   # Generate secure 32-character keys
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+3. **Enable Railway's Private Networking**
+   - Admin API <-> Bot communication can use internal URLs
+   - Reduces exposure to internet
+
+4. **Use environment-specific RPC URLs**
+   - Development: Free public RPCs
+   - Production: Paid providers (Alchemy, Infura) for reliability
+
+---
+
+## 🚀 Production Optimizations
+
+### 1. Use Private Networking
+Instead of public URLs, use Railway's internal networking:
+
+**Admin Dashboard** `.env`:
+```bash
+# Use internal URL (no internet traffic)
+ADMIN_API_URL=${{Admin API.RAILWAY_PRIVATE_DOMAIN}}
+```
+
+### 2. Set Resource Limits
+In each service **Settings** → **Resources**:
+- **CPU:** 0.5 vCPU
+- **Memory:** 512MB
+Prevents runaway costs.
+
+### 3. Enable Auto-scaling (Pro Plan)
+For production traffic, enable replicas in **Settings**.
+
+### 4. Add Custom Domain
+**Settings** → **Networking** → **Custom Domain**:
+- Admin Dashboard: `admin.yourdomain.com`
+- Admin API: `api.yourdomain.com`
+
+### 5. Set Up Monitoring
+Use Railway's built-in metrics:
+- CPU/Memory usage graphs
+- Deployment history
+- Crash alerts
+
+---
+
+## 📚 Useful Railway Commands
+
+```bash
+# Install CLI
+npm i -g @railway/cli
+
+# Login
+railway login
+
+# Link to project
+railway link
+
+# View logs
+railway logs
+
+# Run commands in production
+railway run <command>
+
+# Open service in browser
+railway open
+
+# SSH into container
+railway shell
+```
+
+---
+
+## 🔄 Update Deployment
+
+When you push to GitHub, Railway auto-deploys:
+
+1. Commit and push changes:
    ```bash
    git add .
-   git commit -m "Update feature"
+   git commit -m "Update bot features"
    git push origin main
    ```
-3. Railway detects changes and redeploys automatically
-4. Wait 2-3 minutes for deployment
+
+2. Railway detects changes and rebuilds automatically
+3. Watch deployment in Railway dashboard
+
+**Manual Deploy:**
+- Click service → **Deployments** → **Deploy**
 
 ---
 
-## 📊 Monitoring & Logs
-
-### **View Logs**
-1. Click on any service in Railway dashboard
-2. Go to **"Deployments"** tab
-3. Click latest deployment
-4. View real-time logs
-
-### **Check Database**
-1. Click on **Postgres** service
-2. Go to **"Data"** tab
-3. Browse tables and run SQL queries
-
-### **Metrics**
-- Railway provides CPU, Memory, and Network usage graphs
-- Check **"Metrics"** tab in each service
-
----
-
-## 💰 Cost Estimate
-
-Railway pricing (as of 2025):
-
-| Resource | Free Tier | Paid Plan |
-|----------|-----------|-----------|
-| **Compute** | $5 free credit/month | ~$0.000231/GB-hour |
-| **PostgreSQL** | 512MB RAM, 1GB storage | ~$5-10/month |
-| **Total** | ~Free for small bots | ~$10-15/month |
-
-**Compared to Replit:** Save ~$15-40/month! 💰
-
----
-
-## 🐛 Troubleshooting
-
-### **Bot doesn't respond to /start**
-1. Check logs for errors
-2. Verify `TELEGRAM_BOT_TOKEN` is correct
-3. Ensure database migrations ran successfully
-4. Check `DATABASE_URL` is properly linked
-
-### **Admin Dashboard shows 404**
-1. Verify `ADMIN_API_URL` variable is set
-2. Check Admin API is deployed and running
-3. Make sure public domain is generated for Admin API
-
-### **Database connection errors**
-1. Verify all services use `${{Postgres.DATABASE_URL}}`
-2. Make sure PostgreSQL service is running
-3. Check Railway service is in the same project
-
-### **Build fails**
-1. Check build logs in Deployments tab
-2. Verify `package.json` has correct scripts
-3. Make sure `typescript` is in devDependencies
-4. Try redeploying manually
-
----
-
-## 📝 Post-Deployment Checklist
-
-- [ ] All 3 services deployed successfully
-- [ ] PostgreSQL database running
-- [ ] Database migrations completed
-- [ ] Admin user created
-- [ ] Bot responds to `/start` in Telegram
-- [ ] Admin dashboard accessible
-- [ ] Environment variables configured
-- [ ] Auto-deployment working on git push
-
----
-
-## 🚀 Next Steps
-
-1. **Configure Bot Settings:**
-   - Set trading fees in Admin Dashboard
-   - Configure RPC endpoints
-   - Set withdrawal limits
-
-2. **Test Trading:**
-   - Create wallet: `/create_wallet`
-   - Fund with SOL/ETH/BNB
-   - Test token swaps
-
-3. **Enable Mainnet:**
-   - Update `SOLANA_NETWORK` to `mainnet-beta`
-   - Switch RPC URLs to mainnet
-   - Redeploy services
-
-4. **Custom Domain (Optional):**
-   - Go to Settings → Networking
-   - Add custom domain for Admin Dashboard
-   - Update DNS records
-
----
-
-## 📚 Helpful Links
+## 🆘 Support & Resources
 
 - **Railway Docs:** https://docs.railway.app
-- **Railway CLI:** https://docs.railway.app/develop/cli
-- **PostgreSQL Guide:** https://docs.railway.app/guides/postgresql
-- **Monorepo Deployment:** https://docs.railway.app/guides/monorepo
-- **Support:** https://help.railway.app
+- **Railway Discord:** https://discord.gg/railway
+- **Railway Status:** https://status.railway.app
+- **This Bot's Repo:** Your GitHub repo URL
 
 ---
 
-## 🎉 Congratulations!
+## 📝 Environment Variables Reference
 
-Your Zinochain Bot is now live on Railway with PostgreSQL! 
+See [`ENV_VARIABLES.md`](./ENV_VARIABLES.md) for complete list of all environment variables with descriptions.
 
-**Total Setup Time:** ~30 minutes  
-**Monthly Cost:** ~$10-15 (vs $25-50 on Replit)  
-**Savings:** ~$180-480/year 💰
+---
 
-Need help? Check the troubleshooting section or Railway docs!
+**🎉 Congratulations!** Your Zinochain Bot is now live on Railway with significant cost savings!
+
+**Next Steps:**
+1. Test all features (wallet creation, swaps, transfers)
+2. Monitor logs for errors
+3. Set up alerting for critical issues
+4. Share your bot with users!
