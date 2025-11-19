@@ -1,0 +1,112 @@
+I have been trying to deploy on railway but i'm experiencing difficulties. This is the deployment log from railway:
+  code: '3D000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'postinit.c',
+  line: '1032',
+  routine: 'InitPostgres'
+}
+Error loading fee settings from database: error: database "railway " does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/node_modules/grammy/out/composer.js:57:9 {
+  length: 94,
+  severity: 'FATAL',
+  code: '3D000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  constraint: undefined,
+    at async query (/app/dist/database/db.js:22:21)
+    at async /app/dist/bot/commandsNew.js:132:24
+Database query error: error: database "railway " does not exist
+    at async /app/node_modules/grammy/out/composer.js:578:13
+    at async /app/node_modules/grammy/out/composer.js:62:13
+    at /app/node_modules/pg-pool/index.js:45:11
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9
+      at async /app/node_modules/grammy/out/composer.js:578:13
+      at async /app/node_modules/grammy/out/composer.js:62:13
+  file: 'postinit.c',
+  line: '1032',
+  routine: 'InitPostgres'
+}
+❌ Bot error: error: database "railway " does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async query (/app/dist/database/db.js:22:21)
+    at async /app/dist/bot/commandsNew.js:132:24
+    at async /app/node_modules/grammy/out/composer.js:578:13
+    at async /app/node_modules/grammy/out/composer.js:62:13
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9 {
+  error: error: database "railway " does not exist
+      at /app/node_modules/pg-pool/index.js:45:11
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async query (/app/dist/database/db.js:22:21)
+      at async /app/dist/bot/commandsNew.js:132:24
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    code: '3D000',
+    table: undefined,
+    detail: undefined,
+    column: undefined,
+    hint: undefined,
+    position: undefined,
+      at async /app/node_modules/grammy/out/composer.js:57:9
+      at async /app/node_modules/grammy/out/composer.js:57:9
+      at async /app/node_modules/grammy/out/composer.js:57:9
+      at async /app/node_modules/grammy/out/composer.js:57:9 {
+    length: 94,
+    severity: 'FATAL',
+    dataType: undefined,
+    constraint: undefined,
+    file: 'postinit.c',
+    line: '1032',
+    routine: 'InitPostgres'
+  },
+  ctx: Context {
+    update: { update_id: 449172520, message: [Object] },
+    api: Api {
+      token: '7649715891:AAEgzhnuRKRxP4jyGysRN0rr7tjYRkSERo4',
+      options: undefined,
+      raw: {},
+      config: [Object]
+    },
+    me: {
+      id: 7649715891,
+      is_bot: true,
+      first_name: 'Zinochain Bot',
+      username: 'Zinochainbot',
+      can_join_groups: true,
+      can_read_all_group_messages: false,
+      supports_inline_queries: false,
+      can_connect_to_business: false,
+      has_main_web_app: false
+    },
+    match: ''
+  },
+  name: 'BotError'
+}
