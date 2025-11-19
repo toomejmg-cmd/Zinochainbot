@@ -13,11 +13,26 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "Zinobot"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "Admin API"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Admin Dashboard"
+
+[[workflows.workflow]]
+name = "Zinobot"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[workflows.workflow]]
 name = "Admin API"
