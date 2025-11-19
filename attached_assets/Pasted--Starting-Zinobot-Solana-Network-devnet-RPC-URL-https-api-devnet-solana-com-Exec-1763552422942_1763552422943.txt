@@ -1,0 +1,112 @@
+
+🚀 Starting Zinobot...
+📡 Solana Network: devnet
+🔗 RPC URL: https://api.devnet.solana.com
+Executed query {
+  text: 'SELECT * FROM bot_settings ORDER BY id DESC LIMIT ',
+  duration: 193,
+  rows: 1
+}
+⚙️  Bot settings loaded from database
+✅ Bot commands and callbacks registered
+✅ Bot description set successfully
+✅ Bot commands and callbacks registered
+✅ Zinochain Bot is ready!
+📱 Open Telegram and start chatting with your bot
+🤖 Bot @Zinochainbot started successfully!
+Database query error: error: column "onboarding_completed" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async query (/app/dist/database/db.js:22:21)
+    at async /app/dist/bot/commandsNew.js:132:24
+    at async /app/node_modules/grammy/out/composer.js:578:13
+    at async /app/node_modules/grammy/out/composer.js:62:13
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9
+    at async /app/node_modules/grammy/out/composer.js:57:9 {
+  length: 121,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '212',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+    at async query (/app/dist/database/db.js:22:21)
+      at async /app/node_modules/grammy/out/composer.js:62:13
+    at async /app/dist/bot/commandsNew.js:132:24
+    at async /app/node_modules/grammy/out/composer.js:578:13
+    at async /app/node_modules/grammy/out/composer.js:62:13
+    at async /app/node_modules/grammy/out/composer.js:57:9
+  file: 'parse_relation.c',
+  line: '3716',
+    at async /app/node_modules/grammy/out/composer.js:57:9
+  routine: 'errorMissingColumn'
+    at async /app/node_modules/grammy/out/composer.js:57:9
+}
+    at async /app/node_modules/grammy/out/composer.js:57:9 {
+❌ Bot error: error: column "onboarding_completed" does not exist
+  error: error: column "onboarding_completed" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+      at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+      at async query (/app/dist/database/db.js:22:21)
+      at async /app/dist/bot/commandsNew.js:132:24
+      at async /app/node_modules/grammy/out/composer.js:578:13
+      at async /app/node_modules/grammy/out/composer.js:57:9
+      at async /app/node_modules/grammy/out/composer.js:57:9
+      at async /app/node_modules/grammy/out/composer.js:57:9
+      at async /app/node_modules/grammy/out/composer.js:57:9 {
+    length: 121,
+    severity: 'ERROR',
+    code: '42703',
+    detail: undefined,
+    hint: undefined,
+    position: '212',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '3716',
+    routine: 'errorMissingColumn'
+  },
+  ctx: Context {
+    update: { update_id: 449172521, message: [Object] },
+    api: Api {
+      token: '7649715891:AAEgzhnuRKRxP4jyGysRN0rr7tjYRkSERo4',
+      options: undefined,
+      raw: {},
+}
+      config: [Object]
+    },
+    me: {
+      id: 7649715891,
+      is_bot: true,
+      first_name: 'Zinochain Bot',
+      username: 'Zinochainbot',
+      can_join_groups: true,
+      can_read_all_group_messages: false,
+      supports_inline_queries: false,
+      can_connect_to_business: false,
+      has_main_web_app: false
+    },
+    match: ''
+  },
+  name: 'BotError'
+
+
+Zinochainbot | Railway
+12:15pm
