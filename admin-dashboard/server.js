@@ -46,6 +46,7 @@ app.all('/api/*', async (req, res) => {
   }
 
   try {
+    console.log(`[Proxy] Forwarding ${req.method} ${req.originalUrl} to ${apiUrl}`);
     const apiResponse = await fetch(apiUrl, options);
     const responseContentType = apiResponse.headers.get('content-type');
     
@@ -66,8 +67,9 @@ app.all('/api/*', async (req, res) => {
     const text = await apiResponse.text();
     res.status(apiResponse.status).send(text);
   } catch (error) {
-    console.error('[API Proxy Error]', error.message);
-    res.status(500).json({ error: 'API connection failed', details: error.message });
+    console.error('[API Proxy Error]', `Failed to connect to ${apiUrl}:`, error.message);
+    console.error('[API Proxy Error] Stack:', error.stack);
+    res.status(500).json({ error: 'API connection failed', details: error.message, targetUrl: apiUrl });
   }
 });
 
