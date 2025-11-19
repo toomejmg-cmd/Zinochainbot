@@ -1,0 +1,13 @@
+[build]
+builder = "NIXPACKS"
+
+[build.nixpacksPlan.phases.install]
+cmds = ["cd admin-api && npm install --include=dev"]
+
+[build.nixpacksPlan.phases.build]
+cmds = ["cd admin-api && npm run build"]
+
+[deploy]
+startCommand = "cd admin-api && node dist/index.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
