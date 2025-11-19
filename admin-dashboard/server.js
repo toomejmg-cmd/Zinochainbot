@@ -9,6 +9,15 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // Get API URL from environment (Railway internal URL or localhost)
 const API_URL = process.env.ADMIN_API_URL || 'http://localhost:3001';
 
+// DEBUG: Print all environment info at startup
+console.log('=== RAILWAY DEBUG INFO ===');
+console.log('Current Working Directory:', process.cwd());
+console.log('Script Directory:', __dirname);
+console.log('ADMIN_API_URL from env:', process.env.ADMIN_API_URL);
+console.log('Using API_URL:', API_URL);
+console.log('All Environment Variables:', Object.keys(process.env).filter(k => k.includes('ADMIN') || k.includes('API') || k.includes('NODE')));
+console.log('========================');
+
 // Parse JSON bodies for POST/PUT requests (only for non-multipart)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
