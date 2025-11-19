@@ -82,6 +82,18 @@ app.all('/api/*', async (req, res) => {
   }
 });
 
+// Health check with environment diagnostics
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    apiUrl: API_URL,
+    hasAdminApiUrl: !!process.env.ADMIN_API_URL,
+    adminApiUrlValue: process.env.ADMIN_API_URL || 'NOT_SET',
+    nodeEnv: process.env.NODE_ENV
+  });
+});
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
