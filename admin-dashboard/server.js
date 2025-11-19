@@ -4,14 +4,17 @@ const fetch = require('node-fetch');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.ADMIN_DASHBOARD_PORT || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10);
+
+// Get API URL from environment (Railway internal URL or localhost)
+const API_URL = process.env.ADMIN_API_URL || 'http://localhost:3001';
 
 // Parse JSON bodies for POST/PUT requests
 app.use(express.json());
 
-// Manual API Proxy - Forward all /api requests to port 3001
+// Manual API Proxy - Forward all /api requests to Admin API
 app.all('/api/*', async (req, res) => {
-  const apiUrl = `http://localhost:3001${req.originalUrl}`;
+  const apiUrl = `${API_URL}${req.originalUrl}`;
   
   const headers = {};
   if (req.headers.authorization) headers['Authorization'] = req.headers.authorization;
@@ -59,4 +62,6 @@ app.use((req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Admin Dashboard running on http://0.0.0.0:${PORT}`);
   console.log(`🔗 Access the dashboard in your browser`);
+  console.log(`🔌 API URL: ${API_URL}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

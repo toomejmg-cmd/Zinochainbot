@@ -9,9 +9,9 @@ import { errorHandler } from './middleware/errorHandler';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.ADMIN_API_PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
-// Trust proxy for Replit deployment
+// Trust proxy for Railway deployment
 app.set('trust proxy', 1);
 
 // Rate limiting
@@ -41,7 +41,8 @@ app.use('/api/admin', adminRoutes);
 // Error handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔐 Admin API running on port ${PORT}`);
   console.log(`📊 Ready to serve admin dashboard`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
