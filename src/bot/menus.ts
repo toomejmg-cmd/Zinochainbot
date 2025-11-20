@@ -63,7 +63,7 @@ export function getBackToMainMenu(): InlineKeyboard {
 
 export function getBuyMenu(): InlineKeyboard {
   return new InlineKeyboard()
-    .text('📊 Quick Buy USDC', 'buy_usdc')
+    .text('💳 Buy with Card (Moonpay)', 'buy_moonpay')
     .row()
     .text('📝 Custom Token', 'buy_custom')
     .row()

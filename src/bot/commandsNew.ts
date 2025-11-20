@@ -697,6 +697,50 @@ Choose an action below! 👇
     pushNavigation(userId, 'buy');
   });
 
+  bot.callbackQuery('buy_moonpay', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) {
+      await ctx.reply('Please use /start first.');
+      return;
+    }
+
+    const dbUserId = userResult.rows[0].id;
+    const currentChain = userResult.rows[0].current_chain || 'solana';
+
+    const wallet = await multiChainWalletService.getWallet(dbUserId, currentChain);
+    const walletAddress = wallet?.publicKey || '';
+
+    const disclaimerMessage = `⚠️ *Important Disclaimer*\n\n` +
+      `You are about to be redirected to *Moonpay*, an external third-party service.\n\n` +
+      `🔒 *Please Note:*\n` +
+      `• Moonpay is *NOT owned or affiliated* with Zinochain\n` +
+      `• Zinochain is not responsible for Moonpay's services, fees, or policies\n` +
+      `• Your transaction will be processed by Moonpay directly\n` +
+      `• All payment information is handled by Moonpay\n\n` +
+      `💡 *Your Wallet Address:*\n` +
+      `\`${walletAddress}\`\n` +
+      `_(Copy this and paste it on Moonpay when asked for your wallet address)_\n\n` +
+      `Choose which cryptocurrency you want to buy:`;
+
+    const moonpayKeyboard = new InlineKeyboard()
+      .url('💰 Buy SOL', `https://www.moonpay.com/buy/sol?walletAddress=${walletAddress}`)
+      .row()
+      .url('💵 Buy USDC', `https://www.moonpay.com/buy/usdc_sol?walletAddress=${walletAddress}`)
+      .row()
+      .text('🔙 Back to Buy Menu', 'menu_buy')
+      .text('❌ Close', 'close_menu');
+
+    await ctx.editMessageText(disclaimerMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: moonpayKeyboard
+    });
+  });
+
   bot.callbackQuery('buy_custom', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
