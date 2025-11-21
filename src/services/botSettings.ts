@@ -2,7 +2,10 @@ import { query } from '../database/db';
 
 interface BotSettings {
   id: number;
-  fee_wallet_address: string;
+  fee_wallet_address_solana: string;
+  fee_wallet_address_ethereum: string | null;
+  fee_wallet_address_bsc: string | null;
+  fee_wallet_address?: string; // Legacy support
   fee_percentage: number;
   referral_percentage: number;
   min_trade_amount: number;

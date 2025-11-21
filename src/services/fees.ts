@@ -3,6 +3,9 @@ import { query } from '../database/db';
 export interface FeeConfig {
   tradingFeeBps: number;
   feeWallet: string;
+  feeWalletSolana?: string;
+  feeWalletEthereum?: string;
+  feeWalletBsc?: string;
   referralPercentage: number;
   minTradeAmount: number;
   maxTradeAmount?: number;
@@ -25,7 +28,10 @@ export class FeeService {
         const settings = result.rows[0];
         this.config = {
           tradingFeeBps: Math.floor(parseFloat(settings.fee_percentage) * 100),
-          feeWallet: settings.fee_wallet_address,
+          feeWallet: settings.fee_wallet_address_solana || settings.fee_wallet_address || '',
+          feeWalletSolana: settings.fee_wallet_address_solana,
+          feeWalletEthereum: settings.fee_wallet_address_ethereum,
+          feeWalletBsc: settings.fee_wallet_address_bsc,
           referralPercentage: parseFloat(settings.referral_percentage),
           minTradeAmount: parseFloat(settings.min_trade_amount),
           maxTradeAmount: settings.max_trade_amount ? parseFloat(settings.max_trade_amount) : undefined,
@@ -121,5 +127,17 @@ export class FeeService {
 
   getFeeWallet(): string {
     return this.config.feeWallet;
+  }
+
+  getFeeWalletByChain(chain: 'solana' | 'ethereum' | 'bsc'): string {
+    switch (chain) {
+      case 'ethereum':
+        return this.config.feeWalletEthereum || this.config.feeWallet;
+      case 'bsc':
+        return this.config.feeWalletBsc || this.config.feeWallet;
+      case 'solana':
+      default:
+        return this.config.feeWalletSolana || this.config.feeWallet;
+    }
   }
 }
