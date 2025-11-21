@@ -259,6 +259,7 @@ function showPage(pageName, clickEvent = null) {
         users: 'Users Management',
         transactions: 'Transactions',
         referrals: 'Referrals',
+        admins: 'Admin Management',
         settings: 'Settings'
     };
     document.getElementById('pageTitle').textContent = titles[pageName];
@@ -279,6 +280,9 @@ function showPage(pageName, clickEvent = null) {
             break;
         case 'referrals':
             loadReferrals();
+            break;
+        case 'admins':
+            loadAdmins();
             break;
         case 'settings':
             loadSettings();
@@ -339,6 +343,103 @@ async function loadTransfers() {
         `).join('');
     } catch (error) {
         console.error('Failed to load transfers:', error);
+    }
+}
+
+// Load Admins
+async function loadAdmins() {
+    try {
+        const response = await fetch(`${API_URL}/admin/admins`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Failed to load admins');
+        
+        const data = await response.json();
+        const tbody = document.getElementById('adminsTable');
+
+        if (data.admins.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">No admins yet</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.admins.map(admin => `
+            <tr class="border-b hover:bg-gray-50">
+                <td class="px-4 py-3 font-semibold">${admin.telegram_id}</td>
+                <td class="px-4 py-3">${admin.first_name || admin.last_name ? `${admin.first_name || ''} ${admin.last_name || ''}`.trim() : 'N/A'}</td>
+                <td class="px-4 py-3">@${admin.username || 'N/A'}</td>
+                <td class="px-4 py-3"><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">${admin.role}</span></td>
+                <td class="px-4 py-3 text-sm text-gray-600">${new Date(admin.created_at).toLocaleDateString()}</td>
+                <td class="px-4 py-3">
+                    <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm remove-admin-btn" data-telegram-id="${admin.telegram_id}">
+                        Remove
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        // Add event listeners for remove buttons
+        document.querySelectorAll('.remove-admin-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (confirm('Are you sure you want to remove this admin?')) {
+                    await removeAdmin(btn.dataset.telegramId);
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Failed to load admins:', error);
+    }
+}
+
+async function addAdmin() {
+    try {
+        const telegramId = document.getElementById('adminTelegramId').value;
+        const role = document.getElementById('adminRole').value;
+
+        if (!telegramId) {
+            alert('Please enter a Telegram ID');
+            return;
+        }
+
+        const response = await fetch(`${API_URL}/admin/admins`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ telegram_id: parseInt(telegramId), role })
+        });
+
+        if (!response.ok) throw new Error('Failed to add admin');
+
+        alert('Admin added successfully!');
+        document.getElementById('adminTelegramId').value = '';
+        document.getElementById('adminRole').value = 'admin';
+        loadAdmins();
+    } catch (error) {
+        console.error('Failed to add admin:', error);
+        alert('Error adding admin: ' + error.message);
+    }
+}
+
+async function removeAdmin(telegramId) {
+    try {
+        const response = await fetch(`${API_URL}/admin/admins/${telegramId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Failed to remove admin');
+
+        alert('Admin removed successfully!');
+        loadAdmins();
+    } catch (error) {
+        console.error('Failed to remove admin:', error);
+        alert('Error removing admin: ' + error.message);
     }
 }
 
@@ -641,6 +742,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Settings form
     document.getElementById('settingsForm')?.addEventListener('submit', saveSettings);
     document.getElementById('cancelSettings')?.addEventListener('click', loadSettings);
+
+    // Admin management
+    document.getElementById('addAdminBtn')?.addEventListener('click', addAdmin);
 
     // Settings tabs
     document.querySelectorAll('.tab-button').forEach(button => {
