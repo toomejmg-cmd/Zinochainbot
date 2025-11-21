@@ -629,35 +629,50 @@
                             <!-- Infrastructure Tab -->
                             <div class="tab-content hidden" id="infrastructureTab">
                                 <h3 class="text-lg font-bold mb-4">RPC & Infrastructure</h3>
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                    <p class="text-sm text-blue-700"><strong>Live Trading RPC Endpoints:</strong></p>
+                                    <ul class="text-xs text-blue-600 mt-2 space-y-1 ml-4">
+                                        <li>• <strong>Solana Mainnet:</strong> https://api.mainnet-beta.solana.com (official)</li>
+                                        <li>• <strong>Ethereum Mainnet:</strong> https://eth.llamarpc.com (free) or Infura/Alchemy</li>
+                                        <li>• <strong>BSC Mainnet:</strong> https://bsc-dataseed.binance.org (official)</li>
+                                    </ul>
+                                </div>
                                 <div class="space-y-6">
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                                             Solana RPC Endpoint <span class="text-red-500">*</span>
                                         </label>
                                         <input type="text" id="solanaRpcEndpoint" required
+                                               placeholder="https://api.mainnet-beta.solana.com"
                                                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
-                                        <p class="text-xs text-gray-500 mt-1">Primary Solana RPC URL</p>
+                                        <p class="text-xs text-gray-500 mt-1">Primary Solana RPC URL (mainnet for live trading)</p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                                             Solana Backup RPC
                                         </label>
                                         <input type="text" id="solanaBackupRpcEndpoint"
+                                               placeholder="https://solana-api.projectserum.com (optional backup)"
                                                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                        <p class="text-xs text-gray-500 mt-1">Fallback RPC if primary fails</p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                                             Ethereum RPC Endpoint
                                         </label>
                                         <input type="text" id="ethereumRpcEndpoint"
+                                               placeholder="https://eth.llamarpc.com"
                                                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                        <p class="text-xs text-gray-500 mt-1">Ethereum mainnet RPC for live trading</p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                                             BSC RPC Endpoint
                                         </label>
                                         <input type="text" id="bscRpcEndpoint"
+                                               placeholder="https://bsc-dataseed.binance.org"
                                                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-blue-500">
+                                        <p class="text-xs text-gray-500 mt-1">Binance Smart Chain RPC for live trading</p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-2">
