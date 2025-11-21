@@ -19,6 +19,10 @@ args = "Admin API"
 task = "workflow.run"
 args = "Admin Dashboard"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Zinobot"
+
 [[workflows.workflow]]
 name = "Admin API"
 author = "agent"
@@ -43,6 +47,17 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "Zinobot"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run start"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [nix]
 channel = "stable-25_05"
 packages = ["imagemagick", "ffmpeg"]
@@ -65,3 +80,5 @@ externalPort = 5000
 FEE_WALLET_SOLANA = "2AV3BdUxuxNMP2ErkWakeUKSfLrzUAEe68GhaBB9EUGe"
 FEE_WALLET_ETHEREUM = "0x5e7416e9dDc102FAE4C680713f8d022EcdDF254E"
 FEE_WALLET_BSC = "0x47176ee6eb842dbdef48d6cecec28f79f50e033f"
+SOLANA_NETWORK = "mainnet-beta"
+NODE_ENV = "production"
