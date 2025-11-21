@@ -188,13 +188,34 @@ export function registerCommands(
 
   // Maintenance Mode Middleware
   bot.use(async (ctx, next) => {
+    const userId = ctx.from?.id;
+    
     try {
       await checkMaintenanceMode();
       // If no error, maintenance mode is off - continue with normal processing
       await next();
     } catch (error: any) {
-      // Maintenance mode is enabled - send message and stop processing
+      // Maintenance mode is enabled - check if user is admin
       if (error.message && error.message.includes('maintenance mode')) {
+        // Check if user is an admin
+        if (userId) {
+          try {
+            const adminCheck = await query(
+              `SELECT id FROM admin_users WHERE telegram_id = $1`,
+              [userId]
+            );
+            
+            if (adminCheck.rows.length > 0) {
+              // Admin user - bypass maintenance mode and continue
+              await next();
+              return;
+            }
+          } catch (err) {
+            console.error('Error checking admin status:', err);
+          }
+        }
+        
+        // Not an admin - show maintenance message and stop processing
         await ctx.reply(`⚠️ ${error.message}\n\nThe bot is currently undergoing maintenance. Please try again later.`);
       } else {
         // Re-throw other errors
