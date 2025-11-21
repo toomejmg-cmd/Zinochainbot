@@ -102,10 +102,14 @@ interface UserState {
   awaitingReferralCode?: boolean;
   awaitingWatchlistToken?: boolean;
   awaitingImportSeed?: boolean;
+  awaitingTransferAddress?: boolean;
+  awaitingTransferAmount?: boolean;
   currentToken?: string;
   withdrawType?: 'sol' | 'token';
   selectedChain?: 'solana' | 'ethereum' | 'bsc';
   currentChain?: 'solana' | 'ethereum' | 'bsc';
+  transferChain?: 'solana' | 'ethereum' | 'bsc';
+  transferAddress?: string;
   awaitingSettingInput?: string;
 }
 
@@ -2249,6 +2253,190 @@ _(Tap to copy)_
     } catch (error: any) {
       console.error('DCA orders error:', error);
       await ctx.reply('❌ Error loading DCA orders.');
+    }
+  });
+
+  // ==================== P2P TRANSFER HANDLERS ====================
+
+  // P2P Transfer Main Menu
+  bot.callbackQuery('menu_p2p_transfer', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const dbUserId = userResult.rows[0].id;
+      const state = userStates.get(userId) || {};
+      const currentChain = state.currentChain || 'solana';
+      const chainEmoji = currentChain === 'ethereum' ? '🔷' : currentChain === 'bsc' ? '🟡' : '⚡';
+      const chainName = currentChain === 'ethereum' ? 'Ethereum' : currentChain === 'bsc' ? 'BSC' : 'Solana';
+      const nativeSymbol = currentChain === 'ethereum' ? 'ETH' : currentChain === 'bsc' ? 'BNB' : 'SOL';
+
+      // Get balance
+      const walletResult = await query(
+        `SELECT public_key, chain FROM wallets WHERE user_id = $1 AND is_active = true ORDER BY id DESC LIMIT 1`,
+        [dbUserId]
+      );
+
+      if (walletResult.rows.length === 0) {
+        await ctx.editMessageText(
+          `📤 *P2P Transfer*\n\n❌ No wallet found. Please create a wallet first.`,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      const wallet = walletResult.rows[0];
+      let balance = '0';
+      
+      try {
+        if (currentChain === 'solana') {
+          balance = await walletManager.getBalance(wallet.public_key);
+        } else {
+          const chainService = multiChainWallet.chainManager ? 
+            multiChainWallet.chainManager.getAdapter(currentChain) : null;
+          if (chainService) {
+            balance = await chainService.getBalance(wallet.public_key);
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching balance:', err);
+      }
+
+      const message = `📤 *P2P Transfer* ${chainEmoji}\n\n` +
+        `*Active Chain:* ${chainName}\n` +
+        `*Available:* ${balance} ${nativeSymbol}\n\n` +
+        `Send ${nativeSymbol} to any wallet address on ${chainName}.\n\n` +
+        `_A transfer fee will be automatically deducted from your amount._`;
+
+      const keyboard = new InlineKeyboard()
+        .text(`📤 Transfer ${nativeSymbol}`, `p2p_transfer_${currentChain}`).row()
+        .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+      pushNavigation(userId, 'p2p_transfer');
+    } catch (error: any) {
+      console.error('P2P Transfer menu error:', error);
+      await ctx.reply('❌ Error loading P2P transfer menu.');
+    }
+  });
+
+  // P2P Transfer for Solana
+  bot.callbackQuery('p2p_transfer_solana', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+
+      await ctx.editMessageText(
+        `📤 *P2P Transfer - SOL*\n\n` +
+        `Step 1: Enter the destination wallet address\n\n` +
+        `*Example:* \`5Z8FwqK...Abc123xyz\`\n\n` +
+        `Paste the Solana wallet address where you want to send SOL.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'solana',
+        currentChain: 'solana'
+      });
+    } catch (error: any) {
+      console.error('P2P Transfer Solana error:', error);
+      await ctx.reply('❌ Error initiating transfer.');
+    }
+  });
+
+  // P2P Transfer for Ethereum
+  bot.callbackQuery('p2p_transfer_ethereum', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+
+      await ctx.editMessageText(
+        `📤 *P2P Transfer - ETH*\n\n` +
+        `Step 1: Enter the destination wallet address\n\n` +
+        `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
+        `Paste the Ethereum wallet address where you want to send ETH.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'ethereum',
+        currentChain: 'ethereum'
+      });
+    } catch (error: any) {
+      console.error('P2P Transfer Ethereum error:', error);
+      await ctx.reply('❌ Error initiating transfer.');
+    }
+  });
+
+  // P2P Transfer for BSC
+  bot.callbackQuery('p2p_transfer_bsc', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+
+      await ctx.editMessageText(
+        `📤 *P2P Transfer - BNB*\n\n` +
+        `Step 1: Enter the destination wallet address\n\n` +
+        `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
+        `Paste the BSC wallet address where you want to send BNB.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'bsc',
+        currentChain: 'bsc'
+      });
+    } catch (error: any) {
+      console.error('P2P Transfer BSC error:', error);
+      await ctx.reply('❌ Error initiating transfer.');
     }
   });
 
