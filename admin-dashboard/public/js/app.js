@@ -1,7 +1,28 @@
 // API Configuration - Use proxy on same domain
 const API_URL = '/api';
-let authToken = localStorage.getItem('adminToken');
+let authToken = null;
 let refreshInterval;
+
+// Clear expired tokens on page load
+function initializeAuth() {
+    const stored = localStorage.getItem('adminToken');
+    if (stored) {
+        try {
+            const payload = JSON.parse(atob(stored.split('.')[1]));
+            if (payload.exp * 1000 < Date.now()) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminInfo');
+                authToken = null;
+            } else {
+                authToken = stored;
+            }
+        } catch (e) {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminInfo');
+            authToken = null;
+        }
+    }
+}
 
 // Authentication Functions
 async function login(telegramId, password) {
@@ -786,7 +807,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('emergencyStopReason').value = '';
     });
 
-    // Check if already logged in
+    // Initialize auth and check if already logged in
+    initializeAuth();
     if (authToken) {
         showDashboard();
         loadOverviewData();
