@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "cd admin-api && npm install --include=dev && npm run build",
+    "buildCommand": "npm install --include=dev && npm run build",
     "watchPatterns": [
       "admin-api/src/**",
       "admin-api/package.json",
@@ -10,7 +10,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "cd admin-api && node dist/index.js",
+    "startCommand": "node /app/admin-api/dist/index.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/health",

@@ -13,23 +13,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Admin API"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Admin Dashboard"
-
-[[workflows.workflow]]
-name = "Admin API"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd admin-api && npm run dev"
-waitForPort = 3001
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[workflows.workflow]]
 name = "Admin Dashboard"
@@ -57,7 +41,11 @@ externalPort = 80
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 40639
+externalPort = 3000
 
 [userenv]
 
