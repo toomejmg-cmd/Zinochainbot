@@ -10,7 +10,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "node /app/admin-api/dist/index.js",
+    "startCommand": "node admin-api/dist/index.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/health",
