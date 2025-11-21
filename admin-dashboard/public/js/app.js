@@ -380,7 +380,9 @@ async function loadSettings() {
         const s = data.settings;
 
         // General Settings
-        document.getElementById('feeWalletAddress').value = s.fee_wallet_address || '';
+        document.getElementById('feeWalletAddressSolana').value = s.fee_wallet_address_solana || '';
+        document.getElementById('feeWalletAddressEthereum').value = s.fee_wallet_address_ethereum || '';
+        document.getElementById('feeWalletAddressBsc').value = s.fee_wallet_address_bsc || '';
         document.getElementById('feePercentage').value = s.fee_percentage || 0;
         document.getElementById('referralPercentage').value = s.referral_percentage || 0;
         document.getElementById('minTradeAmount').value = s.min_trade_amount || 0;
@@ -480,7 +482,9 @@ async function saveSettings(event) {
 
     const settings = {
         // General
-        fee_wallet_address: document.getElementById('feeWalletAddress').value.trim(),
+        fee_wallet_address_solana: document.getElementById('feeWalletAddressSolana').value.trim(),
+        fee_wallet_address_ethereum: document.getElementById('feeWalletAddressEthereum').value.trim() || null,
+        fee_wallet_address_bsc: document.getElementById('feeWalletAddressBsc').value.trim() || null,
         fee_percentage: parseFloat(document.getElementById('feePercentage').value),
         referral_percentage: parseFloat(document.getElementById('referralPercentage').value),
         min_trade_amount: parseFloat(document.getElementById('minTradeAmount').value),
