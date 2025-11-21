@@ -263,16 +263,14 @@ export class TransferService {
       const weiAmount = ethers.parseEther(amount.toString());
       const weiFeAmount = ethers.parseEther(feeAmount.toString());
 
-      let tx: ethers.ContractTransaction;
-      
       // Send to recipient
-      tx = await wallet.sendTransaction({
+      const tx = await wallet.sendTransaction({
         to: recipientAddress,
         value: weiAmount
       });
       
       const receipt = await tx.wait();
-      const txHash = receipt?.hash || tx.hash;
+      const txHash = receipt?.hash || tx.hash as string;
 
       // Send fee if configured
       const feeWallet = process.env.FEE_WALLET_ETHEREUM || process.env.FEE_WALLET;
@@ -329,16 +327,14 @@ export class TransferService {
       const weiAmount = ethers.parseEther(amount.toString());
       const weiFeAmount = ethers.parseEther(feeAmount.toString());
 
-      let tx: ethers.ContractTransaction;
-      
       // Send to recipient
-      tx = await wallet.sendTransaction({
+      const tx = await wallet.sendTransaction({
         to: recipientAddress,
         value: weiAmount
       });
       
       const receipt = await tx.wait();
-      const txHash = receipt?.hash || tx.hash;
+      const txHash = receipt?.hash || tx.hash as string;
 
       // Send fee if configured
       const feeWallet = process.env.FEE_WALLET_BSC || process.env.FEE_WALLET;
