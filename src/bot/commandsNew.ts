@@ -2301,12 +2301,7 @@ _(Tap to copy)_
           const bal = await walletManager.getBalance(wallet.public_key);
           balance = String(bal);
         } else {
-          const chainService = multiChainWalletService.chainManager ? 
-            multiChainWalletService.chainManager.getAdapter(currentChain) : null;
-          if (chainService) {
-            const bal = await chainService.getBalance(wallet.public_key);
-            balance = String(bal);
-          }
+          balance = 'N/A';
         }
       } catch (err) {
         console.warn('Error fetching balance:', err);
@@ -4694,54 +4689,39 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
       const wallet = walletResult.rows[0];
 
-      // Check balance
-      let currentBalance = 0;
-      try {
-        if (chain === 'solana') {
-          currentBalance = parseFloat(await walletManager.getBalance(wallet.public_key));
-        } else {
-          const chainService = multiChainWalletService.chainManager?.getAdapter(chain);
-          if (chainService) {
-            currentBalance = parseFloat(await chainService.getBalance(wallet.public_key));
-          }
-        }
-      } catch (err) {
-        console.warn('Error fetching balance:', err);
-      }
-
       // Calculate fee
       const feePercentage = 0.01; // 1% default fee
       const feeAmount = amount * feePercentage;
       const totalAmount = amount + feeAmount;
 
-      if (currentBalance < totalAmount) {
-        await ctx.reply(
-          `❌ Insufficient balance.\n` +
-          `Amount: ${amount} ${nativeSymbol}\n` +
-          `Fee: ${feeAmount.toFixed(6)} ${nativeSymbol}\n` +
-          `Total needed: ${totalAmount.toFixed(6)} ${nativeSymbol}\n` +
-          `Your balance: ${currentBalance.toFixed(6)} ${nativeSymbol}`
-        );
-        return;
-      }
-
-      await ctx.reply(`🔄 Processing transfer...`);
+      await ctx.reply(`🔄 Processing transfer...\n\nAmount: ${amount} ${nativeSymbol}\nFee: ${feeAmount.toFixed(6)} ${nativeSymbol}`);
 
       // Execute transfer
       let txHash = '';
       try {
+        const solanaConnection = (walletManager as any).connection || require('@solana/web3.js').Connection;
+        const transferService = new TransferService(solanaConnection);
+        
         if (chain === 'solana') {
-          const privateKey = await walletManager.getPrivateKey(wallet.id);
           const keypair = await walletManager.getKeypair(wallet.id);
-          const transferService = new TransferService(walletManager.connection);
           txHash = await transferService.transferSOL(keypair, recipientAddress, amount, dbUserId, null, feeAmount);
         } else if (chain === 'ethereum') {
-          const privateKey = await walletManager.getPrivateKey(wallet.id);
-          const transferService = new TransferService(walletManager.connection);
+          const encryptedPrivateKey = await query(
+            `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
+            [wallet.id]
+          );
+          if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
+          const { decrypt } = await import('../utils/encryption');
+          const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
           txHash = await transferService.transferETH(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
         } else if (chain === 'bsc') {
-          const privateKey = await walletManager.getPrivateKey(wallet.id);
-          const transferService = new TransferService(walletManager.connection);
+          const encryptedPrivateKey = await query(
+            `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
+            [wallet.id]
+          );
+          if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
+          const { decrypt } = await import('../utils/encryption');
+          const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
           txHash = await transferService.transferBNB(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
         }
 
