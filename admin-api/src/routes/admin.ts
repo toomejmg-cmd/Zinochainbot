@@ -382,4 +382,58 @@ router.get('/transfers', async (req, res) => {
   }
 });
 
+router.get('/admins', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT a.telegram_id, a.role, a.created_at, u.username, u.first_name, u.last_name
+       FROM admin_users a
+       LEFT JOIN users u ON u.telegram_id = a.telegram_id
+       ORDER BY a.created_at DESC`
+    );
+    res.json({ admins: result.rows });
+  } catch (error) {
+    console.error('Admins list error:', error);
+    res.status(500).json({ error: 'Failed to fetch admins' });
+  }
+});
+
+router.post('/admins', async (req, res) => {
+  try {
+    const { telegram_id, role } = req.body;
+    
+    if (!telegram_id) {
+      return res.status(400).json({ error: 'Telegram ID is required' });
+    }
+
+    const result = await query(
+      `INSERT INTO admin_users (telegram_id, role) 
+       VALUES ($1, $2)
+       ON CONFLICT (telegram_id) DO UPDATE SET role = $2
+       RETURNING telegram_id, role, created_at`,
+      [telegram_id, role || 'admin']
+    );
+
+    res.json({ 
+      message: 'Admin added successfully',
+      admin: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Add admin error:', error);
+    res.status(500).json({ error: 'Failed to add admin' });
+  }
+});
+
+router.delete('/admins/:telegramId', async (req, res) => {
+  try {
+    const { telegramId } = req.params;
+    
+    await query('DELETE FROM admin_users WHERE telegram_id = $1', [parseInt(telegramId)]);
+    
+    res.json({ message: 'Admin removed successfully' });
+  } catch (error) {
+    console.error('Remove admin error:', error);
+    res.status(500).json({ error: 'Failed to remove admin' });
+  }
+});
+
 export default router;
