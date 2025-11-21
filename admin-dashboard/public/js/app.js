@@ -395,11 +395,28 @@ async function loadAdmins() {
 
 async function addAdmin() {
     try {
-        const telegramId = document.getElementById('adminTelegramId').value;
+        const username = document.getElementById('adminUsername').value.trim();
         const role = document.getElementById('adminRole').value;
 
-        if (!telegramId) {
-            alert('Please enter a Telegram ID');
+        if (!username) {
+            alert('Please enter a Telegram username');
+            return;
+        }
+
+        // First, find the telegram_id by username
+        const usersResponse = await fetch(`${API_URL}/admin/users?search=${encodeURIComponent(username)}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (!usersResponse.ok) throw new Error('Failed to search users');
+        
+        const usersData = await usersResponse.json();
+        const user = usersData.users.find(u => u.username === username);
+
+        if (!user) {
+            alert(`User with username "${username}" not found. Make sure they are registered with the bot.`);
             return;
         }
 
@@ -409,13 +426,13 @@ async function addAdmin() {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ telegram_id: parseInt(telegramId), role })
+            body: JSON.stringify({ telegram_id: parseInt(user.telegram_id), role })
         });
 
         if (!response.ok) throw new Error('Failed to add admin');
 
-        alert('Admin added successfully!');
-        document.getElementById('adminTelegramId').value = '';
+        alert(`Admin "${username}" added successfully!`);
+        document.getElementById('adminUsername').value = '';
         document.getElementById('adminRole').value = 'admin';
         loadAdmins();
     } catch (error) {
