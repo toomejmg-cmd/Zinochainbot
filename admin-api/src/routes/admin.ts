@@ -232,8 +232,8 @@ router.put('/settings', async (req, res) => {
     const s = req.body;
 
     // Validate required fields
-    if (!s.fee_wallet_address || s.fee_percentage === undefined || s.referral_percentage === undefined) {
-      return res.status(400).json({ error: 'Missing required fields: fee_wallet_address, fee_percentage, referral_percentage' });
+    if (!s.fee_wallet_address_solana || s.fee_percentage === undefined || s.referral_percentage === undefined) {
+      return res.status(400).json({ error: 'Missing required fields: fee_wallet_address_solana, fee_percentage, referral_percentage' });
     }
 
     // Validate percentages
@@ -259,7 +259,7 @@ router.put('/settings', async (req, res) => {
       // INSERT ALL fields for new record
       result = await query(`
         INSERT INTO bot_settings (
-          fee_wallet_address, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, 
+          fee_wallet_address_solana, fee_wallet_address_ethereum, fee_wallet_address_bsc, fee_percentage, referral_percentage, min_trade_amount, max_trade_amount, 
           enabled, maintenance_mode, allow_new_registrations,
           withdrawal_wallet_address, withdrawal_fee_percentage, min_withdrawal_amount, max_withdrawal_amount,
           daily_withdrawal_limit, monthly_withdrawal_limit, withdrawal_requires_approval, auto_withdrawal_threshold,
@@ -275,10 +275,10 @@ router.put('/settings', async (req, res) => {
           max_consecutive_errors, auto_restart_on_error, emergency_stop, emergency_stop_reason,
           updated_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55)
         RETURNING *
       `, [
-        s.fee_wallet_address, s.fee_percentage, s.referral_percentage, s.min_trade_amount, s.max_trade_amount,
+        s.fee_wallet_address_solana, s.fee_wallet_address_ethereum || null, s.fee_wallet_address_bsc || null, s.fee_percentage, s.referral_percentage, s.min_trade_amount, s.max_trade_amount,
         s.enabled !== false, s.maintenance_mode || false, s.allow_new_registrations !== false,
         s.withdrawal_wallet_address, s.withdrawal_fee_percentage || 0.10, s.min_withdrawal_amount || 0.01, s.max_withdrawal_amount,
         s.daily_withdrawal_limit, s.monthly_withdrawal_limit, s.withdrawal_requires_approval || false, s.auto_withdrawal_threshold,
@@ -299,25 +299,25 @@ router.put('/settings', async (req, res) => {
       result = await query(`
         UPDATE bot_settings 
         SET 
-          fee_wallet_address = $1, fee_percentage = $2, referral_percentage = $3, min_trade_amount = $4, max_trade_amount = $5,
-          enabled = $6, maintenance_mode = $7, allow_new_registrations = $8,
-          withdrawal_wallet_address = $9, withdrawal_fee_percentage = $10, min_withdrawal_amount = $11, max_withdrawal_amount = $12,
-          daily_withdrawal_limit = $13, monthly_withdrawal_limit = $14, withdrawal_requires_approval = $15, auto_withdrawal_threshold = $16,
-          auto_collect_fees = $17, auto_collect_schedule_hours = $18, min_balance_for_auto_collect = $19, fee_collection_wallet_rotation = $20,
-          daily_trade_limit_per_user = $21, max_trade_size_per_transaction = $22, max_active_orders_per_user = $23,
-          max_wallets_per_user = $24, trade_cooldown_seconds = $25, suspicious_activity_threshold = $26,
-          require_2fa = $27, auto_lock_suspicious_accounts = $28, notify_on_suspicious_activity = $29, notify_on_large_trades = $30,
-          max_failed_login_attempts = $31, large_trade_threshold_sol = $32, admin_notification_email = $33, admin_notification_telegram_id = $34,
-          admin_ip_whitelist = $35, require_kyc_above_limit = $36, new_user_cooldown_hours = $37,
-          solana_rpc_endpoint = $38, solana_backup_rpc_endpoint = $39, ethereum_rpc_endpoint = $40, bsc_rpc_endpoint = $41, api_rate_limit_per_minute = $42,
-          global_max_slippage_bps = $43, global_min_slippage_bps = $44, max_gas_price_gwei = $45,
-          min_priority_fee_lamports = $46, max_priority_fee_lamports = $47, enable_mev_protection = $48,
-          max_consecutive_errors = $49, auto_restart_on_error = $50, emergency_stop = $51, emergency_stop_reason = $52,
-          updated_at = CURRENT_TIMESTAMP, updated_by = $53
+          fee_wallet_address_solana = $1, fee_wallet_address_ethereum = $2, fee_wallet_address_bsc = $3, fee_percentage = $4, referral_percentage = $5, min_trade_amount = $6, max_trade_amount = $7,
+          enabled = $8, maintenance_mode = $9, allow_new_registrations = $10,
+          withdrawal_wallet_address = $11, withdrawal_fee_percentage = $12, min_withdrawal_amount = $13, max_withdrawal_amount = $14,
+          daily_withdrawal_limit = $15, monthly_withdrawal_limit = $16, withdrawal_requires_approval = $17, auto_withdrawal_threshold = $18,
+          auto_collect_fees = $19, auto_collect_schedule_hours = $20, min_balance_for_auto_collect = $21, fee_collection_wallet_rotation = $22,
+          daily_trade_limit_per_user = $23, max_trade_size_per_transaction = $24, max_active_orders_per_user = $25,
+          max_wallets_per_user = $26, trade_cooldown_seconds = $27, suspicious_activity_threshold = $28,
+          require_2fa = $29, auto_lock_suspicious_accounts = $30, notify_on_suspicious_activity = $31, notify_on_large_trades = $32,
+          max_failed_login_attempts = $33, large_trade_threshold_sol = $34, admin_notification_email = $35, admin_notification_telegram_id = $36,
+          admin_ip_whitelist = $37, require_kyc_above_limit = $38, new_user_cooldown_hours = $39,
+          solana_rpc_endpoint = $40, solana_backup_rpc_endpoint = $41, ethereum_rpc_endpoint = $42, bsc_rpc_endpoint = $43, api_rate_limit_per_minute = $44,
+          global_max_slippage_bps = $45, global_min_slippage_bps = $46, max_gas_price_gwei = $47,
+          min_priority_fee_lamports = $48, max_priority_fee_lamports = $49, enable_mev_protection = $50,
+          max_consecutive_errors = $51, auto_restart_on_error = $52, emergency_stop = $53, emergency_stop_reason = $54,
+          updated_at = CURRENT_TIMESTAMP, updated_by = $55
         WHERE id = (SELECT id FROM bot_settings ORDER BY id DESC LIMIT 1)
         RETURNING *
       `, [
-        s.fee_wallet_address, s.fee_percentage, s.referral_percentage, s.min_trade_amount, s.max_trade_amount,
+        s.fee_wallet_address_solana, s.fee_wallet_address_ethereum || null, s.fee_wallet_address_bsc || null, s.fee_percentage, s.referral_percentage, s.min_trade_amount, s.max_trade_amount,
         s.enabled !== false, s.maintenance_mode || false, s.allow_new_registrations !== false,
         s.withdrawal_wallet_address, s.withdrawal_fee_percentage || 0.10, s.min_withdrawal_amount || 0.01, s.max_withdrawal_amount,
         s.daily_withdrawal_limit, s.monthly_withdrawal_limit, s.withdrawal_requires_approval || false, s.auto_withdrawal_threshold,
