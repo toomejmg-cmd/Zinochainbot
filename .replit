@@ -19,10 +19,6 @@ args = "Admin API"
 task = "workflow.run"
 args = "Admin Dashboard"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Zinobot"
-
 [[workflows.workflow]]
 name = "Admin API"
 author = "agent"
@@ -46,17 +42,6 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
-
-[[workflows.workflow]]
-name = "Zinobot"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run start"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [nix]
 channel = "stable-25_05"
