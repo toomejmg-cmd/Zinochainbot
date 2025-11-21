@@ -17,6 +17,8 @@ export function getMainMenu(currentChain?: 'solana' | 'ethereum' | 'bsc'): Inlin
     .row()
     .text('💼 Portfolio', 'menu_portfolio').text('📤 Withdraw', 'menu_withdraw')
     .row()
+    .text('📤 P2P Transfer', 'menu_p2p_transfer').text('🎁 Airdrop', 'menu_airdrop')
+    .row()
     .text('🔔 Alerts', 'menu_alerts').text('🎁 Rewards', 'menu_rewards')
     .row()
     .text('👀 Watchlist', 'menu_watchlist').text('⚙️ Settings', 'menu_settings')
