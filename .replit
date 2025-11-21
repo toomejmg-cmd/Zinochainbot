@@ -58,3 +58,10 @@ externalPort = 80
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[userenv]
+
+[userenv.shared]
+FEE_WALLET_SOLANA = "2AV3BdUxuxNMP2ErkWakeUKSfLrzUAEe68GhaBB9EUGe"
+FEE_WALLET_ETHEREUM = "0x5e7416e9dDc102FAE4C680713f8d022EcdDF254E"
+FEE_WALLET_BSC = "0x47176ee6eb842dbdef48d6cecec28f79f50e033f"
