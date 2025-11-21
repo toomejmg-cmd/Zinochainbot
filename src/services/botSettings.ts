@@ -194,7 +194,7 @@ export async function checkWithdrawalApprovalRequired(): Promise<boolean> {
 
 export async function getFeeWalletAddress(): Promise<string> {
   const settings = await getBotSettings();
-  return settings.fee_wallet_address;
+  return settings.fee_wallet_address_solana || '';
 }
 
 export async function getFeePercentage(): Promise<number> {
