@@ -1,0 +1,95 @@
+Starting Container
+Starting Container
+🔐 Admin API running on port 8080
+📊 Ready to serve admin dashboard
+🌐 Environment: production
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_30_795Z-debug-0.log
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_32_093Z-debug-0.log
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_33_177Z-debug-0.log
+Stopping Container
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_34_226Z-debug-0.log
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_35_401Z-debug-0.log
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_36_584Z-debug-0.log
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_37_632Z-debug-0.log
+npm error errno -2
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_38_570Z-debug-0.log
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_39_656Z-debug-0.log
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_40_717Z-debug-0.log
+npm error code ENOENT
+npm error syscall open
+npm error path /app/admin-dashboard/package.json
+npm error errno -2
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/app/admin-dashboard/package.json'
+npm error enoent This is related to npm not being able to find a file.
+npm error enoent
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-21T23_20_41_806Z-debug-0.log
+Stopping Container
