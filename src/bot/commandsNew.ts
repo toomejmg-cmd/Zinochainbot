@@ -30,6 +30,7 @@ import {
   getTokenManagementMenu,
   getWatchlistMenu
 } from './menus';
+import { checkMaintenanceMode } from '../services/botSettings';
 
 const TERMS_MESSAGE = `🚀 *Welcome to Zinochain Bot!*
 
@@ -184,6 +185,23 @@ export function registerCommands(
   const urlParser = new URLParserService();
   const tokenInfoService = new TokenInfoService();
   const watchlistService = new WatchlistService();
+
+  // Maintenance Mode Middleware
+  bot.use(async (ctx, next) => {
+    try {
+      await checkMaintenanceMode();
+      // If no error, maintenance mode is off - continue with normal processing
+      await next();
+    } catch (error: any) {
+      // Maintenance mode is enabled - send message and stop processing
+      if (error.message && error.message.includes('maintenance mode')) {
+        await ctx.reply(`⚠️ ${error.message}\n\nThe bot is currently undergoing maintenance. Please try again later.`);
+      } else {
+        // Re-throw other errors
+        await next();
+      }
+    }
+  });
   
   bot.command('start', async (ctx) => {
     const userId = ctx.from?.id;
