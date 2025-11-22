@@ -85,7 +85,6 @@ export class WalletManager {
       return balance / LAMPORTS_PER_SOL;
     } catch (error: any) {
       console.warn(`⚠️ Balance fetch error for ${publicKey}:`, error?.message || error);
-      // Return 0 instead of throwing, so UI can still show the page
       return 0;
     }
   }
