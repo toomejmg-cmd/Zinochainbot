@@ -2357,19 +2357,29 @@ _(Tap to copy)_
 
       const state = userStates.get(userId) || {};
 
+      // Set state FIRST so message handler catches address input
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'solana',
+        currentChain: 'solana'
+      });
+
       await ctx.editMessageText(
         `📤 *P2P Transfer - SOL*\n\n` +
         `Step 1: Enter the destination wallet address\n\n` +
         `*Example:* \`5Z8FwqK...Abc123xyz\`\n\n` +
         `Paste the Solana wallet address where you want to send SOL.`,
         { parse_mode: 'Markdown' }
-      );
-
-      userStates.set(userId, {
-        ...state,
-        awaitingTransferAddress: true,
-        transferChain: 'solana',
-        currentChain: 'solana'
+      ).catch(async () => {
+        // If edit fails, send as new message
+        await ctx.reply(
+          `📤 *P2P Transfer - SOL*\n\n` +
+          `Step 1: Enter the destination wallet address\n\n` +
+          `*Example:* \`5Z8FwqK...Abc123xyz\`\n\n` +
+          `Paste the Solana wallet address where you want to send SOL.`,
+          { parse_mode: 'Markdown' }
+        );
       });
     } catch (error: any) {
       console.error('P2P Transfer Solana error:', error);
@@ -2393,19 +2403,29 @@ _(Tap to copy)_
 
       const state = userStates.get(userId) || {};
 
+      // Set state FIRST so message handler catches address input
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'ethereum',
+        currentChain: 'ethereum'
+      });
+
       await ctx.editMessageText(
         `📤 *P2P Transfer - ETH*\n\n` +
         `Step 1: Enter the destination wallet address\n\n` +
         `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
         `Paste the Ethereum wallet address where you want to send ETH.`,
         { parse_mode: 'Markdown' }
-      );
-
-      userStates.set(userId, {
-        ...state,
-        awaitingTransferAddress: true,
-        transferChain: 'ethereum',
-        currentChain: 'ethereum'
+      ).catch(async () => {
+        // If edit fails, send as new message
+        await ctx.reply(
+          `📤 *P2P Transfer - ETH*\n\n` +
+          `Step 1: Enter the destination wallet address\n\n` +
+          `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
+          `Paste the Ethereum wallet address where you want to send ETH.`,
+          { parse_mode: 'Markdown' }
+        );
       });
     } catch (error: any) {
       console.error('P2P Transfer Ethereum error:', error);
@@ -2429,19 +2449,29 @@ _(Tap to copy)_
 
       const state = userStates.get(userId) || {};
 
+      // Set state FIRST so message handler catches address input
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'bsc',
+        currentChain: 'bsc'
+      });
+
       await ctx.editMessageText(
         `📤 *P2P Transfer - BNB*\n\n` +
         `Step 1: Enter the destination wallet address\n\n` +
         `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
         `Paste the BSC wallet address where you want to send BNB.`,
         { parse_mode: 'Markdown' }
-      );
-
-      userStates.set(userId, {
-        ...state,
-        awaitingTransferAddress: true,
-        transferChain: 'bsc',
-        currentChain: 'bsc'
+      ).catch(async () => {
+        // If edit fails, send as new message
+        await ctx.reply(
+          `📤 *P2P Transfer - BNB*\n\n` +
+          `Step 1: Enter the destination wallet address\n\n` +
+          `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
+          `Paste the BSC wallet address where you want to send BNB.`,
+          { parse_mode: 'Markdown' }
+        );
       });
     } catch (error: any) {
       console.error('P2P Transfer BSC error:', error);
