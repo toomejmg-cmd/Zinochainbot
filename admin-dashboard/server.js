@@ -7,7 +7,7 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
 // Get API URL from environment (Railway internal URL or localhost)
-const API_URL = process.env.ADMIN_API_URL || 'http://127.0.0.1:3001';
+const API_URL = process.env.ADMIN_API_URL || 'http://admin-api:3001';
 
 // Resolve public directory path - handle both local and Railway environments
 const publicDir = path.resolve(__dirname, 'public');
