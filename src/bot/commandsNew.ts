@@ -2270,173 +2270,185 @@ _(Tap to copy)_
     }
   });
 
-  // ==================== P2P TRANSFER MESSAGE HANDLERS ====================
+  // ==================== P2P TRANSFER HANDLERS ====================
 
-  // Unified P2P Transfer Flow Handler
-  bot.on('message:text', async (ctx) => {
+  // P2P Transfer Main Menu
+  bot.callbackQuery('menu_p2p_transfer', async (ctx) => {
     const userId = ctx.from?.id;
-    const text = ctx.message?.text;
-    
-    if (!userId || !text) return;
+    if (!userId) return;
 
-    const state = userStates.get(userId);
+    try {
+      await ctx.answerCallbackQuery();
 
-    // ===== STEP 2: Handle transfer amount input FIRST =====
-    if (state?.awaitingTransferAmount && state.transferAddress) {
-      const amount = parseFloat(text);
-      if (isNaN(amount) || amount <= 0) {
-        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
+      const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
         return;
       }
 
-      userStates.delete(userId);
+      const dbUserId = userResult.rows[0].id;
+      const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
+      const chainEmoji = currentChain === 'ethereum' ? '🔷' : currentChain === 'bsc' ? '🟡' : '⚡';
+      const chainName = currentChain === 'ethereum' ? 'Ethereum' : currentChain === 'bsc' ? 'BSC' : 'Solana';
+      const nativeSymbol = currentChain === 'ethereum' ? 'ETH' : currentChain === 'bsc' ? 'BNB' : 'SOL';
 
-      try {
-        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-        if (userResult.rows.length === 0) {
-          await ctx.reply('Please use /start first.');
-          return;
-        }
+      // Get wallet balance using MultiChainWalletService
+      const multiChain = new MultiChainWalletService();
+      const wallet = await multiChain.getWallet(dbUserId, currentChain);
+      let balance = '0';
+      let displayPrice = '';
 
-        const dbUserId = userResult.rows[0].id;
-        const chain = state.transferChain || 'solana';
-        const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
-        const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
-        const recipientAddress = state.transferAddress;
-
-        // Get wallet
-        const walletResult = await query(
-          `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true ORDER BY id DESC LIMIT 1`,
-          [dbUserId, chain]
-        );
-
-        if (walletResult.rows.length === 0) {
-          await ctx.reply(`❌ No ${chainName} wallet found. Please create one first.`);
-          return;
-        }
-
-        const wallet = walletResult.rows[0];
-
-        // Calculate fee
-        const feePercentage = 0.01; // 1% default fee
-        const feeAmount = amount * feePercentage;
-        const totalAmount = amount + feeAmount;
-
-        await ctx.reply(`🔄 Processing transfer...\n\nAmount: ${amount} ${nativeSymbol}\nFee: ${feeAmount.toFixed(6)} ${nativeSymbol}`);
-
-        // Execute transfer
-        let txHash = '';
+      if (wallet) {
         try {
-          const solanaConnection = (walletManager as any).connection || require('@solana/web3.js').Connection;
-          const transferService = new TransferService(solanaConnection);
-          
-          if (chain === 'solana') {
-            const keypair = await walletManager.getKeypair(wallet.id);
-            txHash = await transferService.transferSOL(keypair, recipientAddress, amount, dbUserId, null, feeAmount);
-          } else if (chain === 'ethereum') {
-            const encryptedPrivateKey = await query(
-              `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
-              [wallet.id]
-            );
-            if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
-            const { decrypt } = await import('../utils/encryption');
-            const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
-            txHash = await transferService.transferETH(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
-          } else if (chain === 'bsc') {
-            const encryptedPrivateKey = await query(
-              `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
-              [wallet.id]
-            );
-            if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
-            const { decrypt } = await import('../utils/encryption');
-            const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
-            txHash = await transferService.transferBNB(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
+          const bal = await multiChain.getBalance(dbUserId, currentChain);
+          balance = parseFloat(bal).toFixed(4);
+          const price = await coinGeckoService.getNativePrice(currentChain);
+          if (price > 0) {
+            displayPrice = ` ($${(parseFloat(bal) * price).toFixed(2)})`;
           }
-
-          // Record fee
-          await feeService.recordFee(0, dbUserId, feeAmount, 'transfer', nativeSymbol);
-
-          const explorer = chain === 'ethereum' ? 'https://etherscan.io/tx/' : 
-                          chain === 'bsc' ? 'https://bscscan.com/tx/' : 
-                          'https://solscan.io/tx/?cluster=devnet';
-
-          await ctx.reply(
-            `✅ *Transfer Successful!*\n\n` +
-            `💸 Amount: ${amount} ${nativeSymbol}\n` +
-            `💵 Fee: ${feeAmount.toFixed(6)} ${nativeSymbol}\n` +
-            `📍 To: \`${recipientAddress}\`\n` +
-            `📝 Hash: \`${txHash}\`\n\n` +
-            `🔗 [View on Explorer](${explorer}${txHash})`,
-            { parse_mode: 'Markdown', reply_markup: getMainMenu() }
-          );
-        } catch (error: any) {
-          console.error('Transfer execution error:', error);
-          await ctx.reply(
-            `❌ Transfer failed: ${error.message}\n\n` +
-            `Please try again or contact support.`,
-            { reply_markup: getMainMenu() }
-          );
+        } catch (err) {
+          console.warn('Balance fetch error:', err);
+          balance = 'N/A';
         }
-      } catch (error: any) {
-        console.error('Transfer amount handler error:', error);
-        await ctx.reply('❌ Error processing transfer.');
       }
-      return;
-    }
 
-    // ===== STEP 1: Handle transfer address input SECOND =====
-    if (state?.awaitingTransferAddress) {
-      userStates.set(userId, { ...state, awaitingTransferAddress: false, transferAddress: text });
+      const message = `📤 *P2P Transfer* ${chainEmoji}\n\n` +
+        `*Active Chain:* ${chainName}\n` +
+        `*Available:* ${balance} ${nativeSymbol}${displayPrice}\n\n` +
+        `Send ${nativeSymbol} to any wallet address on ${chainName}.\n\n` +
+        `_A transfer fee of 1% will be deducted._`;
 
-      try {
-        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-        if (userResult.rows.length === 0) {
-          await ctx.reply('Please use /start first.');
-          return;
-        }
+      const keyboard = new InlineKeyboard()
+        .text(`📤 Transfer ${nativeSymbol}`, `p2p_transfer_${currentChain}`).row()
+        .text('🔙 Back', 'back')
+        .text('❌ Close', 'close_menu');
 
-        const chain = state.transferChain || 'solana';
-        
-        // Validate address format
-        if (chain === 'solana') {
-          if (text.length < 32 || text.length > 44) {
-            await ctx.reply('❌ Invalid Solana address. Please enter a valid address.');
-            userStates.set(userId, { ...state, awaitingTransferAddress: true });
-            return;
-          }
-        } else {
-          if (!text.startsWith('0x') || text.length !== 42) {
-            await ctx.reply('❌ Invalid EVM address. Please enter a valid Ethereum/BSC address starting with 0x');
-            userStates.set(userId, { ...state, awaitingTransferAddress: true });
-            return;
-          }
-        }
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      }).catch(async () => {
+        // If edit fails, send as new message
+        await ctx.reply(message, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      });
 
-        const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
-        const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
-
-        const keyboard = new InlineKeyboard()
-          .text('✏️ Change Address', 'p2p_transfer_' + chain)
-          .row()
-          .text('🔙 Back', 'back')
-          .text('❌ Cancel', 'menu_main');
-
-        await ctx.reply(
-          `📤 *P2P Transfer - ${chainName}*\n\n` +
-          `✅ Address: \`${text}\`\n\n` +
-          `Step 2: Enter the amount of ${nativeSymbol} to send\n\n` +
-          `*Example:* \`0.5\` or \`1.25\``,
-          { parse_mode: 'Markdown', reply_markup: keyboard }
-        );
-
-        userStates.set(userId, { ...state, awaitingTransferAmount: true, transferAddress: text });
-      } catch (error: any) {
-        console.error('Transfer address handler error:', error);
-        await ctx.reply('❌ Error processing address.');
-      }
-      return;
+      pushNavigation(userId, 'p2p_transfer');
+    } catch (error: any) {
+      console.error('P2P Transfer menu error:', error);
+      await ctx.reply('❌ Error loading P2P transfer menu: ' + error.message);
     }
   });
+
+  // P2P Transfer for Solana
+  bot.callbackQuery('p2p_transfer_solana', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+
+      await ctx.editMessageText(
+        `📤 *P2P Transfer - SOL*\n\n` +
+        `Step 1: Enter the destination wallet address\n\n` +
+        `*Example:* \`5Z8FwqK...Abc123xyz\`\n\n` +
+        `Paste the Solana wallet address where you want to send SOL.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'solana',
+        currentChain: 'solana'
+      });
+    } catch (error: any) {
+      console.error('P2P Transfer Solana error:', error);
+      await ctx.reply('❌ Error initiating transfer.');
+    }
+  });
+
+  // P2P Transfer for Ethereum
+  bot.callbackQuery('p2p_transfer_ethereum', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+
+      await ctx.editMessageText(
+        `📤 *P2P Transfer - ETH*\n\n` +
+        `Step 1: Enter the destination wallet address\n\n` +
+        `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
+        `Paste the Ethereum wallet address where you want to send ETH.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'ethereum',
+        currentChain: 'ethereum'
+      });
+    } catch (error: any) {
+      console.error('P2P Transfer Ethereum error:', error);
+      await ctx.reply('❌ Error initiating transfer.');
+    }
+  });
+
+  // P2P Transfer for BSC
+  bot.callbackQuery('p2p_transfer_bsc', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+
+      await ctx.editMessageText(
+        `📤 *P2P Transfer - BNB*\n\n` +
+        `Step 1: Enter the destination wallet address\n\n` +
+        `*Example:* \`0x742d35Cc6634C0532925a3b844Bc58e8bcccEAF7\`\n\n` +
+        `Paste the BSC wallet address where you want to send BNB.`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: 'bsc',
+        currentChain: 'bsc'
+      });
+    } catch (error: any) {
+      console.error('P2P Transfer BSC error:', error);
+      await ctx.reply('❌ Error initiating transfer.');
+    }
+  });
+
   // Token Sniper Menu
   bot.callbackQuery('menu_sniper', async (ctx) => {
     const userId = ctx.from?.id;
@@ -4592,7 +4604,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
   // ==================== P2P TRANSFER MESSAGE HANDLERS ====================
 
-  // Handle transfer address input
+  // Unified P2P Transfer Flow Handler
   bot.on('message:text', async (ctx) => {
     const userId = ctx.from?.id;
     const text = ctx.message?.text;
@@ -4600,165 +4612,161 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
     if (!userId || !text) return;
 
     const state = userStates.get(userId);
-    if (!state?.awaitingTransferAddress) return;
 
-    userStates.set(userId, { ...state, awaitingTransferAddress: false, transferAddress: text });
-
-    try {
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-      if (userResult.rows.length === 0) {
-        await ctx.reply('Please use /start first.');
+    // ===== STEP 2: Handle transfer amount input FIRST =====
+    if (state?.awaitingTransferAmount && state.transferAddress) {
+      const amount = parseFloat(text);
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
         return;
       }
 
-      const chain = state.transferChain || 'solana';
-      
-      // Validate address format
-      if (chain === 'solana') {
-        if (text.length < 32 || text.length > 44) {
-          await ctx.reply('❌ Invalid Solana address. Please enter a valid address.');
-          userStates.set(userId, { ...state, awaitingTransferAddress: true });
+      userStates.delete(userId);
+
+      try {
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        if (userResult.rows.length === 0) {
+          await ctx.reply('Please use /start first.');
           return;
         }
-      } else {
-        if (!text.startsWith('0x') || text.length !== 42) {
-          await ctx.reply('❌ Invalid EVM address. Please enter a valid Ethereum/BSC address starting with 0x');
-          userStates.set(userId, { ...state, awaitingTransferAddress: true });
+
+        const dbUserId = userResult.rows[0].id;
+        const chain = state.transferChain || 'solana';
+        const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
+        const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
+        const recipientAddress = state.transferAddress;
+
+        // Get wallet
+        const walletResult = await query(
+          `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true ORDER BY id DESC LIMIT 1`,
+          [dbUserId, chain]
+        );
+
+        if (walletResult.rows.length === 0) {
+          await ctx.reply(`❌ No ${chainName} wallet found. Please create one first.`);
           return;
         }
+
+        const wallet = walletResult.rows[0];
+
+        // Calculate fee
+        const feePercentage = 0.01; // 1% default fee
+        const feeAmount = amount * feePercentage;
+        const totalAmount = amount + feeAmount;
+
+        await ctx.reply(`🔄 Processing transfer...\n\nAmount: ${amount} ${nativeSymbol}\nFee: ${feeAmount.toFixed(6)} ${nativeSymbol}`);
+
+        // Execute transfer
+        let txHash = '';
+        try {
+          const solanaConnection = (walletManager as any).connection || require('@solana/web3.js').Connection;
+          const transferService = new TransferService(solanaConnection);
+          
+          if (chain === 'solana') {
+            const keypair = await walletManager.getKeypair(wallet.id);
+            txHash = await transferService.transferSOL(keypair, recipientAddress, amount, dbUserId, null, feeAmount);
+          } else if (chain === 'ethereum') {
+            const encryptedPrivateKey = await query(
+              `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
+              [wallet.id]
+            );
+            if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
+            const { decrypt } = await import('../utils/encryption');
+            const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
+            txHash = await transferService.transferETH(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
+          } else if (chain === 'bsc') {
+            const encryptedPrivateKey = await query(
+              `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
+              [wallet.id]
+            );
+            if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
+            const { decrypt } = await import('../utils/encryption');
+            const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
+            txHash = await transferService.transferBNB(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
+          }
+
+          // Record fee
+          await feeService.recordFee(0, dbUserId, feeAmount, 'transfer', nativeSymbol);
+
+          const explorer = chain === 'ethereum' ? 'https://etherscan.io/tx/' : 
+                          chain === 'bsc' ? 'https://bscscan.com/tx/' : 
+                          'https://solscan.io/tx/?cluster=devnet';
+
+          await ctx.reply(
+            `✅ *Transfer Successful!*\n\n` +
+            `💸 Amount: ${amount} ${nativeSymbol}\n` +
+            `💵 Fee: ${feeAmount.toFixed(6)} ${nativeSymbol}\n` +
+            `📍 To: \`${recipientAddress}\`\n` +
+            `📝 Hash: \`${txHash}\`\n\n` +
+            `🔗 [View on Explorer](${explorer}${txHash})`,
+            { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+          );
+        } catch (error: any) {
+          console.error('Transfer execution error:', error);
+          await ctx.reply(
+            `❌ Transfer failed: ${error.message}\n\n` +
+            `Please try again or contact support.`,
+            { reply_markup: getMainMenu() }
+          );
+        }
+      } catch (error: any) {
+        console.error('Transfer amount handler error:', error);
+        await ctx.reply('❌ Error processing transfer.');
       }
-
-      const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
-      const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
-
-      const keyboard = new InlineKeyboard()
-        .text('✏️ Change Address', 'p2p_transfer_' + chain)
-        .row()
-        .text('🔙 Back', 'back')
-        .text('❌ Cancel', 'menu_main');
-
-      await ctx.reply(
-        `📤 *P2P Transfer - ${chainName}*\n\n` +
-        `✅ Address: \`${text}\`\n\n` +
-        `Step 2: Enter the amount of ${nativeSymbol} to send\n\n` +
-        `*Example:* \`0.5\` or \`1.25\``,
-        { parse_mode: 'Markdown', reply_markup: keyboard }
-      );
-
-      userStates.set(userId, { ...state, awaitingTransferAmount: true, transferAddress: text });
-    } catch (error: any) {
-      console.error('Transfer address handler error:', error);
-      await ctx.reply('❌ Error processing address.');
-    }
-  });
-
-  // Handle transfer amount input
-  bot.on('message:text', async (ctx) => {
-    const userId = ctx.from?.id;
-    const text = ctx.message?.text;
-    
-    if (!userId || !text) return;
-
-    const state = userStates.get(userId);
-    if (!state?.awaitingTransferAmount || !state.transferAddress) return;
-
-    const amount = parseFloat(text);
-    if (isNaN(amount) || amount <= 0) {
-      await ctx.reply('❌ Invalid amount. Please enter a positive number.');
       return;
     }
 
-    userStates.delete(userId);
+    // ===== STEP 1: Handle transfer address input SECOND =====
+    if (state?.awaitingTransferAddress) {
+      userStates.set(userId, { ...state, awaitingTransferAddress: false, transferAddress: text });
 
-    try {
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-      if (userResult.rows.length === 0) {
-        await ctx.reply('Please use /start first.');
-        return;
-      }
-
-      const dbUserId = userResult.rows[0].id;
-      const chain = state.transferChain || 'solana';
-      const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
-      const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
-      const recipientAddress = state.transferAddress;
-
-      // Get wallet
-      const walletResult = await query(
-        `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true ORDER BY id DESC LIMIT 1`,
-        [dbUserId, chain]
-      );
-
-      if (walletResult.rows.length === 0) {
-        await ctx.reply(`❌ No ${chainName} wallet found. Please create one first.`);
-        return;
-      }
-
-      const wallet = walletResult.rows[0];
-
-      // Calculate fee
-      const feePercentage = 0.01; // 1% default fee
-      const feeAmount = amount * feePercentage;
-      const totalAmount = amount + feeAmount;
-
-      await ctx.reply(`🔄 Processing transfer...\n\nAmount: ${amount} ${nativeSymbol}\nFee: ${feeAmount.toFixed(6)} ${nativeSymbol}`);
-
-      // Execute transfer
-      let txHash = '';
       try {
-        const solanaConnection = (walletManager as any).connection || require('@solana/web3.js').Connection;
-        const transferService = new TransferService(solanaConnection);
-        
-        if (chain === 'solana') {
-          const keypair = await walletManager.getKeypair(wallet.id);
-          txHash = await transferService.transferSOL(keypair, recipientAddress, amount, dbUserId, null, feeAmount);
-        } else if (chain === 'ethereum') {
-          const encryptedPrivateKey = await query(
-            `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
-            [wallet.id]
-          );
-          if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
-          const { decrypt } = await import('../utils/encryption');
-          const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
-          txHash = await transferService.transferETH(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
-        } else if (chain === 'bsc') {
-          const encryptedPrivateKey = await query(
-            `SELECT encrypted_private_key FROM wallets WHERE id = $1`,
-            [wallet.id]
-          );
-          if (encryptedPrivateKey.rows.length === 0) throw new Error('Wallet not found');
-          const { decrypt } = await import('../utils/encryption');
-          const privateKey = decrypt(encryptedPrivateKey.rows[0].encrypted_private_key, process.env.ENCRYPTION_KEY || '');
-          txHash = await transferService.transferBNB(privateKey, recipientAddress, amount, dbUserId, null, feeAmount);
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        if (userResult.rows.length === 0) {
+          await ctx.reply('Please use /start first.');
+          return;
         }
 
-        // Record fee
-        await feeService.recordFee(0, dbUserId, feeAmount, 'transfer', nativeSymbol);
+        const chain = state.transferChain || 'solana';
+        
+        // Validate address format
+        if (chain === 'solana') {
+          if (text.length < 32 || text.length > 44) {
+            await ctx.reply('❌ Invalid Solana address. Please enter a valid address.');
+            userStates.set(userId, { ...state, awaitingTransferAddress: true });
+            return;
+          }
+        } else {
+          if (!text.startsWith('0x') || text.length !== 42) {
+            await ctx.reply('❌ Invalid EVM address. Please enter a valid Ethereum/BSC address starting with 0x');
+            userStates.set(userId, { ...state, awaitingTransferAddress: true });
+            return;
+          }
+        }
 
-        const explorer = chain === 'ethereum' ? 'https://etherscan.io/tx/' : 
-                        chain === 'bsc' ? 'https://bscscan.com/tx/' : 
-                        'https://solscan.io/tx/?cluster=devnet';
+        const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
+        const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
+
+        const keyboard = new InlineKeyboard()
+          .text('✏️ Change Address', 'p2p_transfer_' + chain)
+          .row()
+          .text('🔙 Back', 'back')
+          .text('❌ Cancel', 'menu_main');
 
         await ctx.reply(
-          `✅ *Transfer Successful!*\n\n` +
-          `💸 Amount: ${amount} ${nativeSymbol}\n` +
-          `💵 Fee: ${feeAmount.toFixed(6)} ${nativeSymbol}\n` +
-          `📍 To: \`${recipientAddress}\`\n` +
-          `📝 Hash: \`${txHash}\`\n\n` +
-          `🔗 [View on Explorer](${explorer}${txHash})`,
-          { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+          `📤 *P2P Transfer - ${chainName}*\n\n` +
+          `✅ Address: \`${text}\`\n\n` +
+          `Step 2: Enter the amount of ${nativeSymbol} to send\n\n` +
+          `*Example:* \`0.5\` or \`1.25\``,
+          { parse_mode: 'Markdown', reply_markup: keyboard }
         );
+
+        userStates.set(userId, { ...state, awaitingTransferAmount: true, transferAddress: text });
       } catch (error: any) {
-        console.error('Transfer execution error:', error);
-        await ctx.reply(
-          `❌ Transfer failed: ${error.message}\n\n` +
-          `Please try again or contact support.`,
-          { reply_markup: getMainMenu() }
-        );
+        console.error('Transfer address handler error:', error);
+        await ctx.reply('❌ Error processing address.');
       }
-    } catch (error: any) {
-      console.error('Transfer amount handler error:', error);
-      await ctx.reply('❌ Error processing transfer.');
+      return;
     }
   });
 
