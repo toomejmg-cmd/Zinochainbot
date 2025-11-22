@@ -1,0 +1,54 @@
+Starting Container
+> zinochain-bot-admin-api@1.0.0 start
+> node dist/index.js
+🚀 Starting Admin API...
+Database URL: SET
+JWT Secret: SET
+🔐 Admin API running on port 3001
+📊 Ready to serve admin dashboard
+🌐 Environment: production
+Stopping Container
+Server closed
+SIGTERM received, shutting down gracefully...
+Starting Container
+PORT: 8080
+npm warn config production Use `--omit=dev` instead.
+=== ADMIN DASHBOARD STARTUP ===
+> zinochain-bot-admin-dashboard@1.0.0 start
+================================
+Working Directory: /app
+Script Directory: /app
+> node server.js
+✅ Admin Dashboard is RUNNING
+📊 URL: http://0.0.0.0:8080
+Public Directory: /app/public
+🔌 API: https://zinochainbot-production.up.railway.app
+ADMIN_API_URL: https://zinochainbot-production.up.railway.app
+📁 Serving from: /app/public
+Stopping Container
+npm error path /app
+npm error command failed
+npm error signal SIGTERM
+npm error command sh -c node server.js
+npm error A complete log of this run can be found in: /root/.npm/_logs/2025-11-22T04_33_47_294Z-debug-0.log
+[Proxy] Forwarding POST /api/auth/login to https://zinochainbot-production.up.railway.app/api/auth/login
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+Database query error: Error: getaddrinfo ENOTFOUND postgres.railway.internal
+  hostname: 'postgres.railway.internal'
+    at /app/node_modules/pg-pool/index.js:45:11
+}
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async query (/app/dist/database/db.js:22:21)
+    at async /app/dist/routes/auth.js:18:24 {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+Login error: Error: getaddrinfo ENOTFOUND postgres.railway.internal
+  hostname: 'postgres.railway.internal'
+    at /app/node_modules/pg-pool/index.js:45:11
+}
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async query (/app/dist/database/db.js:22:21)
+    at async /app/dist/routes/auth.js:18:24 {
+  errno: -3008,
