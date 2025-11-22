@@ -23,13 +23,13 @@ args = "Admin API"
 name = "Admin Dashboard"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd admin-dashboard && npm start"
 waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "Admin API"
@@ -58,6 +58,10 @@ externalPort = 3001
 [[ports]]
 localPort = 44113
 externalPort = 3000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [userenv]
 
