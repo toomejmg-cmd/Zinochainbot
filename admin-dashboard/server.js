@@ -94,8 +94,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files with cache control
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, path) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 // Main route
 app.get('/', (req, res) => {
@@ -107,9 +113,29 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+// Error handler for file not found
+app.use((err, req, res, next) => {
+  console.error('[Server Error]', err);
+  res.status(500).json({ error: 'Server error', message: err.message });
+});
+
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Admin Dashboard running on http://0.0.0.0:${PORT}`);
   console.log(`🔗 Access the dashboard in your browser`);
   console.log(`🔌 API URL: ${API_URL}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
 });
