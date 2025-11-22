@@ -14,7 +14,7 @@ import bs58 from 'bs58';
 import { MultiChainWalletService } from '../services/multiChainWallet';
 import { ChainType } from '../adapters/IChainAdapter';
 import { URLParserService } from '../services/urlParser';
-import { TokenInfoService } from '../services/tokenInfo';
+import { TokenInfoService, TokenInfo } from '../services/tokenInfo';
 import { userSettingsService } from '../services/userSettings';
 import { PinService } from '../services/pinService';
 import {
@@ -108,9 +108,10 @@ interface UserState {
   awaitingTransferAddress?: boolean;
   awaitingTransferAmount?: boolean;
   currentToken?: string;
+  currentTokenInfo?: TokenInfo;
+  currentChain?: 'solana' | 'ethereum' | 'bsc';
   withdrawType?: 'sol' | 'token';
   selectedChain?: 'solana' | 'ethereum' | 'bsc';
-  currentChain?: 'solana' | 'ethereum' | 'bsc';
   transferChain?: 'solana' | 'ethereum' | 'bsc';
   transferAddress?: string;
   awaitingSettingInput?: string;
@@ -821,6 +822,351 @@ Choose an action below! 👇
     );
 
     userStates.set(userId, { awaitingBuyToken: true });
+  });
+
+  // State-based preset buy handlers (1.0 SOL)
+  bot.callbackQuery('buy_preset_1.0', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+
+    if (!state?.currentToken || !state?.currentChain) {
+      await ctx.reply('❌ Session expired. Please search for a token again.');
+      return;
+    }
+
+    state.awaitingBuyAmount = false;
+    const nativeAmount = 1.0;
+    const tokenAddress = state.currentToken;
+    const chain = state.currentChain as ChainType;
+
+    // Only Solana swaps are supported
+    if (chain !== 'solana') {
+      await ctx.reply(`⏳ ${chain} swaps are coming soon! Currently only Solana is supported.`);
+      userStates.delete(userId);
+      return;
+    }
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      
+      const walletResult = await query(
+        `SELECT id, private_key FROM wallets WHERE user_id = $1 AND chain = 'solana' AND is_active = true LIMIT 1`,
+        [dbUserId]
+      );
+
+      if (walletResult.rows.length === 0) {
+        await ctx.reply(`❌ No Solana wallet found.`);
+        userStates.delete(userId);
+        return;
+      }
+
+      const wallet = walletResult.rows[0];
+      const settings = await userSettingsService.getSettings(dbUserId);
+      
+      if (settings.tradingMode === 'ai') {
+        await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
+      }
+
+      await ctx.reply(`🔄 Executing swap: ${nativeAmount} SOL → Token...`);
+
+      const keypair = await walletManager.getKeypair(wallet.id);
+      const feeAmount = feeService.calculateFee(nativeAmount);
+      const amountAfterFee = nativeAmount - feeAmount;
+      const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
+
+      const feeWallet = feeService.getFeeWallet();
+      let feeTransferSuccess = false;
+      if (feeWallet && feeAmount > 0) {
+        try {
+          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+          feeTransferSuccess = true;
+        } catch (feeError) {
+          console.error('Fee transfer failed:', feeError);
+          throw new Error('Fee collection failed. Transaction aborted.');
+        }
+      } else {
+        feeTransferSuccess = true;
+      }
+
+      const signature = await jupiterService.swap(
+        keypair,
+        NATIVE_SOL_MINT,
+        tokenAddress,
+        amountLamportsAfterFee,
+        settings.slippageBps
+      );
+
+      const txResult = await query(
+        `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
+         VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
+         RETURNING id`,
+        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeTransferSuccess ? feeAmount : 0]
+      );
+
+      if (feeTransferSuccess && feeAmount > 0) {
+        await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+        await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+      }
+
+      const multiChainWalletAdapter = new MultiChainWalletService();
+      const adapter = multiChainWalletAdapter.getChainManager().getAdapter('solana');
+      const explorerUrl = adapter.getExplorerUrl(signature);
+
+      await ctx.reply(
+        `✅ *Swap Successful!*\n\n` +
+        `💰 Amount: ${nativeAmount} SOL\n` +
+        `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
+        `📝 Signature: \`${signature}\`\n\n` +
+        `🔗 [View Transaction](${explorerUrl})`,
+        { parse_mode: 'Markdown', link_preview_options: { is_disabled: true } }
+      );
+
+      userStates.delete(userId);
+    } catch (error: any) {
+      console.error('Preset buy error:', error);
+      await ctx.reply(`❌ Error: ${error.message}`);
+      userStates.delete(userId);
+    }
+  });
+
+  // State-based preset buy handlers (5.0 SOL)
+  bot.callbackQuery('buy_preset_5.0', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+
+    if (!state?.currentToken || !state?.currentChain) {
+      await ctx.reply('❌ Session expired. Please search for a token again.');
+      return;
+    }
+
+    state.awaitingBuyAmount = false;
+    const nativeAmount = 5.0;
+    const tokenAddress = state.currentToken;
+    const chain = state.currentChain as ChainType;
+
+    // Only Solana swaps are supported
+    if (chain !== 'solana') {
+      await ctx.reply(`⏳ ${chain} swaps are coming soon! Currently only Solana is supported.`);
+      userStates.delete(userId);
+      return;
+    }
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      
+      const walletResult = await query(
+        `SELECT id, private_key FROM wallets WHERE user_id = $1 AND chain = 'solana' AND is_active = true LIMIT 1`,
+        [dbUserId]
+      );
+
+      if (walletResult.rows.length === 0) {
+        await ctx.reply(`❌ No Solana wallet found.`);
+        userStates.delete(userId);
+        return;
+      }
+
+      const wallet = walletResult.rows[0];
+      const settings = await userSettingsService.getSettings(dbUserId);
+      
+      if (settings.tradingMode === 'ai') {
+        await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
+      }
+
+      await ctx.reply(`🔄 Executing swap: ${nativeAmount} SOL → Token...`);
+
+      const keypair = await walletManager.getKeypair(wallet.id);
+      const feeAmount = feeService.calculateFee(nativeAmount);
+      const amountAfterFee = nativeAmount - feeAmount;
+      const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
+
+      const feeWallet = feeService.getFeeWallet();
+      let feeTransferSuccess = false;
+      if (feeWallet && feeAmount > 0) {
+        try {
+          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+          feeTransferSuccess = true;
+        } catch (feeError) {
+          console.error('Fee transfer failed:', feeError);
+          throw new Error('Fee collection failed. Transaction aborted.');
+        }
+      } else {
+        feeTransferSuccess = true;
+      }
+
+      const signature = await jupiterService.swap(
+        keypair,
+        NATIVE_SOL_MINT,
+        tokenAddress,
+        amountLamportsAfterFee,
+        settings.slippageBps
+      );
+
+      const txResult = await query(
+        `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
+         VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
+         RETURNING id`,
+        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeTransferSuccess ? feeAmount : 0]
+      );
+
+      if (feeTransferSuccess && feeAmount > 0) {
+        await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+        await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+      }
+
+      const multiChainWalletAdapter5 = new MultiChainWalletService();
+      const adapter5 = multiChainWalletAdapter5.getChainManager().getAdapter('solana');
+      const explorerUrl = adapter5.getExplorerUrl(signature);
+
+      await ctx.reply(
+        `✅ *Swap Successful!*\n\n` +
+        `💰 Amount: ${nativeAmount} SOL\n` +
+        `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
+        `📝 Signature: \`${signature}\`\n\n` +
+        `🔗 [View Transaction](${explorerUrl})`,
+        { parse_mode: 'Markdown', link_preview_options: { is_disabled: true } }
+      );
+
+      userStates.delete(userId);
+    } catch (error: any) {
+      console.error('Preset buy error:', error);
+      await ctx.reply(`❌ Error: ${error.message}`);
+      userStates.delete(userId);
+    }
+  });
+
+  // State-based custom buy amount handler
+  bot.callbackQuery('buy_custom_amount', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+
+    if (!state?.currentToken || !state?.currentChain) {
+      await ctx.reply('❌ Session expired. Please search for a token again.');
+      return;
+    }
+
+    state.awaitingBuyAmount = true;
+    const nativeSymbol = new MultiChainWalletService().getChainManager().getAdapter(state.currentChain as ChainType).getNativeToken().symbol;
+    
+    await ctx.reply(`💰 How much ${nativeSymbol} do you want to spend?\n\nEnter an amount (e.g., 0.5, 1.0, 10.5)`);
+  });
+
+  // State-based execute swap handler
+  bot.callbackQuery('execute_swap_custom', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+
+    if (!state?.currentTokenInfo || !state?.currentToken || !state?.currentChain) {
+      await ctx.reply('❌ Session expired. Please search for a token again.');
+      return;
+    }
+
+    await ctx.reply(
+      `🔄 *Swap*\n\n` +
+      `This feature is coming soon! For now, use the preset amounts (Buy 1.0, Buy 5.0) or Buy X to swap custom amounts.`,
+      { parse_mode: 'Markdown' }
+    );
+  });
+
+  // State-based refresh token handler
+  bot.callbackQuery('refresh_token_custom', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery('Refreshing...');
+    const state = userStates.get(userId);
+
+    if (!state?.currentToken || !state?.currentChain) {
+      await ctx.reply('❌ Session expired. Please search for a token again.');
+      return;
+    }
+
+    try {
+      const chain = state.currentChain as ChainType;
+      const tokenAddress = state.currentToken;
+      const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
+
+      if (!tokenInfo) {
+        await ctx.reply('❌ Unable to fetch updated token information.');
+        return;
+      }
+
+      if (state) {
+        state.currentTokenInfo = tokenInfo;
+      }
+
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      
+      const multiChainWallet = new MultiChainWalletService();
+      const nativeBalance = await multiChainWallet.getBalance(dbUserId, chain);
+      const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
+      const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
+
+      let previewMessage = `*${tokenInfo.name} | ${tokenInfo.symbol} |*\n`;
+      previewMessage += `\`${tokenInfo.address}\`\n`;
+      
+      const explorerLink = new URLParserService().getExplorerLink(tokenInfo.address, chain);
+      const chartLink = new URLParserService().getChartLink(tokenInfo.address, chain);
+      const scanLink = new URLParserService().getScanLink(tokenInfo.address, 'dexscreener', chain);
+      
+      previewMessage += `[Explorer](${explorerLink}) | [Chart](${chartLink}) | [Scan](${scanLink})\n\n`;
+      
+      previewMessage += `*Price:* $${parseFloat(tokenInfo.priceUsd).toFixed(6)}\n`;
+      previewMessage += `*5m:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.m5)}, `;
+      previewMessage += `*1h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h1)}, `;
+      previewMessage += `*6h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h6)}, `;
+      previewMessage += `*24h:* ${tokenInfoService.formatPriceChange(tokenInfo.priceChange.h24)}\n`;
+      previewMessage += `*Market Cap:* ${tokenInfoService.formatLargeNumber(tokenInfo.marketCap)}\n\n`;
+      
+      previewMessage += `*Price Impact (5.0000 ${nativeSymbol}):* ${priceImpact5.priceImpact.toFixed(2)}%\n\n`;
+      
+      previewMessage += `*Wallet Balance:* ${parseFloat(nativeBalance).toFixed(4)} ${nativeSymbol}\n\n`;
+      
+      if (tokenInfo.socials?.twitter || tokenInfo.socials?.telegram) {
+        previewMessage += `🔗 `;
+        if (tokenInfo.socials.twitter) previewMessage += `[Twitter](${tokenInfo.socials.twitter}) `;
+        if (tokenInfo.socials.telegram) previewMessage += `[Telegram](${tokenInfo.socials.telegram})`;
+        previewMessage += `\n\n`;
+      }
+      
+      previewMessage += `*To buy press one of the buttons below.*`;
+
+      const buyKeyboard = new InlineKeyboard()
+        .text('DCA', `menu_dca`)
+        .text('✅ Swap', `execute_swap_custom`)
+        .text('Limit', `menu_limit`)
+        .row()
+        .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_1.0`)
+        .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_5.0`)
+        .row()
+        .text(`Buy X ${nativeSymbol}`, `buy_custom_amount`)
+        .row()
+        .text('🔄 Refresh', `refresh_token_custom`)
+        .text('❌ Cancel', 'menu_main');
+
+      await ctx.editMessageText(previewMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: buyKeyboard,
+        link_preview_options: { is_disabled: true }
+      });
+    } catch (error: any) {
+      console.error('Refresh error:', error);
+      await ctx.reply(`❌ Error: ${error.message}`);
+    }
   });
 
   bot.callbackQuery('menu_sell', async (ctx) => {
@@ -3278,17 +3624,33 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       
       previewMessage += `*To buy press one of the buttons below.*`;
 
+      // Store token info in state for button callbacks
+      if (userStates.has(userId)) {
+        const state = userStates.get(userId);
+        if (state) {
+          state.currentTokenInfo = tokenInfo;
+          state.currentChain = chain as ChainType;
+          state.currentToken = tokenAddress;
+        }
+      } else {
+        userStates.set(userId, {
+          currentTokenInfo: tokenInfo,
+          currentChain: chain as ChainType,
+          currentToken: tokenAddress
+        });
+      }
+
       const buyKeyboard = new InlineKeyboard()
         .text('DCA', `menu_dca`)
-        .text('✅ Swap', `execute_swap_${chain}_${tokenAddress}`)
+        .text('✅ Swap', `execute_swap_custom`)
         .text('Limit', `menu_limit`)
         .row()
-        .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_1.0`)
-        .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_5.0`)
+        .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_1.0`)
+        .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_5.0`)
         .row()
-        .text(`Buy X ${nativeSymbol}`, `buy_custom_amount_${chain}_${tokenAddress}`)
+        .text(`Buy X ${nativeSymbol}`, `buy_custom_amount`)
         .row()
-        .text('🔄 Refresh', `refresh_token_${chain}_${tokenAddress}`)
+        .text('🔄 Refresh', `refresh_token_custom`)
         .text('❌ Cancel', 'menu_main');
 
       await ctx.editMessageText(previewMessage, {
@@ -4646,17 +5008,33 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         
         previewMessage += `*To buy press one of the buttons below.*`;
 
+        // Store token info in state for button callbacks
+        if (userStates.has(userId)) {
+          const state = userStates.get(userId);
+          if (state) {
+            state.currentTokenInfo = tokenInfo;
+            state.currentChain = chain as ChainType;
+            state.currentToken = tokenAddress;
+          }
+        } else {
+          userStates.set(userId, {
+            currentTokenInfo: tokenInfo,
+            currentChain: chain as ChainType,
+            currentToken: tokenAddress
+          });
+        }
+
         const buyKeyboard = new InlineKeyboard()
           .text('DCA', `menu_dca`)
-          .text('✅ Swap', `execute_swap_${chain}_${tokenAddress}`)
+          .text('✅ Swap', `execute_swap_custom`)
           .text('Limit', `menu_limit`)
           .row()
-          .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_1.0`)
-          .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_${chain}_${tokenAddress}_5.0`)
+          .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_1.0`)
+          .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_5.0`)
           .row()
-          .text(`Buy X ${nativeSymbol}`, `buy_custom_amount_${chain}_${tokenAddress}`)
+          .text(`Buy X ${nativeSymbol}`, `buy_custom_amount`)
           .row()
-          .text('🔄 Refresh', `refresh_token_${chain}_${tokenAddress}`)
+          .text('🔄 Refresh', `refresh_token_custom`)
           .text('❌ Cancel', 'menu_main');
 
         await ctx.reply(previewMessage, {
@@ -4664,9 +5042,6 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           reply_markup: buyKeyboard,
           link_preview_options: { is_disabled: true }
         });
-        
-        // Clear state after successful preview
-        userStates.delete(userId);
         
       } catch (error: any) {
         console.error('Token preview error:', error);
