@@ -9,8 +9,8 @@ const pool = new Pool({
 });
 
 pool.on('error', (err: Error) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('Unexpected error on idle client:', err.message);
+  // Don't exit - let Railway handle restarts
 });
 
 export async function query(text: string, params?: any[]) {
