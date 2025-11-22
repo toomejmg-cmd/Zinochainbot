@@ -1,0 +1,98 @@
+Starting Container
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-dashboard/server.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
+Node.js v20.19.5
+  throw err;
+  ^
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+Error: Cannot find module '/app/admin-dashboard/server.js'
+    at node:internal/main/run_main_module:28:49 {
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+  code: 'MODULE_NOT_FOUND',
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+  requireStack: []
+}
+    at node:internal/main/run_main_module:28:49 {
+Error: Cannot find module '/app/admin-dashboard/server.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+  code: 'MODULE_NOT_FOUND',
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+  requireStack: []
+}
+node:internal/modules/cjs/loader:1210
+Node.js v20.19.5
+  throw err;
+  ^
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+Error: Cannot find module '/app/admin-dashboard/server.js'
+  requireStack: []
+  ^
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+}
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+Node.js v20.19.5
+  throw err;
+node:internal/modules/cjs/loader:1210
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-dashboard/server.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
+  ^
+  throw err;
+Error: Cannot find module '/app/admin-dashboard/server.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-dashboard/server.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-dashboard/server.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
