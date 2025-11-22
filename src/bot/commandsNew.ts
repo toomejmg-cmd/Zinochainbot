@@ -2313,12 +2313,16 @@ _(Tap to copy)_
       try {
         if (currentChain === 'solana') {
           const bal = await walletManager.getBalance(wallet.public_key);
-          balance = String(bal);
+          balance = (bal || 0).toFixed(4);
+        } else if (currentChain === 'ethereum' || currentChain === 'bsc') {
+          // For EVM chains, balance fetching would go here
+          balance = 'Loading...';
         } else {
           balance = 'N/A';
         }
       } catch (err) {
-        console.warn('Error fetching balance:', err);
+        console.error('Balance fetch error:', err);
+        balance = 'Error fetching';
       }
 
       const message = `📤 *P2P Transfer* ${chainEmoji}\n\n` +
