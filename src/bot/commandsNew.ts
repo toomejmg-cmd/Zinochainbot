@@ -4645,11 +4645,18 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
       const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
 
+      const keyboard = new InlineKeyboard()
+        .text('✏️ Change Address', 'p2p_transfer_' + chain)
+        .row()
+        .text('🔙 Back', 'back')
+        .text('❌ Cancel', 'menu_main');
+
       await ctx.reply(
         `📤 *P2P Transfer - ${chainName}*\n\n` +
         `✅ Address: \`${text}\`\n\n` +
         `Step 2: Enter the amount of ${nativeSymbol} to send\n\n` +
-        `*Example:* \`0.5\` or \`1.25\``
+        `*Example:* \`0.5\` or \`1.25\``,
+        { parse_mode: 'Markdown', reply_markup: keyboard }
       );
 
       userStates.set(userId, { ...state, awaitingTransferAmount: true, transferAddress: text });
