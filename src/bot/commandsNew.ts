@@ -2270,7 +2270,7 @@ _(Tap to copy)_
     }
   });
 
-    // ==================== P2P TRANSFER HANDLERS ====================
+  // ==================== P2P TRANSFER HANDLERS ====================
 
   // P2P Transfer Main Menu
   bot.callbackQuery('menu_p2p_transfer', async (ctx) => {
@@ -2280,26 +2280,24 @@ _(Tap to copy)_
     await ctx.answerCallbackQuery();
 
     try {
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const userResult = await query(`SELECT id, current_chain FROM users WHERE telegram_id = $1`, [userId]);
       if (userResult.rows.length === 0) {
         await ctx.reply('Please use /start first.');
         return;
       }
 
       const dbUserId = userResult.rows[0].id;
-      const state = userStates.get(userId) || {};
-      const currentChain = state.currentChain || 'solana';
-      const chainEmoji = currentChain === 'ethereum' ? '🔷' : currentChain === 'bsc' ? '🟡' : '⚡';
-      const chainName = currentChain === 'ethereum' ? 'Ethereum' : currentChain === 'bsc' ? 'BSC' : 'Solana';
-      const nativeSymbol = currentChain === 'ethereum' ? 'ETH' : currentChain === 'bsc' ? 'BNB' : 'SOL';
+      const currentChain = (userResult.rows[0].current_chain as ChainType) || 'solana';
 
-      // Get balance
-      const walletResult = await query(
-        `SELECT public_key, chain FROM wallets WHERE user_id = $1 AND is_active = true ORDER BY id DESC LIMIT 1`,
-        [dbUserId]
-      );
+      // Get balance using MultiChainWalletService (like main dashboard)
+      const multiChainWallet = new MultiChainWalletService();
+      const wallet = await multiChainWallet.getWallet(dbUserId, currentChain);
+      const balance = await multiChainWallet.getBalance(dbUserId, currentChain);
+      const adapter = multiChainWallet.getChainManager().getAdapter(currentChain);
+      const nativeToken = adapter.getNativeToken();
+      const price = await coinGeckoService.getNativePrice(currentChain);
 
-      if (walletResult.rows.length === 0) {
+      if (!wallet) {
         await ctx.editMessageText(
           `📤 *P2P Transfer*\n\n❌ No wallet found. Please create a wallet first.`,
           { parse_mode: 'Markdown' }
@@ -2307,32 +2305,19 @@ _(Tap to copy)_
         return;
       }
 
-      const wallet = walletResult.rows[0];
-      let balance = '0';
-      
-      try {
-        if (currentChain === 'solana') {
-          const bal = await walletManager.getBalance(wallet.public_key);
-          balance = (bal || 0).toFixed(4);
-        } else if (currentChain === 'ethereum' || currentChain === 'bsc') {
-          // For EVM chains, balance fetching would go here
-          balance = 'N/A';
-        } else {
-          balance = 'N/A';
-        }
-      } catch (err) {
-        console.warn('Balance fetch attempt:', err);
-        balance = '0';
-      }
+      const chainEmoji = currentChain === 'ethereum' ? '🔷' : currentChain === 'bsc' ? '🟡' : '⚡';
+      const chainName = currentChain === 'ethereum' ? 'Ethereum' : currentChain === 'bsc' ? 'BSC' : 'Solana';
+      const balanceNum = parseFloat(balance);
+      const displayPrice = price > 0 ? ` ($${(balanceNum * price).toFixed(2)})` : '';
 
       const message = `📤 *P2P Transfer* ${chainEmoji}\n\n` +
         `*Active Chain:* ${chainName}\n` +
-        `*Available:* ${balance} ${nativeSymbol}\n\n` +
-        `Send ${nativeSymbol} to any wallet address on ${chainName}.\n\n` +
+        `*Available:* ${balanceNum.toFixed(4)} ${nativeToken.symbol}${displayPrice}\n\n` +
+        `Send ${nativeToken.symbol} to any wallet address on ${chainName}.\n\n` +
         `_A transfer fee will be automatically deducted from your amount._`;
 
       const keyboard = new InlineKeyboard()
-        .text(`📤 Transfer ${nativeSymbol}`, `p2p_transfer_${currentChain}`).row()
+        .text(`📤 Transfer ${nativeToken.symbol}`, `p2p_transfer_${currentChain}`).row()
         .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 
       await ctx.editMessageText(message, {
@@ -2355,12 +2340,6 @@ _(Tap to copy)_
     await ctx.answerCallbackQuery();
 
     try {
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-      if (userResult.rows.length === 0) {
-        await ctx.reply('Please use /start first.');
-        return;
-      }
-
       const state = userStates.get(userId) || {};
 
       await ctx.editMessageText(
@@ -2391,12 +2370,6 @@ _(Tap to copy)_
     await ctx.answerCallbackQuery();
 
     try {
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-      if (userResult.rows.length === 0) {
-        await ctx.reply('Please use /start first.');
-        return;
-      }
-
       const state = userStates.get(userId) || {};
 
       await ctx.editMessageText(
@@ -2427,12 +2400,6 @@ _(Tap to copy)_
     await ctx.answerCallbackQuery();
 
     try {
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-      if (userResult.rows.length === 0) {
-        await ctx.reply('Please use /start first.');
-        return;
-      }
-
       const state = userStates.get(userId) || {};
 
       await ctx.editMessageText(
