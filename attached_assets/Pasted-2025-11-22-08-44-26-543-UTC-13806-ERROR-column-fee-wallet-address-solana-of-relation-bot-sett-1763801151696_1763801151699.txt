@@ -1,0 +1,21 @@
+2025-11-22 08:44:26.543 UTC [13806] ERROR:  column "fee_wallet_address_solana" of relation "bot_settings" does not exist at character 54
+2025-11-22 08:44:26.543 UTC [13806] STATEMENT:  
+	        UPDATE bot_settings 
+	        SET 
+	          fee_wallet_address_solana = $1, fee_wallet_address_ethereum = $2, fee_wallet_address_bsc = $3, fee_percentage = $4, referral_percentage = $5, min_trade_amount = $6, max_trade_amount = $7,
+	          enabled = $8, maintenance_mode = $9, allow_new_registrations = $10,
+	          withdrawal_wallet_address = $11, withdrawal_fee_percentage = $12, min_withdrawal_amount = $13, max_withdrawal_amount = $14,
+	          daily_withdrawal_limit = $15, monthly_withdrawal_limit = $16, withdrawal_requires_approval = $17, auto_withdrawal_threshold = $18,
+	          auto_collect_fees = $19, auto_collect_schedule_hours = $20, min_balance_for_auto_collect = $21, fee_collection_wallet_rotation = $22,
+	          daily_trade_limit_per_user = $23, max_trade_size_per_transaction = $24, max_active_orders_per_user = $25,
+	          max_wallets_per_user = $26, trade_cooldown_seconds = $27, suspicious_activity_threshold = $28,
+	          require_2fa = $29, auto_lock_suspicious_accounts = $30, notify_on_suspicious_activity = $31, notify_on_large_trades = $32,
+	          max_failed_login_attempts = $33, large_trade_threshold_sol = $34, admin_notification_email = $35, admin_notification_telegram_id = $36,
+	          admin_ip_whitelist = $37, require_kyc_above_limit = $38, new_user_cooldown_hours = $39,
+	          solana_rpc_endpoint = $40, solana_backup_rpc_endpoint = $41, ethereum_rpc_endpoint = $42, bsc_rpc_endpoint = $43, api_rate_limit_per_minute = $44,
+	          global_max_slippage_bps = $45, global_min_slippage_bps = $46, max_gas_price_gwei = $47,
+	          min_priority_fee_lamports = $48, max_priority_fee_lamports = $49, enable_mev_protection = $50,
+	          max_consecutive_errors = $51, auto_restart_on_error = $52, emergency_stop = $53, emergency_stop_reason = $54,
+	          updated_at = CURRENT_TIMESTAMP, updated_by = $55
+	        WHERE id = (SELECT id FROM bot_settings ORDER BY id DESC LIMIT 1)
+	        RETURNING *
