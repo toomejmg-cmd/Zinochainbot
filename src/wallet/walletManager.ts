@@ -79,9 +79,15 @@ export class WalletManager {
   }
 
   async getBalance(publicKey: string): Promise<number> {
-    const pubKey = new PublicKey(publicKey);
-    const balance = await this.connection.getBalance(pubKey);
-    return balance / LAMPORTS_PER_SOL;
+    try {
+      const pubKey = new PublicKey(publicKey);
+      const balance = await this.connection.getBalance(pubKey);
+      return balance / LAMPORTS_PER_SOL;
+    } catch (error: any) {
+      console.warn(`⚠️ Balance fetch error for ${publicKey}:`, error?.message || error);
+      // Return 0 instead of throwing, so UI can still show the page
+      return 0;
+    }
   }
 
   async getTokenBalance(walletPublicKey: string, tokenMint: string): Promise<number> {
