@@ -9,14 +9,16 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // Get API URL from environment (Railway internal URL or localhost)
 const API_URL = process.env.ADMIN_API_URL || 'http://localhost:3001';
 
-// DEBUG: Print all environment info at startup
-console.log('=== RAILWAY DEBUG INFO ===');
-console.log('Current Working Directory:', process.cwd());
+// Resolve public directory path - handle both local and Railway environments
+const publicDir = path.resolve(__dirname, 'public');
+
+console.log('=== ADMIN DASHBOARD STARTUP ===');
+console.log('Working Directory:', process.cwd());
 console.log('Script Directory:', __dirname);
-console.log('ADMIN_API_URL from env:', process.env.ADMIN_API_URL);
-console.log('Using API_URL:', API_URL);
-console.log('All Environment Variables:', Object.keys(process.env).filter(k => k.includes('ADMIN') || k.includes('API') || k.includes('NODE')));
-console.log('========================');
+console.log('Public Directory:', publicDir);
+console.log('ADMIN_API_URL:', API_URL);
+console.log('PORT:', PORT);
+console.log('================================');
 
 // Parse JSON bodies for POST/PUT requests (only for non-multipart)
 app.use(express.json());
@@ -90,40 +92,55 @@ app.get('/health', (req, res) => {
     apiUrl: API_URL,
     hasAdminApiUrl: !!process.env.ADMIN_API_URL,
     adminApiUrlValue: process.env.ADMIN_API_URL || 'NOT_SET',
-    nodeEnv: process.env.NODE_ENV
+    nodeEnv: process.env.NODE_ENV,
+    publicDir: publicDir
   });
 });
 
 // Serve static files with cache control
-app.use(express.static(path.join(__dirname, 'public'), {
-  setHeaders: (res, path) => {
+app.use(express.static(publicDir, {
+  setHeaders: (res, filePath) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
 }));
 
-// Main route
+// Main route - serve index.html
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const indexPath = path.join(publicDir, 'index.html');
+  console.log('[Routes] Serving index.html from:', indexPath);
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('[Routes] Error sending index.html:', err);
+      res.status(500).json({ error: 'Failed to load dashboard', details: err.message });
+    }
+  });
 });
 
-// Catch-all route for SPA - must be last
+// Catch-all route for SPA - must be last (serves index.html for all other routes)
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const indexPath = path.join(publicDir, 'index.html');
+  console.log('[Routes] SPA fallback - serving index.html from:', indexPath);
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('[Routes] Error in catch-all route:', err);
+      res.status(500).json({ error: 'Failed to load dashboard', details: err.message });
+    }
+  });
 });
 
-// Error handler for file not found
+// Error handler
 app.use((err, req, res, next) => {
   console.error('[Server Error]', err);
   res.status(500).json({ error: 'Server error', message: err.message });
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`📊 Admin Dashboard running on http://0.0.0.0:${PORT}`);
-  console.log(`🔗 Access the dashboard in your browser`);
-  console.log(`🔌 API URL: ${API_URL}`);
-  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`\n✅ Admin Dashboard is RUNNING`);
+  console.log(`📊 URL: http://0.0.0.0:${PORT}`);
+  console.log(`🔌 API: ${API_URL}`);
+  console.log(`📁 Serving from: ${publicDir}\n`);
 });
 
 // Graceful shutdown
