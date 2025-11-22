@@ -1,0 +1,118 @@
+  text: 'SELECT id, telegram_id, role FROM admin_users WHER',
+  duration: 2,
+  rows: 1
+}
+Executed query {
+  text: '\n      SELECT t.*, u.username, u.telegram_id, u.fi',
+  duration: 2,
+  rows: 0
+}
+Executed query {
+Executed query {
+  text: 'SELECT COALESCE(SUM(fee_amount), 0) as total FROM ',
+  duration: 2,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, telegram_id, role FROM admin_users WHER',
+  duration: 2,
+  rows: 1
+}
+Executed query { text: 'SELECT COUNT(*) as count FROM users', duration: 2, rows: 1 }
+Executed query {
+  text: 'SELECT COUNT(*) as count FROM wallets WHERE is_act',
+  duration: 2,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT COUNT(*) as count FROM transactions',
+  duration: 2,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, telegram_id, role FROM admin_users WHER',
+  duration: 2,
+  rows: 1
+}
+Executed query {
+  text: '\n      SELECT t.*, u.username, u.telegram_id, u.fi',
+  duration: 2,
+  rows: 0
+}
+Executed query {
+  text: 'SELECT COUNT(*) as total FROM transactions ',
+  duration: 1,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT id, telegram_id, role FROM admin_users WHER',
+  duration: 6,
+  rows: 1
+}
+Executed query { text: 'SELECT COUNT(*) as count FROM users', duration: 5, rows: 1 }
+Executed query {
+  text: 'SELECT COUNT(*) as count FROM transactions',
+  duration: 54,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT COALESCE(SUM(fee_amount), 0) as total FROM ',
+  duration: 63,
+  rows: 1
+}
+Executed query {
+  text: 'SELECT COUNT(*) as count FROM wallets WHERE is_act',
+  duration: 63,
+  rows: 1
+}
+  duration: 4,
+Executed query {
+  text: 'SELECT id, telegram_id, role FROM admin_users WHER',
+  rows: 1
+}
+Executed query {
+  text: '\n      SELECT t.*, u.username, u.telegram_id, u.fi',
+  duration: 4,
+  rows: 0
+}
+Executed query {
+  text: 'SELECT COUNT(*) as total FROM transactions ',
+  duration: 2,
+  rows: 1
+}
+}
+}
+  text: 'SELECT COALESCE(SUM(fee_amount), 0) as total FROM ',
+Executed query {
+  duration: 3,
+  rows: 1
+  text: 'SELECT COUNT(*) as count FROM wallets WHERE is_act',
+  rows: 1
+  duration: 3,
+}
+Executed query {
+Executed query {
+  text: 'SELECT id, telegram_id, role FROM admin_users WHER',
+  duration: 8,
+  rows: 1
+}
+Executed query { text: 'SELECT COUNT(*) as count FROM users', duration: 1, rows: 1 }
+Executed query {
+  text: 'SELECT COUNT(*) as count FROM transactions',
+  duration: 3,
+  rows: 1
+  rows: 1
+}
+  rows: 0
+}
+Executed query {
+  text: 'SELECT id, telegram_id, role FROM admin_users WHER',
+  text: 'SELECT COUNT(*) as total FROM transactions ',
+  duration: 2,
+  duration: 2,
+  rows: 1
+Executed query {
+}
+Executed query {
+  text: '\n      SELECT t.*, u.username, u.telegram_id, u.fi',
+  duration: 2,
