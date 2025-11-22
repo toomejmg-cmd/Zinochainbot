@@ -120,6 +120,34 @@ export function getWithdrawMenu(): InlineKeyboard {
     .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }
 
+export function getPinEntryKeyboard(pinLength: number = 0): InlineKeyboard {
+  return new InlineKeyboard()
+    .text('1️⃣', 'pin_1').text('2️⃣', 'pin_2').text('3️⃣', 'pin_3')
+    .row()
+    .text('4️⃣', 'pin_4').text('5️⃣', 'pin_5').text('6️⃣', 'pin_6')
+    .row()
+    .text('7️⃣', 'pin_7').text('8️⃣', 'pin_8').text('9️⃣', 'pin_9')
+    .row()
+    .text('0️⃣', 'pin_0').text('⬅️ Delete', 'pin_delete')
+    .row()
+    .text(`✅ Confirm (${pinLength}/4-6)`, 'pin_confirm')
+    .text('❌ Cancel', 'pin_cancel');
+}
+
+export function getPinDisplayKeyboard(pinLength: number = 0): InlineKeyboard {
+  return new InlineKeyboard()
+    .text('1️⃣', 'pin_1').text('2️⃣', 'pin_2').text('3️⃣', 'pin_3')
+    .row()
+    .text('4️⃣', 'pin_4').text('5️⃣', 'pin_5').text('6️⃣', 'pin_6')
+    .row()
+    .text('7️⃣', 'pin_7').text('8️⃣', 'pin_8').text('9️⃣', 'pin_9')
+    .row()
+    .text('0️⃣', 'pin_0').text('⬅️ Delete', 'pin_delete')
+    .row()
+    .text(`✅ Verify PIN (${pinLength}/4-6)`, 'pin_confirm')
+    .text('❌ Cancel', 'pin_cancel');
+}
+
 export function getTokenManagementMenu(chain?: 'solana' | 'ethereum' | 'bsc', stats?: {
   solBalance: number;
   tokensOwned: number;

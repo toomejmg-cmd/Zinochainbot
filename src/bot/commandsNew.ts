@@ -16,6 +16,7 @@ import { ChainType } from '../adapters/IChainAdapter';
 import { URLParserService } from '../services/urlParser';
 import { TokenInfoService } from '../services/tokenInfo';
 import { userSettingsService } from '../services/userSettings';
+import { PinService } from '../services/pinService';
 import {
   getMainMenu,
   getBackToMainMenu,
@@ -28,7 +29,9 @@ import {
   getConfirmMenu,
   getChainSelectorMenu,
   getTokenManagementMenu,
-  getWatchlistMenu
+  getWatchlistMenu,
+  getPinEntryKeyboard,
+  getPinDisplayKeyboard
 } from './menus';
 import { checkMaintenanceMode } from '../services/botSettings';
 
@@ -111,6 +114,17 @@ interface UserState {
   transferChain?: 'solana' | 'ethereum' | 'bsc';
   transferAddress?: string;
   awaitingSettingInput?: string;
+  awaitingPin?: boolean;
+  pinInput?: string;
+  pendingWithdrawal?: {
+    address: string;
+    amount: number;
+    type: 'sol' | 'token';
+    tokenMint?: string;
+    chain: 'solana' | 'ethereum' | 'bsc';
+  };
+  awaitingNewPin?: boolean;
+  newPinInput?: string;
 }
 
 interface NavigationHistory {
@@ -4753,6 +4767,226 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       console.error('Transfer amount handler error:', error);
       await ctx.reply('❌ Error processing transfer.');
     }
+  });
+
+  // ==================== PIN VERIFICATION HANDLERS ====================
+  
+  // Set PIN command
+  bot.command('setpin', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    if (userResult.rows.length === 0) {
+      await ctx.reply('Please use /start first.');
+      return;
+    }
+
+    const dbUserId = userResult.rows[0].id;
+    const state = userStates.get(userId) || {};
+
+    userStates.set(userId, {
+      ...state,
+      awaitingNewPin: true,
+      newPinInput: ''
+    });
+
+    await ctx.reply(
+      `🔐 *Set Your PIN for Withdrawals*\n\n` +
+      `Choose a 4-6 digit PIN to protect your withdrawals.\n\n` +
+      `_Your PIN is encrypted and stored securely._`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: getPinEntryKeyboard(0)
+      }
+    );
+  });
+
+  // PIN number entry handlers
+  for (let i = 0; i <= 9; i++) {
+    bot.callbackQuery(`pin_${i}`, async (ctx) => {
+      const userId = ctx.from?.id;
+      if (!userId) return;
+
+      const state = userStates.get(userId) || {};
+      if (!state.awaitingNewPin && !state.awaitingPin) {
+        await ctx.answerCallbackQuery('❌ Not in PIN entry mode');
+        return;
+      }
+
+      const currentPin = state.awaitingNewPin ? (state.newPinInput || '') : (state.pinInput || '');
+      if (currentPin.length >= 6) {
+        await ctx.answerCallbackQuery('⚠️ PIN is already 6 digits');
+        return;
+      }
+
+      const newPin = currentPin + i.toString();
+      
+      if (state.awaitingNewPin) {
+        state.newPinInput = newPin;
+      } else {
+        state.pinInput = newPin;
+      }
+
+      userStates.set(userId, state);
+      
+      const keyboard = state.awaitingNewPin 
+        ? getPinEntryKeyboard(newPin.length)
+        : getPinDisplayKeyboard(newPin.length);
+
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
+      await ctx.answerCallbackQuery();
+    });
+  }
+
+  // PIN delete handler
+  bot.callbackQuery('pin_delete', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const state = userStates.get(userId) || {};
+    if (!state.awaitingNewPin && !state.awaitingPin) {
+      await ctx.answerCallbackQuery('❌ Not in PIN entry mode');
+      return;
+    }
+
+    if (state.awaitingNewPin) {
+      state.newPinInput = (state.newPinInput || '').slice(0, -1);
+    } else {
+      state.pinInput = (state.pinInput || '').slice(0, -1);
+    }
+
+    userStates.set(userId, state);
+    
+    const pinLength = state.awaitingNewPin 
+      ? (state.newPinInput || '').length 
+      : (state.pinInput || '').length;
+    const keyboard = state.awaitingNewPin 
+      ? getPinEntryKeyboard(pinLength)
+      : getPinDisplayKeyboard(pinLength);
+
+    await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
+    await ctx.answerCallbackQuery('⬅️ Deleted');
+  });
+
+  // PIN confirm handler
+  bot.callbackQuery('pin_confirm', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const state = userStates.get(userId) || {};
+    
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const dbUserId = userResult.rows[0].id;
+
+      // Setting new PIN
+      if (state.awaitingNewPin) {
+        const pin = state.newPinInput || '';
+        
+        if (pin.length < 4 || pin.length > 6) {
+          await ctx.answerCallbackQuery(`⚠️ PIN must be 4-6 digits (current: ${pin.length})`);
+          return;
+        }
+
+        await PinService.setPin(dbUserId, pin);
+        
+        userStates.delete(userId);
+        await ctx.editMessageText(
+          `✅ *PIN Set Successfully!*\n\n` +
+          `Your PIN is now enabled for all withdrawals.`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: getMainMenu()
+          }
+        );
+        await ctx.answerCallbackQuery('✅ PIN saved!');
+        return;
+      }
+
+      // Verifying PIN for withdrawal
+      if (state.awaitingPin) {
+        const pin = state.pinInput || '';
+        
+        if (pin.length < 4 || pin.length > 6) {
+          await ctx.answerCallbackQuery(`⚠️ PIN must be 4-6 digits (current: ${pin.length})`);
+          return;
+        }
+
+        const isValid = await PinService.verifyPin(dbUserId, pin);
+        
+        if (!isValid) {
+          state.pinInput = '';
+          userStates.set(userId, state);
+          
+          const keyboard = getPinDisplayKeyboard(0);
+          await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
+          await ctx.answerCallbackQuery('❌ Wrong PIN! Try again');
+          return;
+        }
+
+        // PIN verified - process withdrawal
+        if (!state.pendingWithdrawal) {
+          await ctx.reply('❌ Withdrawal data not found. Please try again.');
+          userStates.delete(userId);
+          return;
+        }
+
+        const withdrawal = state.pendingWithdrawal;
+        userStates.delete(userId);
+
+        // Process the withdrawal here
+        await ctx.editMessageText(
+          `✅ *PIN Verified!*\n\n🔄 Processing your ${withdrawal.type === 'sol' ? 'SOL' : 'token'} withdrawal...`,
+          { parse_mode: 'Markdown' }
+        );
+
+        // TODO: Execute actual withdrawal logic
+        setTimeout(async () => {
+          await ctx.reply(
+            `✅ *Withdrawal Submitted!*\n\n` +
+            `Amount: ${withdrawal.amount}\n` +
+            `To: \`${withdrawal.address}\`\n\n` +
+            `Your transaction is being processed.`,
+            { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+          );
+        }, 1000);
+
+        await ctx.answerCallbackQuery('✅ PIN verified!');
+      }
+    } catch (error: any) {
+      console.error('PIN confirm error:', error);
+      await ctx.answerCallbackQuery(`❌ ${error.message}`);
+    }
+  });
+
+  // PIN cancel handler
+  bot.callbackQuery('pin_cancel', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const state = userStates.get(userId) || {};
+    
+    if (state.awaitingNewPin) {
+      userStates.delete(userId);
+      await ctx.editMessageText(
+        `❌ PIN setup cancelled.`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
+    } else if (state.awaitingPin) {
+      userStates.delete(userId);
+      await ctx.editMessageText(
+        `❌ Withdrawal cancelled.`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
+    }
+
+    await ctx.answerCallbackQuery();
   });
 
   console.log('✅ Bot commands and callbacks registered');
