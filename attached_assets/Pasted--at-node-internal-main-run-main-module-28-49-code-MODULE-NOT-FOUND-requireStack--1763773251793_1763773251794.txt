@@ -1,0 +1,98 @@
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+node:internal/modules/cjs/loader:1210
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+}
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+  throw err;
+  ^
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+Node.js v20.19.5
+    at node:internal/main/run_main_module:28:49 {
+Error: Cannot find module '/app/admin-api/dist/index.js'
+  code: 'MODULE_NOT_FOUND',
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-api/dist/index.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-api/dist/index.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-api/dist/index.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+Error: Cannot find module '/app/admin-api/dist/index.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+  throw err;
+node:internal/modules/cjs/loader:1210
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+  ^
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-api/dist/index.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+node:internal/modules/cjs/loader:1210
+  throw err;
+  ^
+Error: Cannot find module '/app/admin-api/dist/index.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+    at node:internal/main/run_main_module:28:49 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+Node.js v20.19.5
+Error: Cannot find module '/app/admin-api/dist/index.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+node:internal/modules/cjs/loader:1210
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+  throw err;
+    at node:internal/main/run_main_module:28:49 {
+  ^
+Node.js v20.19.5
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
