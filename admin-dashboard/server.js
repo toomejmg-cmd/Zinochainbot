@@ -7,7 +7,12 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
 // Get API URL from environment (Railway internal URL or localhost)
-const API_URL = process.env.ADMIN_API_URL || 'https://zinochainbot-production.up.railway.app';
+let API_URL = process.env.ADMIN_API_URL || 'https://zinochainbot-production.up.railway.app';
+
+// Ensure URL has a protocol
+if (!API_URL.startsWith('http://') && !API_URL.startsWith('https://')) {
+  API_URL = 'https://' + API_URL;
+}
 
 // Resolve public directory path - handle both local and Railway environments
 const publicDir = path.resolve(__dirname, 'public');

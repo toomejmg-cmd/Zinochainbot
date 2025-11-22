@@ -1,0 +1,69 @@
+Starting Container
+npm warn config production Use `--omit=dev` instead.
+> zinochain-bot-admin-dashboard@1.0.0 start
+> node server.js
+=== ADMIN DASHBOARD STARTUP ===
+Working Directory: /app
+Script Directory: /app
+Public Directory: /app/public
+ADMIN_API_URL: zinochainbot-production.up.railway.app
+PORT: 8080
+================================
+✅ Admin Dashboard is RUNNING
+📊 URL: http://0.0.0.0:8080
+🔌 API: zinochainbot-production.up.railway.app
+📁 Serving from: /app/public
+[Routes] SPA fallback - serving index.html from: /app/public/index.html
+[Proxy] Forwarding POST /api/auth/login to zinochainbot-production.up.railway.app/api/auth/login
+[API Proxy Error] Failed to connect to zinochainbot-production.up.railway.app/api/auth/login: Only absolute URLs are supported
+[API Proxy Error] Stack: TypeError: Only absolute URLs are supported
+    at getNodeRequestOptions (/app/node_modules/node-fetch/lib/index.js:1327:9)
+    at /app/node_modules/node-fetch/lib/index.js:1450:19
+    at new Promise (<anonymous>)
+    at fetch (/app/node_modules/node-fetch/lib/index.js:1447:9)
+    at /app/server.js:61:31
+    at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+    at next (/app/node_modules/express/lib/router/route.js:149:13)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+    at /app/node_modules/node-fetch/lib/index.js:1450:19
+    at new Promise (<anonymous>)
+    at fetch (/app/node_modules/node-fetch/lib/index.js:1447:9)
+    at /app/server.js:61:31
+    at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+    at next (/app/node_modules/express/lib/router/route.js:149:13)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+[Proxy] Forwarding POST /api/auth/login to zinochainbot-production.up.railway.app/api/auth/login
+[API Proxy Error] Failed to connect to zinochainbot-production.up.railway.app/api/auth/login: Only absolute URLs are supported
+[API Proxy Error] Stack: TypeError: Only absolute URLs are supported
+    at getNodeRequestOptions (/app/node_modules/node-fetch/lib/index.js:1327:9)
+[Routes] SPA fallback - serving index.html from: /app/public/index.html
+    at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+    at next (/app/node_modules/express/lib/router/route.js:149:13)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+[API Proxy Error] Failed to connect to zinochainbot-production.up.railway.app/api/auth/login: Only absolute URLs are supported
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+[API Proxy Error] Stack: TypeError: Only absolute URLs are supported
+    at getNodeRequestOptions (/app/node_modules/node-fetch/lib/index.js:1327:9)
+    at /app/node_modules/node-fetch/lib/index.js:1450:19
+    at new Promise (<anonymous>)
+    at fetch (/app/node_modules/node-fetch/lib/index.js:1447:9)
+    at /app/server.js:61:31
+[Proxy] Forwarding POST /api/auth/login to zinochainbot-production.up.railway.app/api/auth/login
+[API Proxy Error] Failed to connect to zinochainbot-production.up.railway.app/api/auth/login: Only absolute URLs are supported
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+[API Proxy Error] Stack: TypeError: Only absolute URLs are supported
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+    at getNodeRequestOptions (/app/node_modules/node-fetch/lib/index.js:1327:9)
+    at /app/node_modules/node-fetch/lib/index.js:1450:19
+    at new Promise (<anonymous>)
+    at /app/server.js:61:31
+    at fetch (/app/node_modules/node-fetch/lib/index.js:1447:9)
+    at Layer.handle [as handle_request] (/app/node_modules/express/lib/router/layer.js:95:5)
+    at next (/app/node_modules/express/lib/router/route.js:149:13)
+    at next (/app/node_modules/express/lib/router/route.js:145:7)
+[Proxy] Forwarding POST /api/auth/login to zinochainbot-production.up.railway.app/api/auth/login
