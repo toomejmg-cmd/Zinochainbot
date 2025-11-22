@@ -2341,7 +2341,7 @@ _(Tap to copy)_
     }
   });
 
-  // P2P Transfer for Solana
+    // P2P Transfer for Solana
   bot.callbackQuery('p2p_transfer_solana', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
@@ -2372,7 +2372,6 @@ _(Tap to copy)_
         `Paste the Solana wallet address where you want to send SOL.`,
         { parse_mode: 'Markdown' }
       ).catch(async () => {
-        // If edit fails, send as new message
         await ctx.reply(
           `📤 *P2P Transfer - SOL*\n\n` +
           `Step 1: Enter the destination wallet address\n\n` +
@@ -2418,7 +2417,6 @@ _(Tap to copy)_
         `Paste the Ethereum wallet address where you want to send ETH.`,
         { parse_mode: 'Markdown' }
       ).catch(async () => {
-        // If edit fails, send as new message
         await ctx.reply(
           `📤 *P2P Transfer - ETH*\n\n` +
           `Step 1: Enter the destination wallet address\n\n` +
@@ -2464,7 +2462,6 @@ _(Tap to copy)_
         `Paste the BSC wallet address where you want to send BNB.`,
         { parse_mode: 'Markdown' }
       ).catch(async () => {
-        // If edit fails, send as new message
         await ctx.reply(
           `📤 *P2P Transfer - BNB*\n\n` +
           `Step 1: Enter the destination wallet address\n\n` +
@@ -2478,7 +2475,6 @@ _(Tap to copy)_
       await ctx.reply('❌ Error initiating transfer.');
     }
   });
-
   // Token Sniper Menu
   bot.callbackQuery('menu_sniper', async (ctx) => {
     const userId = ctx.from?.id;
