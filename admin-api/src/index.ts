@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import pool from './database/db';
 import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
 import { errorHandler } from './middleware/errorHandler';
