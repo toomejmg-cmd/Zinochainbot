@@ -2270,7 +2270,7 @@ _(Tap to copy)_
     }
   });
 
-  // ==================== P2P TRANSFER HANDLERS ====================
+    // ==================== P2P TRANSFER HANDLERS ====================
 
   // P2P Transfer Main Menu
   bot.callbackQuery('menu_p2p_transfer', async (ctx) => {
@@ -2316,13 +2316,13 @@ _(Tap to copy)_
           balance = (bal || 0).toFixed(4);
         } else if (currentChain === 'ethereum' || currentChain === 'bsc') {
           // For EVM chains, balance fetching would go here
-          balance = 'Loading...';
+          balance = 'N/A';
         } else {
           balance = 'N/A';
         }
       } catch (err) {
-        console.error('Balance fetch error:', err);
-        balance = 'Error fetching';
+        console.warn('Balance fetch attempt:', err);
+        balance = '0';
       }
 
       const message = `📤 *P2P Transfer* ${chainEmoji}\n\n` +
@@ -2454,7 +2454,6 @@ _(Tap to copy)_
       await ctx.reply('❌ Error initiating transfer.');
     }
   });
-
   // Token Sniper Menu
   bot.callbackQuery('menu_sniper', async (ctx) => {
     const userId = ctx.from?.id;
