@@ -1048,7 +1048,7 @@ Choose an action below! 👇
     if (!userId) return;
 
     await ctx.answerCallbackQuery();
-    const state = userStates.get(userId);
+    let state = userStates.get(userId);
 
     if (!state?.currentToken || !state?.currentChain) {
       await ctx.reply('❌ Session expired. Please search for a token again.');
@@ -1056,6 +1056,8 @@ Choose an action below! 👇
     }
 
     state.awaitingBuyAmount = true;
+    userStates.set(userId, state);
+    
     const nativeSymbol = new MultiChainWalletService().getChainManager().getAdapter(state.currentChain as ChainType).getNativeToken().symbol;
     
     await ctx.reply(`💰 How much ${nativeSymbol} do you want to spend?\n\nEnter an amount (e.g., 0.5, 1.0, 10.5)`);
