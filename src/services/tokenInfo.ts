@@ -45,10 +45,68 @@ export class TokenInfoService {
   private readonly DEX_SCREENER_API = 'https://api.dexscreener.com/latest/dex';
 
   /**
+   * Fetch token information by pair address (when URL points to a pair)
+   */
+  private async getTokenInfoByPair(pairAddress: string, chain: string = 'solana'): Promise<TokenInfo | null> {
+    try {
+      const response = await axios.get(
+        `${this.DEX_SCREENER_API}/pairs/${chain}/${pairAddress}`,
+        {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'ZinochainBot/1.0'
+          }
+        }
+      );
+
+      if (!response.data || !response.data.pair) {
+        return null;
+      }
+
+      const pair = response.data.pair;
+      // Get the base token (usually the non-stablecoin token)
+      const token = pair.baseToken;
+      const tokenAddress = token.address;
+
+      return {
+        address: tokenAddress,
+        name: token.name || 'Unknown',
+        symbol: token.symbol || 'UNKNOWN',
+        price: parseFloat(pair.priceNative || '0'),
+        priceUsd: pair.priceUsd || '0',
+        marketCap: pair.marketCap || 0,
+        liquidity: pair.liquidity?.usd || 0,
+        volume24h: pair.volume?.h24 || 0,
+        priceChange: {
+          m5: pair.priceChange?.m5 || 0,
+          h1: pair.priceChange?.h1 || 0,
+          h6: pair.priceChange?.h6 || 0,
+          h24: pair.priceChange?.h24 || 0,
+        },
+        chain: pair.chainId,
+        dexId: pair.dexId,
+        pairAddress: pair.pairAddress,
+        imageUrl: token.imageUrl,
+        websites: pair.info?.websites || [],
+        socials: {
+          twitter: pair.info?.socials?.find((s: any) => s.type === 'twitter')?.url,
+          telegram: pair.info?.socials?.find((s: any) => s.type === 'telegram')?.url,
+          discord: pair.info?.socials?.find((s: any) => s.type === 'discord')?.url,
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching pair info from DEX Screener:', error);
+      return null;
+    }
+  }
+
+  /**
    * Fetch token information from DEX Screener
+   * Tries token lookup first, then falls back to pair lookup if token address doesn't exist
    */
   async getTokenInfo(tokenAddress: string, chain: string = 'solana'): Promise<TokenInfo | null> {
     try {
+      // Try token lookup first
       const response = await axios.get(
         `${this.DEX_SCREENER_API}/tokens/${tokenAddress}`,
         {
@@ -59,58 +117,57 @@ export class TokenInfoService {
         }
       );
 
-      if (!response.data || !response.data.pairs || response.data.pairs.length === 0) {
-        return null;
-      }
+      if (response.data && response.data.pairs && response.data.pairs.length > 0) {
+        // Get the most liquid pair for this token
+        const pairs = response.data.pairs.filter((p: any) => 
+          p.chainId.toLowerCase() === chain.toLowerCase()
+        );
 
-      // Get the most liquid pair for this token
-      const pairs = response.data.pairs.filter((p: any) => 
-        p.chainId.toLowerCase() === chain.toLowerCase()
-      );
+        if (pairs.length > 0) {
+          // Sort by liquidity and get the best pair
+          const bestPair = pairs.sort((a: any, b: any) => 
+            (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+          )[0];
 
-      if (pairs.length === 0) {
-        return null;
-      }
+          const token = bestPair.baseToken.address.toLowerCase() === tokenAddress.toLowerCase()
+            ? bestPair.baseToken
+            : bestPair.quoteToken;
 
-      // Sort by liquidity and get the best pair
-      const bestPair = pairs.sort((a: any, b: any) => 
-        (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
-      )[0];
-
-      const token = bestPair.baseToken.address.toLowerCase() === tokenAddress.toLowerCase()
-        ? bestPair.baseToken
-        : bestPair.quoteToken;
-
-      return {
-        address: tokenAddress,
-        name: token.name || 'Unknown',
-        symbol: token.symbol || 'UNKNOWN',
-        price: parseFloat(bestPair.priceNative || '0'),
-        priceUsd: bestPair.priceUsd || '0',
-        marketCap: bestPair.marketCap || 0,
-        liquidity: bestPair.liquidity?.usd || 0,
-        volume24h: bestPair.volume?.h24 || 0,
-        priceChange: {
-          m5: bestPair.priceChange?.m5 || 0,
-          h1: bestPair.priceChange?.h1 || 0,
-          h6: bestPair.priceChange?.h6 || 0,
-          h24: bestPair.priceChange?.h24 || 0,
-        },
-        chain: bestPair.chainId,
-        dexId: bestPair.dexId,
-        pairAddress: bestPair.pairAddress,
-        imageUrl: token.imageUrl,
-        websites: bestPair.info?.websites || [],
-        socials: {
-          twitter: bestPair.info?.socials?.find((s: any) => s.type === 'twitter')?.url,
-          telegram: bestPair.info?.socials?.find((s: any) => s.type === 'telegram')?.url,
-          discord: bestPair.info?.socials?.find((s: any) => s.type === 'discord')?.url,
+          return {
+            address: tokenAddress,
+            name: token.name || 'Unknown',
+            symbol: token.symbol || 'UNKNOWN',
+            price: parseFloat(bestPair.priceNative || '0'),
+            priceUsd: bestPair.priceUsd || '0',
+            marketCap: bestPair.marketCap || 0,
+            liquidity: bestPair.liquidity?.usd || 0,
+            volume24h: bestPair.volume?.h24 || 0,
+            priceChange: {
+              m5: bestPair.priceChange?.m5 || 0,
+              h1: bestPair.priceChange?.h1 || 0,
+              h6: bestPair.priceChange?.h6 || 0,
+              h24: bestPair.priceChange?.h24 || 0,
+            },
+            chain: bestPair.chainId,
+            dexId: bestPair.dexId,
+            pairAddress: bestPair.pairAddress,
+            imageUrl: token.imageUrl,
+            websites: bestPair.info?.websites || [],
+            socials: {
+              twitter: bestPair.info?.socials?.find((s: any) => s.type === 'twitter')?.url,
+              telegram: bestPair.info?.socials?.find((s: any) => s.type === 'telegram')?.url,
+              discord: bestPair.info?.socials?.find((s: any) => s.type === 'discord')?.url,
+            }
+          };
         }
-      };
+      }
     } catch (error) {
-      console.error('Error fetching token info from DEX Screener:', error);
-      return null;
+      console.error('Token lookup failed, trying pair lookup:', error);
     }
+
+    // Fallback: Try treating the input as a pair address
+    console.log(`Token lookup failed for ${tokenAddress}. Attempting pair address lookup...`);
+    return this.getTokenInfoByPair(tokenAddress, chain);
   }
 
   /**
