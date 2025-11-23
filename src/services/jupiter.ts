@@ -2,13 +2,9 @@ import axios from 'axios';
 import { Connection, Keypair, VersionedTransaction, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { getMint } from '@solana/spl-token';
 
-// Multiple Jupiter endpoints for redundancy
-const JUPITER_ENDPOINTS = [
-  'https://quote-api.jup.ag/v6',  // Official Jupiter endpoint
-  'https://api.jup.ag/v6'           // Alternative Jupiter endpoint
-];
-
-let JUPITER_API = JUPITER_ENDPOINTS[0];
+// Jupiter free public API endpoint
+const JUPITER_QUOTE_API = 'https://api.jup.ag/quote';
+const JUPITER_SWAP_API = 'https://api.jup.ag/swap';
 
 export interface QuoteResponse {
   inputMint: string;
@@ -37,53 +33,43 @@ export class JupiterService {
   ): Promise<QuoteResponse> {
     console.log(`🔍 Getting quote: ${inputMint} → ${outputMint}, amount: ${amount}, slippage: ${slippageBps}bps`);
     
-    // Try multiple Jupiter endpoints with fallback
-    let lastError: any = null;
-    
-    for (let i = 0; i < JUPITER_ENDPOINTS.length; i++) {
-      try {
-        const baseEndpoint = JUPITER_ENDPOINTS[i];
-        const quoteUrl = `${baseEndpoint}/quote`;
-        console.log(`📡 Trying Jupiter endpoint ${i + 1}/${JUPITER_ENDPOINTS.length}: ${quoteUrl}`);
-        
-        const response = await axios.get(quoteUrl, {
-          params: {
-            inputMint,
-            outputMint,
-            amount: amount.toString(),
-            slippageBps
-          },
-          timeout: 15000,
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'ZinochainBot/1.0'
-          }
-        });
-
-        console.log(`✅ Quote received: ${response.data.outAmount} output tokens`);
-        JUPITER_API = baseEndpoint; // Update to working endpoint (without /quote)
-        return response.data;
-      } catch (error: any) {
-        lastError = error;
-        console.warn(`⚠️  Endpoint ${i + 1} failed (${error.response?.status || error.code}): ${error.message}`);
-        if (i < JUPITER_ENDPOINTS.length - 1) {
-          console.log(`🔄 Trying next endpoint...`);
+    try {
+      console.log(`📡 Calling Jupiter public API: ${JUPITER_QUOTE_API}`);
+      
+      const response = await axios.get(JUPITER_QUOTE_API, {
+        params: {
+          inputMint,
+          outputMint,
+          amount: amount.toString(),
+          slippageBps,
+          onlyDirectRoutes: false,
+          maxAccounts: 64
+        },
+        timeout: 15000,
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZinochainBot/1.0'
         }
+      });
+
+      if (!response.data) {
+        throw new Error('No quote received from Jupiter');
       }
+
+      console.log(`✅ Quote received: ${response.data.outAmount} output tokens`);
+      return response.data;
+    } catch (error: any) {
+      const errorDetails = {
+        message: error?.message,
+        code: error?.code,
+        status: error?.response?.status,
+        inputMint,
+        outputMint,
+        amount
+      };
+      console.error('❌ Jupiter quote error:', JSON.stringify(errorDetails, null, 2));
+      throw new Error(`Failed to get quote from Jupiter: ${error?.message || error}`);
     }
-    
-    // All endpoints failed
-    const errorDetails = {
-      message: lastError?.message,
-      code: lastError?.code,
-      status: lastError?.response?.status,
-      inputMint,
-      outputMint,
-      amount,
-      endpointsTried: JUPITER_ENDPOINTS.length
-    };
-    console.error('❌ All Jupiter endpoints failed:', JSON.stringify(errorDetails, null, 2));
-    throw new Error(`Failed to get quote from Jupiter: ${lastError?.message}`);
   }
 
   async executeSwap(
@@ -93,10 +79,10 @@ export class JupiterService {
   ): Promise<string> {
     try {
       console.log(`💫 Executing swap: ${quoteResponse.inAmount} → ${quoteResponse.outAmount}`);
-      const swapUrl = `${JUPITER_API}/swap`;
-      console.log(`📡 Calling swap endpoint: ${swapUrl}`);
       
-      const swapResponse = await axios.post(swapUrl, {
+      console.log(`📡 Calling Jupiter swap API: ${JUPITER_SWAP_API}`);
+      
+      const swapResponse = await axios.post(JUPITER_SWAP_API, {
         quoteResponse,
         userPublicKey: keypair.publicKey.toString(),
         wrapAndUnwrapSol: true,
@@ -109,6 +95,10 @@ export class JupiterService {
           'User-Agent': 'ZinochainBot/1.0'
         }
       });
+
+      if (!swapResponse?.data?.swapTransaction) {
+        throw new Error('No swap transaction received from Jupiter');
+      }
 
       console.log(`✅ Swap transaction created`);
       const swapTransactionBuf = Buffer.from(swapResponse.data.swapTransaction, 'base64');
