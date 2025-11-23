@@ -2,7 +2,14 @@ import axios from 'axios';
 import { Connection, Keypair, VersionedTransaction, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { getMint } from '@solana/spl-token';
 
-const JUPITER_API = process.env.JUPITER_API_URL || 'https://quote-api.jup.ag/v6';
+// Multiple Jupiter endpoints for redundancy and regional access
+const JUPITER_ENDPOINTS = [
+  process.env.JUPITER_API_URL || 'https://quote-api.jup.ag/v6',
+  'https://api.jup.ag/quote/v6',
+  'https://jupiter-quote-api.vercel.app/v6'
+];
+
+let JUPITER_API = JUPITER_ENDPOINTS[0];
 
 export interface QuoteResponse {
   inputMint: string;
@@ -29,32 +36,51 @@ export class JupiterService {
     amount: number,
     slippageBps: number = 50
   ): Promise<QuoteResponse> {
-    try {
-      console.log(`🔍 Getting quote: ${inputMint} → ${outputMint}, amount: ${amount}, slippage: ${slippageBps}bps`);
-      const response = await axios.get(`${JUPITER_API}/quote`, {
-        params: {
-          inputMint,
-          outputMint,
-          amount: amount.toString(),
-          slippageBps
-        },
-        timeout: 30000
-      });
+    console.log(`🔍 Getting quote: ${inputMint} → ${outputMint}, amount: ${amount}, slippage: ${slippageBps}bps`);
+    
+    // Try multiple Jupiter endpoints with fallback
+    let lastError: any = null;
+    
+    for (let i = 0; i < JUPITER_ENDPOINTS.length; i++) {
+      try {
+        const endpoint = JUPITER_ENDPOINTS[i];
+        console.log(`📡 Trying Jupiter endpoint ${i + 1}/${JUPITER_ENDPOINTS.length}: ${endpoint}`);
+        
+        const response = await axios.get(`${endpoint}/quote`, {
+          params: {
+            inputMint,
+            outputMint,
+            amount: amount.toString(),
+            slippageBps
+          },
+          timeout: 15000
+        });
 
-      console.log(`✅ Quote received: ${response.data.outAmount} output tokens`);
-      return response.data;
-    } catch (error: any) {
-      const errorDetails = {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        inputMint,
-        outputMint,
-        amount
-      };
-      console.error('❌ Jupiter quote error:', JSON.stringify(errorDetails, null, 2));
-      throw new Error(`Failed to get quote from Jupiter: ${error.message}`);
+        console.log(`✅ Quote received from ${endpoint}: ${response.data.outAmount} output tokens`);
+        JUPITER_API = endpoint; // Update to working endpoint
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`⚠️  Endpoint ${i + 1} failed: ${error.message}`);
+        if (i < JUPITER_ENDPOINTS.length - 1) {
+          console.log(`🔄 Trying next endpoint...`);
+        }
+      }
     }
+    
+    // All endpoints failed
+    const errorDetails = {
+      message: lastError?.message,
+      code: lastError?.code,
+      status: lastError?.response?.status,
+      data: lastError?.response?.data,
+      inputMint,
+      outputMint,
+      amount,
+      endpointsTried: JUPITER_ENDPOINTS.length
+    };
+    console.error('❌ All Jupiter endpoints failed:', JSON.stringify(errorDetails, null, 2));
+    throw new Error(`Failed to get quote from Jupiter after trying ${JUPITER_ENDPOINTS.length} endpoints: ${lastError?.message}`);
   }
 
   async executeSwap(
@@ -64,7 +90,10 @@ export class JupiterService {
   ): Promise<string> {
     try {
       console.log(`💫 Executing swap: ${quoteResponse.inAmount} → ${quoteResponse.outAmount}`);
-      const swapResponse = await axios.post(`${JUPITER_API}/swap`, {
+      const swapEndpoint = JUPITER_API.replace('/quote', ''); // Use working endpoint
+      console.log(`📡 Using Jupiter endpoint: ${swapEndpoint}`);
+      
+      const swapResponse = await axios.post(`${swapEndpoint}/swap`, {
         quoteResponse,
         userPublicKey: keypair.publicKey.toString(),
         wrapAndUnwrapSol: true,
