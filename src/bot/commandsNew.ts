@@ -1212,17 +1212,21 @@ Choose an action below! 👇
       const wallet = walletResult.rows[0];
       const chain = (wallet.chain || 'solana') as ChainType;
       
-      // Get chain adapter and fetch token balances
+      // Get chain adapter for native token info
       const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
-      const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
+      
+      // Use walletManager.getPortfolio to get actual token balances
+      const portfolio = await walletManager.getPortfolio(wallet.public_key);
+      const tokenBalances = portfolio.tokens || [];
 
       // Get chain emoji
       const chainEmoji = chain === 'ethereum' ? '🔷' : chain === 'bsc' ? '🟡' : '⚡';
       const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
+      const nativeSymbol = adapter.getNativeToken().symbol;
 
       if (tokenBalances.length === 0) {
         await ctx.editMessageText(
-          `💸 *Sell* ${chainEmoji}\n\n` +
+          `💸 *Sell Tokens* ${chainEmoji}\n\n` +
           `You do not have any tokens yet. Start trading in the Buy menu.`,
           {
             parse_mode: 'Markdown',
@@ -1236,19 +1240,20 @@ Choose an action below! 👇
       }
 
       let message = `💸 *Sell Tokens* ${chainEmoji} ${chainName}\n\n`;
-      message += `Select a token to sell:\n\n`;
+      message += `Select a token to sell for ${nativeSymbol}:\n\n`;
       message += `Current fee: ${feeService.getFeePercentage()}%\n\n`;
 
       const keyboard = new InlineKeyboard();
       
       for (let i = 0; i < tokenBalances.length && i < 10; i++) {
         const token = tokenBalances[i];
-        const shortAddress = token.tokenAddress.length > 12 
-          ? `${token.tokenAddress.substring(0, 4)}...${token.tokenAddress.substring(token.tokenAddress.length - 4)}`
-          : token.tokenAddress;
+        const tokenAddress = token.tokenAddress || token.mint || '';
+        const shortAddress = tokenAddress.length > 12 
+          ? `${tokenAddress.substring(0, 4)}...${tokenAddress.substring(tokenAddress.length - 4)}`
+          : tokenAddress;
         const displayName = token.symbol !== 'TOKEN' ? token.symbol : shortAddress;
         const buttonText = `🪙 ${displayName} (${parseFloat(token.balance).toFixed(4)})`;
-        keyboard.text(buttonText, `sell_token_${chain}_${token.tokenAddress}`).row();
+        keyboard.text(buttonText, `sell_token_${chain}_${tokenAddress}`).row();
       }
 
       if (tokenBalances.length > 10) {
@@ -1301,8 +1306,14 @@ Choose an action below! 👇
 
       const wallet = walletResult.rows[0];
       const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
-      const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
-      const token = tokenBalances.find((t: any) => t.tokenAddress === tokenAddress);
+      const nativeSymbol = adapter.getNativeToken().symbol;
+      
+      // Get token balance using portfolio
+      const portfolio = await walletManager.getPortfolio(wallet.public_key);
+      const tokenList = portfolio.tokens || [];
+      const token = tokenList.find((t: any) => 
+        (t.tokenAddress === tokenAddress) || (t.mint === tokenAddress)
+      );
 
       if (!token) {
         await ctx.reply('❌ Token not found in your wallet.');
@@ -1317,7 +1328,8 @@ Choose an action below! 👇
         `💸 *Sell Token* ${chainEmoji}\n\n` +
         `🪙 Token: ${displayName}\n` +
         `📍 Address: \`${tokenAddress}\`\n` +
-        `💰 Available: ${parseFloat(token.balance).toFixed(4)}\n\n` +
+        `💰 Available: ${parseFloat(token.balance).toFixed(4)}\n` +
+        `💵 Target: ${nativeSymbol}\n\n` +
         `Enter the amount you want to sell:\n\n` +
         `*Example:* \`${(parseFloat(token.balance) / 2).toFixed(4)}\` (half)\n` +
         `or \`all\` to sell everything`,
@@ -5245,10 +5257,17 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
     // ===== SELL TOKEN: Execute the actual sell transaction =====
     if (state.awaitingSellAmount && state.currentToken) {
-      const sellAmount = parseFloat(text);
-      if (isNaN(sellAmount) || sellAmount <= 0) {
-        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
-        return;
+      let sellAmount = 0;
+      
+      if (text.toLowerCase() === 'all') {
+        // Will set sellAmount to full balance below
+        sellAmount = -1; // Marker for "all"
+      } else {
+        sellAmount = parseFloat(text);
+        if (isNaN(sellAmount) || sellAmount <= 0) {
+          await ctx.reply('❌ Invalid amount. Please enter a positive number.');
+          return;
+        }
       }
 
       userStates.delete(userId);
@@ -5263,7 +5282,8 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         const dbUserId = userResult.rows[0].id;
         const tokenMint = state.currentToken;
         const chain = (state.currentChain || 'solana') as ChainType;
-        const nativeSymbol = new MultiChainWalletService().getChainManager().getAdapter(chain).getNativeToken().symbol;
+        const adapter = new MultiChainWalletService().getChainManager().getAdapter(chain);
+        const nativeSymbol = adapter.getNativeToken().symbol;
 
         // Get wallet
         const walletResult = await query(
@@ -5278,14 +5298,21 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         const wallet = walletResult.rows[0];
 
-        // Get token info for decimals
-        const adapter = new MultiChainWalletService().getChainManager().getAdapter(chain);
-        const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
-        const token = tokenBalances.find((t: any) => t.tokenAddress === tokenMint);
+        // Get token info using portfolio
+        const portfolio = await walletManager.getPortfolio(wallet.public_key);
+        const tokenList = portfolio.tokens || [];
+        const token = tokenList.find((t: any) => 
+          (t.tokenAddress === tokenMint) || (t.mint === tokenMint)
+        );
 
         if (!token) {
           await ctx.reply('❌ Token not found in your wallet.');
           return;
+        }
+
+        // Handle "all" keyword
+        if (sellAmount === -1) {
+          sellAmount = parseFloat(token.balance);
         }
 
         if (parseFloat(token.balance) < sellAmount) {
