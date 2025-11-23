@@ -1,6 +1,7 @@
 import { Bot, Context, InlineKeyboard, InputFile } from 'grammy';
 import { WalletManager } from '../wallet/walletManager';
 import { JupiterService, NATIVE_SOL_MINT, USDC_MINT } from '../services/jupiter';
+import { FeeAwareSwapService } from '../services/feeAwareSwap';
 import { CoinGeckoService } from '../services/coingecko';
 import { AdminService } from '../services/admin';
 import { FeeService } from '../services/fees';
@@ -204,6 +205,7 @@ export function registerCommands(
   const urlParser = new URLParserService();
   const tokenInfoService = new TokenInfoService();
   const watchlistService = new WatchlistService();
+  const feeAwareSwapService = new FeeAwareSwapService(jupiterService, walletManager, feeService);
 
   // Maintenance Mode Middleware
   bot.use(async (ctx, next) => {
@@ -883,52 +885,36 @@ Choose an action below! 👇
         return;
       }
 
-      await ctx.reply(`🔄 Processing purchase...\n\n⏳ Tokens incoming...`);
+      await ctx.reply(`🔄 Processing purchase...\n\n⏳ Deducting fee + swapping tokens...`);
 
       const keypair = await walletManager.getKeypair(wallet.id);
       const amountLamports = Math.floor(nativeAmount * LAMPORTS_PER_SOL);
-      const feeAmount = feeService.calculateFee(nativeAmount);
 
-      // Execute swap immediately with full amount
-      const signature = await jupiterService.swap(
+      // Execute swap with automatic fee deduction
+      const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
         keypair,
         NATIVE_SOL_MINT,
         tokenAddress,
         amountLamports,
-        settings.slippageBps
+        settings.slippageBps,
+        dbUserId,
+        wallet.id
       );
 
-      // Record transaction
-      const txResult = await query(
-        `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
-         VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
-         RETURNING id`,
-        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeAmount]
-      );
-
-      // Record fee in database
-      await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-      await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
-
-      // Transfer fees to fee wallet (non-blocking - after swap succeeds)
-      const feeWallet = feeService.getFeeWallet();
-      if (feeWallet && feeAmount > 0) {
-        try {
-          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-        } catch (feeError) {
-          console.error('Fee transfer failed:', feeError);
-          // Don't abort - user already has their tokens
-        }
+      // Record referral reward
+      if (swapResult.transactionId) {
+        await referralService.recordReferralReward(swapResult.transactionId, dbUserId, swapResult.feeAmount);
       }
 
       const adapter = new MultiChainWalletService().getChainManager().getAdapter('solana');
-      const explorerUrl = adapter.getExplorerUrl(signature);
+      const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
 
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
         `💰 You bought with: ${nativeAmount} SOL\n` +
-        `💵 Platform fee: ${feeAmount.toFixed(4)} SOL\n` +
-        `📝 TX: \`${signature.substring(0, 20)}...\`\n\n` +
+        `💵 Platform fee: ${swapResult.feeAmount.toFixed(4)} SOL\n` +
+        `🔄 Swapped: ${swapResult.swapAmount.toFixed(4)} SOL\n` +
+        `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
         `🔗 [View on Solscan](${explorerUrl})`,
         { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
       );
@@ -1008,52 +994,36 @@ Choose an action below! 👇
         return;
       }
 
-      await ctx.reply(`🔄 Processing purchase...\n\n⏳ Tokens incoming...`);
+      await ctx.reply(`🔄 Processing purchase...\n\n⏳ Deducting fee + swapping tokens...`);
 
       const keypair = await walletManager.getKeypair(wallet.id);
       const amountLamports = Math.floor(nativeAmount * LAMPORTS_PER_SOL);
-      const feeAmount = feeService.calculateFee(nativeAmount);
 
-      // Execute swap immediately with full amount
-      const signature = await jupiterService.swap(
+      // Execute swap with automatic fee deduction
+      const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
         keypair,
         NATIVE_SOL_MINT,
         tokenAddress,
         amountLamports,
-        settings.slippageBps
+        settings.slippageBps,
+        dbUserId,
+        wallet.id
       );
 
-      // Record transaction
-      const txResult = await query(
-        `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
-         VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
-         RETURNING id`,
-        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeAmount]
-      );
-
-      // Record fee in database
-      await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-      await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
-
-      // Transfer fees to fee wallet (non-blocking - after swap succeeds)
-      const feeWallet = feeService.getFeeWallet();
-      if (feeWallet && feeAmount > 0) {
-        try {
-          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-        } catch (feeError) {
-          console.error('Fee transfer failed:', feeError);
-          // Don't abort - user already has their tokens
-        }
+      // Record referral reward
+      if (swapResult.transactionId) {
+        await referralService.recordReferralReward(swapResult.transactionId, dbUserId, swapResult.feeAmount);
       }
 
       const adapter = new MultiChainWalletService().getChainManager().getAdapter('solana');
-      const explorerUrl = adapter.getExplorerUrl(signature);
+      const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
 
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
         `💰 You bought with: ${nativeAmount} SOL\n` +
-        `💵 Platform fee: ${feeAmount.toFixed(4)} SOL\n` +
-        `📝 TX: \`${signature.substring(0, 20)}...\`\n\n` +
+        `💵 Platform fee: ${swapResult.feeAmount.toFixed(4)} SOL\n` +
+        `🔄 Swapped: ${swapResult.swapAmount.toFixed(4)} SOL\n` +
+        `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
         `🔗 [View on Solscan](${explorerUrl})`,
         { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
       );
@@ -3520,52 +3490,33 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       await ctx.reply(`🔄 Executing swap: ${nativeAmount} ${nativeSymbol} → Token...`);
 
       const keypair = await walletManager.getKeypair(wallet.id);
-      const feeAmount = feeService.calculateFee(nativeAmount);
-      const amountAfterFee = nativeAmount - feeAmount;
-      const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
+      const amountLamports = Math.floor(nativeAmount * LAMPORTS_PER_SOL);
 
-      const feeWallet = feeService.getFeeWallet();
-      let feeTransferSuccess = false;
-      if (feeWallet && feeAmount > 0) {
-        try {
-          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-          feeTransferSuccess = true;
-        } catch (feeError) {
-          console.error('Fee transfer failed:', feeError);
-          throw new Error('Fee collection failed. Transaction aborted.');
-        }
-      } else {
-        feeTransferSuccess = true;
-      }
-
-      const signature = await jupiterService.swap(
+      // Execute swap with automatic fee deduction
+      const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
         keypair,
         NATIVE_SOL_MINT,
         tokenAddress,
-        amountLamportsAfterFee,
-        settings.slippageBps
+        amountLamports,
+        settings.slippageBps,
+        dbUserId,
+        wallet.id
       );
 
-      const txResult = await query(
-        `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
-         VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
-         RETURNING id`,
-        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeTransferSuccess ? feeAmount : 0]
-      );
-
-      if (feeTransferSuccess && feeAmount > 0) {
-        await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-        await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+      // Record referral reward
+      if (swapResult.transactionId) {
+        await referralService.recordReferralReward(swapResult.transactionId, dbUserId, swapResult.feeAmount);
       }
 
       const adapter = multiChainWallet.getChainManager().getAdapter(chain);
-      const explorerUrl = adapter.getExplorerUrl(signature);
+      const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
 
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
         `💰 Amount: ${nativeAmount} ${nativeSymbol}\n` +
-        `💵 Fee: ${feeAmount.toFixed(4)} ${nativeSymbol}\n` +
-        `📝 Signature: \`${signature}\`\n\n` +
+        `💵 Fee: ${swapResult.feeAmount.toFixed(4)} ${nativeSymbol}\n` +
+        `🔄 Swapped: ${swapResult.swapAmount.toFixed(4)} ${nativeSymbol}\n` +
+        `📝 Signature: \`${swapResult.signature}\`\n\n` +
         `🔗 [View Transaction](${explorerUrl})`,
         { parse_mode: 'Markdown', reply_markup: getMainMenu() }
       );
@@ -4987,54 +4938,37 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           return;
         }
 
-        await ctx.reply(`🔄 Processing purchase...\n\n⏳ Tokens incoming...`);
-
-        const feeAmount = feeService.calculateFee(nativeAmount);
+        await ctx.reply(`🔄 Processing purchase...\n\n⏳ Deducting fee + swapping tokens...`);
 
         if (chain === 'solana') {
           const keypair = await walletManager.getKeypair(wallet.id);
           const amountLamports = Math.floor(nativeAmount * LAMPORTS_PER_SOL);
-          
-          // Execute swap immediately with full amount
-          const signature = await jupiterService.swap(
+
+          // Execute swap with automatic fee deduction
+          const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
             keypair,
             NATIVE_SOL_MINT,
             tokenAddress,
             amountLamports,
-            settings.slippageBps
+            settings.slippageBps,
+            dbUserId,
+            wallet.id
           );
 
-          // Record transaction
-          const txResult = await query(
-            `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
-             VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
-             RETURNING id`,
-            [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeAmount]
-          );
-
-          // Record fee in database
-          await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-          await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
-
-          // Transfer fees to fee wallet (non-blocking - after swap succeeds)
-          const feeWallet = feeService.getFeeWallet();
-          if (feeWallet && feeAmount > 0) {
-            try {
-              await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-            } catch (feeError) {
-              console.error('Fee transfer failed:', feeError);
-              // Don't abort - user already has their tokens
-            }
+          // Record referral reward
+          if (swapResult.transactionId) {
+            await referralService.recordReferralReward(swapResult.transactionId, dbUserId, swapResult.feeAmount);
           }
 
           const adapter = multiChainWallet.getChainManager().getAdapter(chain);
-          const explorerUrl = adapter.getExplorerUrl(signature);
+          const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
 
           await ctx.reply(
             `✅ *Swap Successful!*\n\n` +
             `💰 You bought with: ${nativeAmount} ${nativeSymbol}\n` +
-            `💵 Platform fee: ${feeAmount.toFixed(4)} ${nativeSymbol}\n` +
-            `📝 TX: \`${signature.substring(0, 20)}...\`\n\n` +
+            `💵 Platform fee: ${swapResult.feeAmount.toFixed(4)} ${nativeSymbol}\n` +
+            `🔄 Swapped: ${swapResult.swapAmount.toFixed(4)} ${nativeSymbol}\n` +
+            `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
             `🔗 [View on Solscan](${explorerUrl})`,
             { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
           );
