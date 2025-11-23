@@ -867,68 +867,84 @@ Choose an action below! 👇
       const wallet = walletResult.rows[0];
       const settings = await userSettingsService.getSettings(dbUserId);
       
-      if (settings.tradingMode === 'ai') {
-        await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
+      // Check balance first
+      const multiChainWallet = new MultiChainWalletService();
+      const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
+      
+      if (nativeBalance < nativeAmount) {
+        await ctx.reply(
+          `❌ *Insufficient Balance*\n\n` +
+          `You have: ${nativeBalance.toFixed(4)} SOL\n` +
+          `You need: ${nativeAmount} SOL\n\n` +
+          `Please top up your wallet and try again.`,
+          { parse_mode: 'Markdown' }
+        );
+        userStates.delete(userId);
+        return;
       }
 
-      await ctx.reply(`🔄 Executing swap: ${nativeAmount} SOL → Token...`);
+      await ctx.reply(`🔄 Processing purchase...\n\n⏳ Tokens incoming...`);
 
       const keypair = await walletManager.getKeypair(wallet.id);
+      const amountLamports = Math.floor(nativeAmount * LAMPORTS_PER_SOL);
       const feeAmount = feeService.calculateFee(nativeAmount);
-      const amountAfterFee = nativeAmount - feeAmount;
-      const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
 
-      const feeWallet = feeService.getFeeWallet();
-      let feeTransferSuccess = false;
-      if (feeWallet && feeAmount > 0) {
-        try {
-          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-          feeTransferSuccess = true;
-        } catch (feeError) {
-          console.error('Fee transfer failed:', feeError);
-          throw new Error('Fee collection failed. Transaction aborted.');
-        }
-      } else {
-        feeTransferSuccess = true;
-      }
-
+      // Execute swap immediately with full amount
       const signature = await jupiterService.swap(
         keypair,
         NATIVE_SOL_MINT,
         tokenAddress,
-        amountLamportsAfterFee,
+        amountLamports,
         settings.slippageBps
       );
 
+      // Record transaction
       const txResult = await query(
         `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
          VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
          RETURNING id`,
-        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeTransferSuccess ? feeAmount : 0]
+        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeAmount]
       );
 
-      if (feeTransferSuccess && feeAmount > 0) {
-        await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-        await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+      // Record fee in database
+      await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+      await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+
+      // Transfer fees to fee wallet (non-blocking - after swap succeeds)
+      const feeWallet = feeService.getFeeWallet();
+      if (feeWallet && feeAmount > 0) {
+        try {
+          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+        } catch (feeError) {
+          console.error('Fee transfer failed:', feeError);
+          // Don't abort - user already has their tokens
+        }
       }
 
-      const multiChainWalletAdapter = new MultiChainWalletService();
-      const adapter = multiChainWalletAdapter.getChainManager().getAdapter('solana');
+      const adapter = new MultiChainWalletService().getChainManager().getAdapter('solana');
       const explorerUrl = adapter.getExplorerUrl(signature);
 
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
-        `💰 Amount: ${nativeAmount} SOL\n` +
-        `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
-        `📝 Signature: \`${signature}\`\n\n` +
-        `🔗 [View Transaction](${explorerUrl})`,
-        { parse_mode: 'Markdown', link_preview_options: { is_disabled: true } }
+        `💰 You bought with: ${nativeAmount} SOL\n` +
+        `💵 Platform fee: ${feeAmount.toFixed(4)} SOL\n` +
+        `📝 TX: \`${signature.substring(0, 20)}...\`\n\n` +
+        `🔗 [View on Solscan](${explorerUrl})`,
+        { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
       );
 
       userStates.delete(userId);
     } catch (error: any) {
       console.error('Preset buy error:', error);
-      await ctx.reply(`❌ Error: ${error.message}`);
+      await ctx.reply(
+        `❌ *Swap Failed*\n\n` +
+        `Error: ${error.message}\n\n` +
+        `Please check:\n` +
+        `• Your wallet balance\n` +
+        `• Network conditions\n` +
+        `• Try again in a moment`,
+        { parse_mode: 'Markdown' }
+      );
       userStates.delete(userId);
     }
   });
@@ -976,68 +992,84 @@ Choose an action below! 👇
       const wallet = walletResult.rows[0];
       const settings = await userSettingsService.getSettings(dbUserId);
       
-      if (settings.tradingMode === 'ai') {
-        await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
+      // Check balance first
+      const multiChainWallet = new MultiChainWalletService();
+      const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
+      
+      if (nativeBalance < nativeAmount) {
+        await ctx.reply(
+          `❌ *Insufficient Balance*\n\n` +
+          `You have: ${nativeBalance.toFixed(4)} SOL\n` +
+          `You need: ${nativeAmount} SOL\n\n` +
+          `Please top up your wallet and try again.`,
+          { parse_mode: 'Markdown' }
+        );
+        userStates.delete(userId);
+        return;
       }
 
-      await ctx.reply(`🔄 Executing swap: ${nativeAmount} SOL → Token...`);
+      await ctx.reply(`🔄 Processing purchase...\n\n⏳ Tokens incoming...`);
 
       const keypair = await walletManager.getKeypair(wallet.id);
+      const amountLamports = Math.floor(nativeAmount * LAMPORTS_PER_SOL);
       const feeAmount = feeService.calculateFee(nativeAmount);
-      const amountAfterFee = nativeAmount - feeAmount;
-      const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
 
-      const feeWallet = feeService.getFeeWallet();
-      let feeTransferSuccess = false;
-      if (feeWallet && feeAmount > 0) {
-        try {
-          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-          feeTransferSuccess = true;
-        } catch (feeError) {
-          console.error('Fee transfer failed:', feeError);
-          throw new Error('Fee collection failed. Transaction aborted.');
-        }
-      } else {
-        feeTransferSuccess = true;
-      }
-
+      // Execute swap immediately with full amount
       const signature = await jupiterService.swap(
         keypair,
         NATIVE_SOL_MINT,
         tokenAddress,
-        amountLamportsAfterFee,
+        amountLamports,
         settings.slippageBps
       );
 
+      // Record transaction
       const txResult = await query(
         `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
          VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
          RETURNING id`,
-        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeTransferSuccess ? feeAmount : 0]
+        [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeAmount]
       );
 
-      if (feeTransferSuccess && feeAmount > 0) {
-        await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-        await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+      // Record fee in database
+      await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+      await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+
+      // Transfer fees to fee wallet (non-blocking - after swap succeeds)
+      const feeWallet = feeService.getFeeWallet();
+      if (feeWallet && feeAmount > 0) {
+        try {
+          await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+        } catch (feeError) {
+          console.error('Fee transfer failed:', feeError);
+          // Don't abort - user already has their tokens
+        }
       }
 
-      const multiChainWalletAdapter5 = new MultiChainWalletService();
-      const adapter5 = multiChainWalletAdapter5.getChainManager().getAdapter('solana');
-      const explorerUrl = adapter5.getExplorerUrl(signature);
+      const adapter = new MultiChainWalletService().getChainManager().getAdapter('solana');
+      const explorerUrl = adapter.getExplorerUrl(signature);
 
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
-        `💰 Amount: ${nativeAmount} SOL\n` +
-        `💵 Fee: ${feeAmount.toFixed(4)} SOL\n` +
-        `📝 Signature: \`${signature}\`\n\n` +
-        `🔗 [View Transaction](${explorerUrl})`,
-        { parse_mode: 'Markdown', link_preview_options: { is_disabled: true } }
+        `💰 You bought with: ${nativeAmount} SOL\n` +
+        `💵 Platform fee: ${feeAmount.toFixed(4)} SOL\n` +
+        `📝 TX: \`${signature.substring(0, 20)}...\`\n\n` +
+        `🔗 [View on Solscan](${explorerUrl})`,
+        { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
       );
 
       userStates.delete(userId);
     } catch (error: any) {
       console.error('Preset buy error:', error);
-      await ctx.reply(`❌ Error: ${error.message}`);
+      await ctx.reply(
+        `❌ *Swap Failed*\n\n` +
+        `Error: ${error.message}\n\n` +
+        `Please check:\n` +
+        `• Your wallet balance\n` +
+        `• Network conditions\n` +
+        `• Try again in a moment`,
+        { parse_mode: 'Markdown' }
+      );
       userStates.delete(userId);
     }
   });
@@ -4906,6 +4938,123 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       return;
     }
 
+    // ===== TOKEN BUY AMOUNT: Check BEFORE token search to fix "Buy X" amount input =====
+    if (state.awaitingBuyAmount && state.currentToken) {
+      const nativeAmount = parseFloat(text);
+
+      if (isNaN(nativeAmount) || nativeAmount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
+        return;
+      }
+
+      const tokenAddress = state.currentToken;
+      const chain = (state.currentChain || 'solana') as ChainType;
+      
+      if (!tokenAddress || !chain) {
+        await ctx.reply('❌ Invalid state. Please try searching for the token again.');
+        userStates.delete(userId);
+        return;
+      }
+      
+      userStates.delete(userId);
+
+      try {
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        
+        const settings = await userSettingsService.getSettings(dbUserId);
+        
+        const multiChainWallet = new MultiChainWalletService();
+        const wallet = await multiChainWallet.getWallet(dbUserId, chain);
+
+        if (!wallet) {
+          await ctx.reply(`❌ No ${chain} wallet found. Please switch to ${chain} chain first.`);
+          return;
+        }
+
+        const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
+        const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
+        
+        if (nativeBalance < nativeAmount) {
+          await ctx.reply(
+            `❌ *Insufficient Balance*\n\n` +
+            `You have: ${nativeBalance.toFixed(4)} ${nativeSymbol}\n` +
+            `You need: ${nativeAmount} ${nativeSymbol}\n\n` +
+            `Please top up your wallet and try again.`,
+            { parse_mode: 'Markdown' }
+          );
+          return;
+        }
+
+        await ctx.reply(`🔄 Processing purchase...\n\n⏳ Tokens incoming...`);
+
+        const feeAmount = feeService.calculateFee(nativeAmount);
+
+        if (chain === 'solana') {
+          const keypair = await walletManager.getKeypair(wallet.id);
+          const amountLamports = Math.floor(nativeAmount * LAMPORTS_PER_SOL);
+          
+          // Execute swap immediately with full amount
+          const signature = await jupiterService.swap(
+            keypair,
+            NATIVE_SOL_MINT,
+            tokenAddress,
+            amountLamports,
+            settings.slippageBps
+          );
+
+          // Record transaction
+          const txResult = await query(
+            `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
+             VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
+             RETURNING id`,
+            [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeAmount]
+          );
+
+          // Record fee in database
+          await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
+          await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
+
+          // Transfer fees to fee wallet (non-blocking - after swap succeeds)
+          const feeWallet = feeService.getFeeWallet();
+          if (feeWallet && feeAmount > 0) {
+            try {
+              await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+            } catch (feeError) {
+              console.error('Fee transfer failed:', feeError);
+              // Don't abort - user already has their tokens
+            }
+          }
+
+          const adapter = multiChainWallet.getChainManager().getAdapter(chain);
+          const explorerUrl = adapter.getExplorerUrl(signature);
+
+          await ctx.reply(
+            `✅ *Swap Successful!*\n\n` +
+            `💰 You bought with: ${nativeAmount} ${nativeSymbol}\n` +
+            `💵 Platform fee: ${feeAmount.toFixed(4)} ${nativeSymbol}\n` +
+            `📝 TX: \`${signature.substring(0, 20)}...\`\n\n` +
+            `🔗 [View on Solscan](${explorerUrl})`,
+            { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
+          );
+        } else {
+          await ctx.reply(`⚠️ Multi-chain swaps for ${chain} not yet fully implemented. Please use preset amounts.`);
+        }
+      } catch (error: any) {
+        console.error('Buy custom amount error:', error);
+        await ctx.reply(
+          `❌ *Swap Failed*\n\n` +
+          `Error: ${error.message}\n\n` +
+          `Please check:\n` +
+          `• Your wallet balance\n` +
+          `• Network conditions\n` +
+          `• Try again in a moment`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+      return;
+    }
+
     // ===== TOKEN BUY: Original buy token handler =====
     if (state.awaitingBuyToken) {
       try {
@@ -5049,113 +5198,6 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         console.error('Token preview error:', error);
         await ctx.reply(`❌ Error: ${error.message}`);
         // Don't delete state - let user retry
-      }
-    } else if (state.awaitingBuyAmount && state.currentToken) {
-      const nativeAmount = parseFloat(text);
-
-      if (isNaN(nativeAmount) || nativeAmount <= 0) {
-        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
-        return;
-      }
-
-      const tokenAddress = state.currentToken;
-      const chain = (state.currentChain || 'solana') as ChainType;
-      
-      if (!tokenAddress || !chain) {
-        await ctx.reply('❌ Invalid state. Please try searching for the token again.');
-        userStates.delete(userId);
-        return;
-      }
-      
-      userStates.delete(userId);
-
-      try {
-        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-        const dbUserId = userResult.rows[0].id;
-        
-        const settings = await userSettingsService.getSettings(dbUserId);
-        
-        if (settings.tradingMode === 'ai') {
-          await ctx.reply('🤖 AI Trader is enabled. This trade will be analyzed by AI first.');
-        }
-        
-        const multiChainWallet = new MultiChainWalletService();
-        const wallet = await multiChainWallet.getWallet(dbUserId, chain);
-
-        if (!wallet) {
-          await ctx.reply(`❌ No ${chain} wallet found. Please switch to ${chain} chain first.`);
-          return;
-        }
-
-        const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
-        const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
-        
-        if (nativeBalance < nativeAmount) {
-          await ctx.reply(`❌ Insufficient balance. You have ${nativeBalance.toFixed(4)} ${nativeSymbol} but need ${nativeAmount} ${nativeSymbol}.`);
-          return;
-        }
-
-        await ctx.reply(`🔄 Executing swap: ${nativeAmount} ${nativeSymbol} → Token...`);
-
-        const feeAmount = feeService.calculateFee(nativeAmount);
-        const amountAfterFee = nativeAmount - feeAmount;
-        
-        const feeWallet = feeService.getFeeWallet();
-        let feeTransferSuccess = false;
-
-        if (chain === 'solana') {
-          const keypair = await walletManager.getKeypair(wallet.id);
-          const amountLamportsAfterFee = Math.floor(amountAfterFee * LAMPORTS_PER_SOL);
-          
-          if (feeWallet && feeAmount > 0) {
-            try {
-              await walletManager.transferSOL(keypair, feeWallet, feeAmount);
-              feeTransferSuccess = true;
-            } catch (feeError) {
-              console.error('Fee transfer failed:', feeError);
-              throw new Error('Fee collection failed. Transaction aborted.');
-            }
-          } else {
-            feeTransferSuccess = true;
-          }
-
-          const signature = await jupiterService.swap(
-            keypair,
-            NATIVE_SOL_MINT,
-            tokenAddress,
-            amountLamportsAfterFee,
-            settings.slippageBps
-          );
-
-          const txResult = await query(
-            `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
-             VALUES ($1, $2, 'buy', $3, $4, $5, $6, $7, 'confirmed')
-             RETURNING id`,
-            [wallet.id, dbUserId, signature, NATIVE_SOL_MINT, tokenAddress, nativeAmount, feeTransferSuccess ? feeAmount : 0]
-          );
-
-          if (feeTransferSuccess && feeAmount > 0) {
-            await feeService.recordFee(txResult.rows[0].id, dbUserId, feeAmount, 'trading', NATIVE_SOL_MINT);
-            await referralService.recordReferralReward(txResult.rows[0].id, dbUserId, feeAmount);
-          }
-
-          const adapter = multiChainWallet.getChainManager().getAdapter(chain);
-          const explorerUrl = adapter.getExplorerUrl(signature);
-
-          await ctx.reply(
-            `✅ *Swap Successful!*\n\n` +
-            `💰 Amount: ${nativeAmount} ${nativeSymbol}\n` +
-            `💵 Fee: ${feeAmount.toFixed(4)} ${nativeSymbol}\n` +
-            `📝 Signature: \`${signature}\`\n\n` +
-            `🔗 [View Transaction](${explorerUrl})`,
-            { parse_mode: 'Markdown', reply_markup: getMainMenu() }
-          );
-        } else {
-          await ctx.reply(`⚠️ Multi-chain swaps for ${chain} not yet fully implemented. Please use preset amounts.`);
-        }
-      } catch (error: any) {
-        console.error('Buy custom amount error:', error);
-        await ctx.reply(`❌ Swap failed: ${error.message}`);
       }
     }
   });
