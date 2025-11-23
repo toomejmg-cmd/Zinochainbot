@@ -61,12 +61,8 @@ export class FeeAwareSwapService {
       console.log(`   Swap amount: ${swapAmount.toFixed(4)} SOL`);
 
       // Step 1: Deduct fee from user's wallet
-      // Note: Skip if fee is below Solana rent-exempt minimum (~0.005 SOL / 5M lamports)
-      // These will be accumulated in database and collected when larger
-      const MIN_FEE_TRANSFER = 0.005; // Minimum to avoid rent-exempt issues
-      
-      if (feeWallet && feeAmount >= MIN_FEE_TRANSFER) {
-        console.log(`💸 Step 1: Deducting fee...`);
+      if (feeWallet && feeAmount > 0) {
+        console.log(`💸 Step 1: Transferring fee to ${feeWallet}...`);
         try {
           const feeTxSignature = await this.walletManager.transferSOL(
             keypair,
@@ -75,13 +71,11 @@ export class FeeAwareSwapService {
           );
           console.log(`✅ Fee transfer successful: ${feeTxSignature}`);
         } catch (feeError: any) {
-          console.error(`❌ Fee transfer failed:`, feeError);
+          console.error(`❌ Fee transfer failed:`, feeError?.message || feeError);
           // Don't throw - continue with swap and record fee anyway
-          console.log(`⚠️  Continuing with swap despite fee transfer issue...`);
+          // The fee will still be recorded in database even if transfer fails
+          console.log(`⚠️  Fee will be recorded in database. Continuing with swap...`);
         }
-      } else if (feeAmount > 0) {
-        console.log(`💾 Fee too small for direct transfer (${feeAmount.toFixed(6)} SOL < ${MIN_FEE_TRANSFER} SOL)`);
-        console.log(`💾 Fee will be accumulated in database for batch collection`);
       }
 
       // Step 2: Execute swap with remaining amount
@@ -98,16 +92,29 @@ export class FeeAwareSwapService {
 
       console.log(`✅ Swap successful! Signature: ${signature}`);
 
-      // Step 3: Record transaction
-      const transactionId = await this.recordSwapTransaction(
-        signature,
-        walletId,
-        userId,
-        inputMint,
-        outputMint,
-        amountInSol,
-        feeAmount
-      );
+      // Step 3: Record transaction AND fees
+      let transactionId: number | null = null;
+      
+      try {
+        transactionId = await this.recordSwapTransaction(
+          signature,
+          walletId,
+          userId,
+          inputMint,
+          outputMint,
+          amountInSol,
+          feeAmount
+        );
+      } catch (recordError: any) {
+        console.error(`⚠️  Transaction recording failed:`, recordError);
+        // Even if transaction recording fails, ensure fees are recorded
+        try {
+          await this.feeService.recordFee(null, userId, feeAmount, 'trading', inputMint);
+          console.log(`✅ Fee recorded directly (${feeAmount.toFixed(6)} SOL)`);
+        } catch (feeRecordError: any) {
+          console.error(`❌ Failed to record fee:`, feeRecordError);
+        }
+      }
 
       return {
         signature,
