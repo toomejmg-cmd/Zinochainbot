@@ -9,6 +9,7 @@ import { FeeService } from './services/fees';
 import { ReferralService } from './services/referral';
 import { TransferService } from './services/transfer';
 import { registerCommands } from './bot/commandsNew';
+import jupiterTokenSync from './services/jupiterTokenSync';
 
 dotenv.config();
 
@@ -51,6 +52,16 @@ async function main() {
     
     await feeService.loadSettingsFromDatabase();
     console.log('⚙️  Bot settings loaded from database');
+    
+    // Initialize Jupiter token sync (fetches and caches all tokens from Jupiter)
+    console.log('🚀 Initializing Jupiter token sync...');
+    try {
+      jupiterTokenSync.startAutoSync();
+      const tokenCount = await jupiterTokenSync.getTokenCount();
+      console.log(`✅ Jupiter token database loaded with ${tokenCount} tokens`);
+    } catch (error) {
+      console.warn('⚠️  Jupiter token sync failed, but continuing without it:', error);
+    }
     
     const referralService = new ReferralService();
     const transferService = new TransferService(walletManager.getConnection());

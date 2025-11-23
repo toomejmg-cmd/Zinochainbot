@@ -120,6 +120,19 @@ CREATE TABLE IF NOT EXISTS dca_jobs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Jupiter tokens table (synced from Jupiter API)
+CREATE TABLE IF NOT EXISTS jupiter_tokens (
+    id SERIAL PRIMARY KEY,
+    mint_address VARCHAR(44) UNIQUE NOT NULL,
+    symbol VARCHAR(50) NOT NULL,
+    name VARCHAR(255),
+    decimals INTEGER,
+    chain VARCHAR(20) DEFAULT 'solana',
+    logo_uri TEXT,
+    tags TEXT[],
+    last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);
 CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
@@ -131,3 +144,5 @@ CREATE INDEX IF NOT EXISTS idx_token_cache_mint ON token_cache(mint_address);
 CREATE INDEX IF NOT EXISTS idx_admin_users_telegram_id ON admin_users(telegram_id);
 CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id);
 CREATE INDEX IF NOT EXISTS idx_fees_user ON fees_collected(user_id);
+CREATE INDEX IF NOT EXISTS idx_jupiter_tokens_symbol ON jupiter_tokens(symbol);
+CREATE INDEX IF NOT EXISTS idx_jupiter_tokens_mint ON jupiter_tokens(mint_address);
