@@ -85,6 +85,7 @@ export class WalletManager {
       return balance / LAMPORTS_PER_SOL;
     } catch (error: any) {
       console.warn(`⚠️ Balance fetch error for ${publicKey}:`, error?.message || error);
+      // Return 0 instead of throwing, so UI can still show the page
       return 0;
     }
   }
@@ -106,35 +107,57 @@ export class WalletManager {
   }
 
   async getPortfolio(publicKey: string): Promise<any> {
-    const solBalance = await this.getBalance(publicKey);
-    const walletPubKey = new PublicKey(publicKey);
-    
-    const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
-      walletPubKey,
-      { programId: TOKEN_PROGRAM_ID }
-    );
+    try {
+      console.log(`📊 Fetching portfolio for: ${publicKey}`);
+      const solBalance = await this.getBalance(publicKey);
+      console.log(`💰 SOL Balance: ${solBalance}`);
 
-    const tokens: any[] = [];
-    for (const account of tokenAccounts.value) {
-      const parsedInfo = account.account.data.parsed.info;
-      const mintAddress = parsedInfo.mint;
-      const balance = parsedInfo.tokenAmount.uiAmount;
-      const decimals = parsedInfo.tokenAmount.decimals;
+      const walletPubKey = new PublicKey(publicKey);
+      console.log(`🔍 Fetching token accounts...`);
+      
+      const tokenAccounts = await this.connection.getParsedTokenAccountsByOwner(
+        walletPubKey,
+        { programId: TOKEN_PROGRAM_ID }
+      );
 
-      if (balance > 0) {
-        tokens.push({
-          mint: mintAddress,
-          balance,
-          decimals
-        });
+      console.log(`✅ Found ${tokenAccounts.value.length} token accounts`);
+
+      const tokens: any[] = [];
+      for (const account of tokenAccounts.value) {
+        try {
+          const parsedInfo = account.account.data.parsed.info;
+          const mintAddress = parsedInfo.mint;
+          const balance = parsedInfo.tokenAmount.uiAmount;
+          const decimals = parsedInfo.tokenAmount.decimals;
+
+          if (balance > 0) {
+            console.log(`  🪙 Token: ${mintAddress} - Balance: ${balance}`);
+            tokens.push({
+              mint: mintAddress,
+              balance,
+              decimals
+            });
+          }
+        } catch (tokenError) {
+          console.warn(`⚠️  Error parsing token account:`, tokenError);
+        }
       }
+
+      console.log(`📋 Portfolio complete: ${tokens.length} tokens with balance`);
+      return {
+        publicKey,
+        solBalance,
+        tokens
+      };
+    } catch (error: any) {
+      console.error(`❌ Portfolio fetch error:`, error?.message || error);
+      // Return empty portfolio instead of crashing
+      return {
+        publicKey,
+        solBalance: 0,
+        tokens: []
+      };
     }
-    
-    return {
-      publicKey,
-      solBalance,
-      tokens
-    };
   }
 
   async transferSOL(fromKeypair: Keypair, toPublicKey: string, amountSOL: number): Promise<string> {
