@@ -117,6 +117,7 @@ interface UserState {
   transferAddress?: string;
   withdrawAddress?: string;
   withdrawAmount?: number;
+  transferType?: 'sol' | 'token';
   awaitingSettingInput?: string;
   awaitingPin?: boolean;
   pinInput?: string;
@@ -2645,36 +2646,74 @@ _(Tap to copy)_
       const chainName = currentChain === 'ethereum' ? 'Ethereum' : currentChain === 'bsc' ? 'BSC' : 'Solana';
       const nativeSymbol = currentChain === 'ethereum' ? 'ETH' : currentChain === 'bsc' ? 'BNB' : 'SOL';
 
-      // Get wallet balance using MultiChainWalletService
-      const multiChain = new MultiChainWalletService();
-      const wallet = await multiChain.getWallet(dbUserId, currentChain);
-      let balance = '0';
-      let displayPrice = '';
+      // Get wallet for current chain
+      const walletResult = await query(
+        `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
+        [dbUserId, currentChain]
+      );
 
-      if (wallet) {
-        try {
-          const bal = await multiChain.getBalance(dbUserId, currentChain);
-          balance = parseFloat(bal).toFixed(4);
-          const price = await coinGeckoService.getNativePrice(currentChain);
-          if (price > 0) {
-            displayPrice = ` ($${(parseFloat(bal) * price).toFixed(2)})`;
+      if (walletResult.rows.length === 0) {
+        await ctx.editMessageText(
+          `📤 *P2P Transfer*\n\n` +
+          `❌ No wallet found for ${chainName}. Please create a wallet first.`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: getBackToMainMenu()
           }
-        } catch (err) {
-          console.warn('Balance fetch error:', err);
-          balance = 'N/A';
+        );
+        return;
+      }
+
+      const wallet = walletResult.rows[0];
+
+      // Get native token balance
+      const multiChain = new MultiChainWalletService();
+      const adapter = multiChain.getChainManager().getAdapter(currentChain);
+      let nativeBalance = '0';
+      
+      try {
+        nativeBalance = await multiChain.getBalance(dbUserId, currentChain);
+      } catch (err) {
+        console.warn('Balance fetch error:', err);
+      }
+
+      // Get token balances (for showing token transfer options)
+      let tokenBalances: any[] = [];
+      try {
+        tokenBalances = await adapter.getTokenBalances(wallet.public_key);
+      } catch (err) {
+        console.warn('Token balance fetch error:', err);
+      }
+
+      let message = `📤 *P2P Transfer* ${chainEmoji} ${chainName}\n\n`;
+      message += `Select what to send:\n\n`;
+      message += `*Native Token:*\n`;
+      message += `💰 ${nativeSymbol}: ${parseFloat(nativeBalance).toFixed(4)}\n\n`;
+
+      const keyboard = new InlineKeyboard();
+      
+      // Add native token transfer button
+      keyboard.text(`📤 Send ${nativeSymbol}`, `p2p_transfer_${currentChain}`).row();
+
+      // Add token transfer options if available
+      if (tokenBalances.length > 0) {
+        message += `*Your Tokens:*\n`;
+        
+        for (let i = 0; i < tokenBalances.length && i < 5; i++) {
+          const token = tokenBalances[i];
+          const displayName = token.symbol !== 'TOKEN' ? token.symbol : 
+            `${token.tokenAddress.substring(0, 4)}...${token.tokenAddress.substring(token.tokenAddress.length - 4)}`;
+          message += `🪙 ${displayName}: ${parseFloat(token.balance).toFixed(4)}\n`;
+          keyboard.text(`📤 Send ${displayName}`, `p2p_token_${currentChain}_${token.tokenAddress}`).row();
+        }
+
+        if (tokenBalances.length > 5) {
+          message += `\n_Showing first 5 tokens only_\n`;
         }
       }
 
-      const message = `📤 *P2P Transfer* ${chainEmoji}\n\n` +
-        `*Active Chain:* ${chainName}\n` +
-        `*Available:* ${balance} ${nativeSymbol}${displayPrice}\n\n` +
-        `Send ${nativeSymbol} to any wallet address on ${chainName}.\n\n` +
-        `_A transfer fee of 1% will be deducted._`;
-
-      const keyboard = new InlineKeyboard()
-        .text(`📤 Transfer ${nativeSymbol}`, `p2p_transfer_${currentChain}`).row()
-        .text('🔙 Back', 'back')
-        .text('❌ Close', 'close_menu');
+      message += `\n_A transfer fee of 1% will be deducted._`;
+      keyboard.text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 
       await ctx.editMessageText(message, {
         parse_mode: 'Markdown',
@@ -2828,6 +2867,62 @@ _(Tap to copy)_
       await ctx.reply('❌ Error initiating transfer.');
     }
   });
+
+  // P2P Token Transfer Handler
+  bot.callbackQuery(/^p2p_token_(.+)_(.+)$/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const chain = ctx.match[1] as ChainType;
+    const tokenAddress = ctx.match[2];
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (userResult.rows.length === 0) {
+        await ctx.reply('Please use /start first.');
+        return;
+      }
+
+      const state = userStates.get(userId) || {};
+
+      // Set state to await transfer address for token
+      userStates.set(userId, {
+        ...state,
+        awaitingTransferAddress: true,
+        transferChain: chain,
+        currentChain: chain,
+        currentToken: tokenAddress,
+        transferType: 'token'
+      });
+
+      const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
+      const shortAddress = `${tokenAddress.substring(0, 6)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
+
+      await ctx.editMessageText(
+        `📤 *P2P Transfer - Token*\n\n` +
+        `Token: \`${shortAddress}\`\n` +
+        `Chain: ${chainName}\n\n` +
+        `Step 1: Enter the destination wallet address\n\n` +
+        `Paste the wallet address on ${chainName}.`,
+        { parse_mode: 'Markdown' }
+      ).catch(async () => {
+        await ctx.reply(
+          `📤 *P2P Transfer - Token*\n\n` +
+          `Token: \`${shortAddress}\`\n` +
+          `Chain: ${chainName}\n\n` +
+          `Step 1: Enter the destination wallet address\n\n` +
+          `Paste the wallet address on ${chainName}.`,
+          { parse_mode: 'Markdown' }
+        );
+      });
+    } catch (error: any) {
+      console.error('P2P Token Transfer setup error:', error);
+      await ctx.reply('❌ Error initiating token transfer.');
+    }
+  });
+
   // Token Sniper Menu
   bot.callbackQuery('menu_sniper', async (ctx) => {
     const userId = ctx.from?.id;
@@ -5264,20 +5359,22 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         const dbUserId = userResult.rows[0].id;
         const address = state.withdrawAddress;
-        const chain = state.currentChain || 'solana';
-        const nativeSymbol = new MultiChainWalletService().getChainManager().getAdapter(chain as ChainType).getNativeToken().symbol;
-
-        const walletResult = await query(
-          `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
-          [dbUserId, chain]
+        
+        // CRITICAL: Load chain from wallet, not state (fixes chain detection bug)
+        const walletQueryResult = await query(
+          `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND is_active = true LIMIT 1`,
+          [dbUserId]
         );
 
-        if (walletResult.rows.length === 0) {
+        if (walletQueryResult.rows.length === 0) {
           await ctx.reply(`❌ Wallet not found`);
           return;
         }
 
-        const wallet = walletResult.rows[0];
+        const wallet = walletQueryResult.rows[0];
+        const chain = (wallet.chain as ChainType) || 'solana'; // Use wallet's chain, not state
+        const nativeSymbol = new MultiChainWalletService().getChainManager().getAdapter(chain).getNativeToken().symbol;
+
         const transferService = new TransferService((walletManager as any).connection);
 
         await ctx.reply(`🔄 Processing withdrawal of ${amount} ${state.withdrawType === 'sol' ? 'SOL' : 'tokens'}...`);
@@ -5288,10 +5385,30 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           const keypair = await walletManager.getKeypair(wallet.id);
           
           if (state.withdrawType === 'sol') {
+            // CRITICAL: Check rent-exempt minimum (0.00203928 SOL)
+            const connection = (walletManager as any).connection;
+            const balance = await connection.getBalance(keypair.publicKey);
+            const balanceSOL = balance / LAMPORTS_PER_SOL;
+            const minRentExempt = 0.0025; // 0.00203928 + buffer
+            
+            if (balanceSOL - amount < minRentExempt) {
+              const maxWithdrawable = Math.max(0, balanceSOL - minRentExempt);
+              await ctx.reply(
+                `❌ *Insufficient balance for rent-exempt minimum*\n\n` +
+                `Your wallet needs ${minRentExempt} SOL to stay active.\n\n` +
+                `💰 Current balance: ${balanceSOL.toFixed(4)} SOL\n` +
+                `🔒 Minimum required: ${minRentExempt} SOL\n` +
+                `📤 Maximum withdrawable: ${maxWithdrawable.toFixed(4)} SOL\n\n` +
+                `Try withdrawing ${maxWithdrawable.toFixed(4)} SOL instead.`,
+                { parse_mode: 'Markdown' }
+              );
+              return;
+            }
+            
             txHash = await transferService.transferSOL(keypair, address, amount, dbUserId, null);
           } else if (state.currentToken) {
             // Get token info
-            const adapter = new MultiChainWalletService().getChainManager().getAdapter(chain as ChainType);
+            const adapter = new MultiChainWalletService().getChainManager().getAdapter(chain);
             const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
             const token = tokenBalances.find((t: any) => t.tokenAddress === state.currentToken);
             
