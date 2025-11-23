@@ -61,7 +61,11 @@ export class FeeAwareSwapService {
       console.log(`   Swap amount: ${swapAmount.toFixed(4)} SOL`);
 
       // Step 1: Deduct fee from user's wallet
-      if (feeWallet && feeAmount > 0) {
+      // Note: Skip if fee is below Solana rent-exempt minimum (~0.005 SOL / 5M lamports)
+      // These will be accumulated in database and collected when larger
+      const MIN_FEE_TRANSFER = 0.005; // Minimum to avoid rent-exempt issues
+      
+      if (feeWallet && feeAmount >= MIN_FEE_TRANSFER) {
         console.log(`💸 Step 1: Deducting fee...`);
         try {
           const feeTxSignature = await this.walletManager.transferSOL(
@@ -72,8 +76,12 @@ export class FeeAwareSwapService {
           console.log(`✅ Fee transfer successful: ${feeTxSignature}`);
         } catch (feeError: any) {
           console.error(`❌ Fee transfer failed:`, feeError);
-          throw new Error(`Fee deduction failed: ${feeError.message}`);
+          // Don't throw - continue with swap and record fee anyway
+          console.log(`⚠️  Continuing with swap despite fee transfer issue...`);
         }
+      } else if (feeAmount > 0) {
+        console.log(`💾 Fee too small for direct transfer (${feeAmount.toFixed(6)} SOL < ${MIN_FEE_TRANSFER} SOL)`);
+        console.log(`💾 Fee will be accumulated in database for batch collection`);
       }
 
       // Step 2: Execute swap with remaining amount
