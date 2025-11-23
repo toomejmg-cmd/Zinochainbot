@@ -115,6 +115,8 @@ interface UserState {
   selectedChain?: 'solana' | 'ethereum' | 'bsc';
   transferChain?: 'solana' | 'ethereum' | 'bsc';
   transferAddress?: string;
+  withdrawAddress?: string;
+  withdrawAmount?: number;
   awaitingSettingInput?: string;
   awaitingPin?: boolean;
   pinInput?: string;
@@ -5144,6 +5146,189 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         await ctx.reply(`❌ Error: ${error.message}`);
         // Don't delete state - let user retry
       }
+    }
+
+    // ===== SELL TOKEN: Execute the actual sell transaction =====
+    if (state.awaitingSellAmount && state.currentToken) {
+      const sellAmount = parseFloat(text);
+      if (isNaN(sellAmount) || sellAmount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
+        return;
+      }
+
+      userStates.delete(userId);
+
+      try {
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        if (userResult.rows.length === 0) {
+          await ctx.reply('Please use /start first.');
+          return;
+        }
+
+        const dbUserId = userResult.rows[0].id;
+        const tokenMint = state.currentToken;
+        const chain = (state.currentChain || 'solana') as ChainType;
+        const nativeSymbol = new MultiChainWalletService().getChainManager().getAdapter(chain).getNativeToken().symbol;
+
+        // Get wallet
+        const walletResult = await query(
+          `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
+          [dbUserId, chain]
+        );
+
+        if (walletResult.rows.length === 0) {
+          await ctx.reply(`❌ Wallet not found for ${chain}`);
+          return;
+        }
+
+        const wallet = walletResult.rows[0];
+
+        // Get token info for decimals
+        const adapter = new MultiChainWalletService().getChainManager().getAdapter(chain);
+        const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
+        const token = tokenBalances.find((t: any) => t.tokenAddress === tokenMint);
+
+        if (!token) {
+          await ctx.reply('❌ Token not found in your wallet.');
+          return;
+        }
+
+        if (parseFloat(token.balance) < sellAmount) {
+          await ctx.reply(`❌ Insufficient balance. You have ${token.balance} but trying to sell ${sellAmount}`);
+          return;
+        }
+
+        await ctx.reply(`🔄 Processing sale of ${sellAmount} ${token.symbol}...\n⏳ Converting to ${nativeSymbol}...`);
+
+        if (chain === 'solana') {
+          const keypair = await walletManager.getKeypair(wallet.id);
+          const settings = await userSettingsService.getSettings(dbUserId);
+          const tokenAmountLamports = Math.floor(sellAmount * Math.pow(10, token.decimals));
+
+          const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
+            keypair,
+            tokenMint,
+            NATIVE_SOL_MINT,
+            tokenAmountLamports,
+            settings.slippageBps,
+            dbUserId,
+            wallet.id
+          );
+
+          const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
+
+          await ctx.reply(
+            `✅ *Sale Successful!*\n\n` +
+            `💰 You sold: ${sellAmount} ${token.symbol}\n` +
+            `💵 Platform fee: ${swapResult.feeAmount.toFixed(4)} ${nativeSymbol}\n` +
+            `📈 Received: ${swapResult.swapAmount.toFixed(4)} ${nativeSymbol}\n` +
+            `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
+            `🔗 [View on Solscan](${explorerUrl})`,
+            { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
+          );
+        } else {
+          await ctx.reply(`⚠️ Multi-chain token sales for ${chain} not yet fully implemented.`);
+        }
+      } catch (error: any) {
+        console.error('Sell token error:', error);
+        await ctx.reply(`❌ Sale failed: ${error.message}`, { reply_markup: getMainMenu() });
+      }
+      return;
+    }
+
+    // ===== WITHDRAW: Handle both address and amount =====
+    if (state.awaitingWithdrawAddress && !state.withdrawAmount) {
+      const address = text.trim();
+      userStates.set(userId, { ...state, withdrawAddress: address, awaitingWithdrawAmount: true, awaitingWithdrawAddress: false });
+
+      const chainName = state.currentChain === 'ethereum' ? 'Ethereum' : state.currentChain === 'bsc' ? 'BSC' : 'Solana';
+      await ctx.reply(`✅ Address confirmed: \`${address}\`\n\nStep 2: Enter the ${state.withdrawType === 'sol' ? 'SOL' : 'token'} amount to withdraw.\n\n*Example:* \`0.5\` or \`1.25\``);
+      return;
+    }
+
+    if (state.awaitingWithdrawAmount && state.withdrawAddress) {
+      const amount = parseFloat(text);
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
+        return;
+      }
+
+      userStates.delete(userId);
+
+      try {
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        if (userResult.rows.length === 0) {
+          await ctx.reply('Please use /start first.');
+          return;
+        }
+
+        const dbUserId = userResult.rows[0].id;
+        const address = state.withdrawAddress;
+        const chain = state.currentChain || 'solana';
+        const nativeSymbol = new MultiChainWalletService().getChainManager().getAdapter(chain as ChainType).getNativeToken().symbol;
+
+        const walletResult = await query(
+          `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
+          [dbUserId, chain]
+        );
+
+        if (walletResult.rows.length === 0) {
+          await ctx.reply(`❌ Wallet not found`);
+          return;
+        }
+
+        const wallet = walletResult.rows[0];
+        const transferService = new TransferService((walletManager as any).connection);
+
+        await ctx.reply(`🔄 Processing withdrawal of ${amount} ${state.withdrawType === 'sol' ? 'SOL' : 'tokens'}...`);
+
+        let txHash = '';
+
+        if (chain === 'solana') {
+          const keypair = await walletManager.getKeypair(wallet.id);
+          
+          if (state.withdrawType === 'sol') {
+            txHash = await transferService.transferSOL(keypair, address, amount, dbUserId, null);
+          } else if (state.currentToken) {
+            // Get token info
+            const adapter = new MultiChainWalletService().getChainManager().getAdapter(chain as ChainType);
+            const tokenBalances = await adapter.getTokenBalances(wallet.public_key);
+            const token = tokenBalances.find((t: any) => t.tokenAddress === state.currentToken);
+            
+            if (!token) {
+              await ctx.reply('❌ Token not found');
+              return;
+            }
+
+            txHash = await transferService.transferSPLToken(
+              keypair,
+              address,
+              state.currentToken,
+              amount,
+              token.decimals,
+              dbUserId,
+              null,
+              token.symbol
+            );
+          }
+
+          const explorer = 'https://solscan.io/tx/';
+          await ctx.reply(
+            `✅ *Withdrawal Successful!*\n\n` +
+            `💰 Amount: ${amount} ${state.withdrawType === 'sol' ? 'SOL' : (state.currentToken ? 'tokens' : 'SOL')}\n` +
+            `📍 To: \`${address}\`\n` +
+            `📝 TX: \`${txHash.substring(0, 20)}...\`\n\n` +
+            `🔗 [View on Solscan](${explorer}${txHash})`,
+            { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
+          );
+        } else {
+          await ctx.reply(`⚠️ Multi-chain withdrawals for ${chain} not yet fully implemented.`);
+        }
+      } catch (error: any) {
+        console.error('Withdraw error:', error);
+        await ctx.reply(`❌ Withdrawal failed: ${error.message}`, { reply_markup: getMainMenu() });
+      }
+      return;
     }
   });
 
