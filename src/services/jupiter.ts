@@ -30,19 +30,30 @@ export class JupiterService {
     slippageBps: number = 50
   ): Promise<QuoteResponse> {
     try {
+      console.log(`🔍 Getting quote: ${inputMint} → ${outputMint}, amount: ${amount}, slippage: ${slippageBps}bps`);
       const response = await axios.get(`${JUPITER_API}/quote`, {
         params: {
           inputMint,
           outputMint,
           amount: amount.toString(),
           slippageBps
-        }
+        },
+        timeout: 30000
       });
 
+      console.log(`✅ Quote received: ${response.data.outAmount} output tokens`);
       return response.data;
     } catch (error: any) {
-      console.error('Jupiter quote error:', error.response?.data || error.message);
-      throw new Error('Failed to get quote from Jupiter');
+      const errorDetails = {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        inputMint,
+        outputMint,
+        amount
+      };
+      console.error('❌ Jupiter quote error:', JSON.stringify(errorDetails, null, 2));
+      throw new Error(`Failed to get quote from Jupiter: ${error.message}`);
     }
   }
 
@@ -52,13 +63,17 @@ export class JupiterService {
     prioritizationFeeLamports: number = 10000
   ): Promise<string> {
     try {
+      console.log(`💫 Executing swap: ${quoteResponse.inAmount} → ${quoteResponse.outAmount}`);
       const swapResponse = await axios.post(`${JUPITER_API}/swap`, {
         quoteResponse,
         userPublicKey: keypair.publicKey.toString(),
         wrapAndUnwrapSol: true,
         prioritizationFeeLamports
+      }, {
+        timeout: 30000
       });
 
+      console.log(`✅ Swap transaction created`);
       const swapTransactionBuf = Buffer.from(swapResponse.data.swapTransaction, 'base64');
       const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
 
@@ -72,6 +87,8 @@ export class JupiterService {
         maxRetries: 3
       });
 
+      console.log(`📝 Transaction sent: ${txid}`);
+
       const confirmation = await this.connection.confirmTransaction({
         blockhash: latestBlockHash.blockhash,
         lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
@@ -82,10 +99,17 @@ export class JupiterService {
         throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
       }
 
+      console.log(`✅ Swap confirmed!`);
       return txid;
     } catch (error: any) {
-      console.error('Jupiter swap error:', error.response?.data || error.message);
-      throw new Error('Failed to execute swap');
+      const errorDetails = {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        code: error.code
+      };
+      console.error('❌ Jupiter swap error:', JSON.stringify(errorDetails, null, 2));
+      throw new Error(`Failed to execute swap: ${error.message}`);
     }
   }
 
