@@ -111,15 +111,26 @@ export class JupiterTokenSync {
   }
 
   /**
+   * Start automatic sync on interval (with async initial sync)
+   */
+  async initializeSync(): Promise<void> {
+    console.log('⏰ Starting initial token sync...');
+    try {
+      await this.syncTokens();
+      console.log('✅ Initial token sync completed successfully!');
+    } catch (error) {
+      console.error('❌ Initial sync failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Start automatic sync on interval
    */
   startAutoSync(): void {
     console.log('⏰ Starting automatic token sync (every 24 hours)...');
     
-    // Do initial sync immediately
-    this.syncTokens().catch(err => console.error('Initial sync failed:', err));
-
-    // Then sync every 24 hours
+    // Sync every 24 hours (after initial sync completes)
     setInterval(() => {
       this.syncTokens().catch(err => console.error('Scheduled sync failed:', err));
     }, this.SYNC_INTERVAL);

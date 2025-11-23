@@ -56,9 +56,14 @@ async function main() {
     // Initialize Jupiter token sync (fetches and caches all tokens from Jupiter)
     console.log('🚀 Initializing Jupiter token sync...');
     try {
+      // Perform initial sync and wait for completion
+      await jupiterTokenSync.initializeSync();
+      
+      // Then start the automatic 24-hour refresh
       jupiterTokenSync.startAutoSync();
+      
       const tokenCount = await jupiterTokenSync.getTokenCount();
-      console.log(`✅ Jupiter token database loaded with ${tokenCount} tokens`);
+      console.log(`✅ Jupiter token database ready with ${tokenCount} tokens`);
     } catch (error) {
       console.warn('⚠️  Jupiter token sync failed, but continuing without it:', error);
     }
