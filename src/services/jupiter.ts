@@ -2,9 +2,8 @@ import axios from 'axios';
 import { Connection, Keypair, VersionedTransaction, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { getMint } from '@solana/spl-token';
 
-// Jupiter free public API endpoint
-const JUPITER_QUOTE_API = 'https://api.jup.ag/quote';
-const JUPITER_SWAP_API = 'https://api.jup.ag/swap';
+// Jupiter FREE Lite API endpoint (no authentication required)
+const JUPITER_LITE_API = 'https://lite-api.jup.ag/swap/v1';
 
 export interface QuoteResponse {
   inputMint: string;
@@ -34,9 +33,10 @@ export class JupiterService {
     console.log(`🔍 Getting quote: ${inputMint} → ${outputMint}, amount: ${amount}, slippage: ${slippageBps}bps`);
     
     try {
-      console.log(`📡 Calling Jupiter public API: ${JUPITER_QUOTE_API}`);
+      const quoteUrl = `${JUPITER_LITE_API}/quote`;
+      console.log(`📡 Calling Jupiter Lite API (FREE, no auth needed): ${quoteUrl}`);
       
-      const response = await axios.get(JUPITER_QUOTE_API, {
+      const response = await axios.get(quoteUrl, {
         params: {
           inputMint,
           outputMint,
@@ -80,9 +80,10 @@ export class JupiterService {
     try {
       console.log(`💫 Executing swap: ${quoteResponse.inAmount} → ${quoteResponse.outAmount}`);
       
-      console.log(`📡 Calling Jupiter swap API: ${JUPITER_SWAP_API}`);
+      const swapUrl = `${JUPITER_LITE_API}/swap`;
+      console.log(`📡 Calling Jupiter Lite swap API: ${swapUrl}`);
       
-      const swapResponse = await axios.post(JUPITER_SWAP_API, {
+      const swapResponse = await axios.post(swapUrl, {
         quoteResponse,
         userPublicKey: keypair.publicKey.toString(),
         wrapAndUnwrapSol: true,
