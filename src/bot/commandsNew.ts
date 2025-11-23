@@ -1397,10 +1397,11 @@ Choose an action below! 👇
       }
 
       const dbUserId = userResult.rows[0].id;
-      const wallet = await walletManager.getActiveWallet(dbUserId);
+      // Use multiChainWalletService to get the SOLANA wallet specifically
+      const wallet = await multiChainWalletService.getWallet(dbUserId, 'solana');
 
       if (!wallet) {
-        await ctx.reply('❌ No wallet found. Use /create_wallet first.', {
+        await ctx.reply('❌ No Solana wallet found. Use /create_wallet first.', {
           reply_markup: getBackToMainMenu()
         });
         return;
@@ -3086,7 +3087,7 @@ _(Tap to copy)_
       if (dcaResult.rows.length === 0) {
         message += `No DCA orders found.`;
       } else {
-        const activeCount = dcaResult.rows.filter(j => j.is_active).length;
+        const activeCount = dcaResult.rows.filter((j: any) => j.is_active).length;
         const inactiveCount = dcaResult.rows.length - activeCount;
         message += `Active: ${activeCount} | Inactive: ${inactiveCount}\n\n`;
         
@@ -5089,6 +5090,16 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
             return;
           }
           tokenAddress = searchResults[0].address;
+          
+          // Warn if token might not be on Jupiter
+          if (searchResults.length > 0 && searchResults[0].priceUsd === '0') {
+            await ctx.reply(
+              `⚠️ *Warning*: This token might not have liquidity on Jupiter aggregator.\n\n` +
+              `We're trying anyway, but if the swap fails, the token might only be available on Raydium directly.\n\n` +
+              `Continuing...`,
+              { parse_mode: 'Markdown' }
+            );
+          }
         }
 
         const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
