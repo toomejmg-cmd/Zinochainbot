@@ -1222,8 +1222,22 @@ Choose an action below! 👇
         const portfolio = await walletManager.getPortfolio(wallet.public_key);
         tokenBalances = portfolio.tokens || [];
       } else {
-        // For Ethereum/BSC: use adapter method
-        tokenBalances = await adapter.getTokenBalances(wallet.public_key);
+        // For Ethereum/BSC: query purchased tokens from transactions table
+        const tokenTxResult = await query(
+          `SELECT DISTINCT to_token FROM transactions 
+           WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''
+           ORDER BY created_at DESC`,
+          [wallet.id]
+        );
+        
+        // Convert to TokenBalance format with placeholder names
+        tokenBalances = tokenTxResult.rows.map((row: any) => ({
+          tokenAddress: row.to_token,
+          symbol: `${row.to_token.substring(0, 6)}...`,
+          name: 'Token',
+          balance: '0',  // Placeholder - would need contract calls to get real balance
+          decimals: 18
+        }));
       }
 
       // Get chain emoji
@@ -1321,7 +1335,19 @@ Choose an action below! 👇
         const portfolio = await walletManager.getPortfolio(wallet.public_key);
         tokenList = portfolio.tokens || [];
       } else {
-        tokenList = await adapter.getTokenBalances(wallet.public_key);
+        // For Ethereum/BSC: query from transactions table
+        const tokenTxResult = await query(
+          `SELECT DISTINCT to_token FROM transactions 
+           WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
+          [wallet.id]
+        );
+        tokenList = tokenTxResult.rows.map((row: any) => ({
+          tokenAddress: row.to_token,
+          symbol: `${row.to_token.substring(0, 6)}...`,
+          name: 'Token',
+          balance: '0',
+          decimals: 18
+        }));
       }
       
       const token = tokenList.find((t: any) => 
@@ -5317,7 +5343,19 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           const portfolio = await walletManager.getPortfolio(wallet.public_key);
           tokenList = portfolio.tokens || [];
         } else {
-          tokenList = await adapter.getTokenBalances(wallet.public_key);
+          // For Ethereum/BSC: query from transactions table
+          const tokenTxResult = await query(
+            `SELECT DISTINCT to_token FROM transactions 
+             WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
+            [wallet.id]
+          );
+          tokenList = tokenTxResult.rows.map((row: any) => ({
+            tokenAddress: row.to_token,
+            symbol: `${row.to_token.substring(0, 6)}...`,
+            name: 'Token',
+            balance: '0',
+            decimals: 18
+          }));
         }
         
         const token = tokenList.find((t: any) => 
