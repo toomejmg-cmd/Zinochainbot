@@ -6416,7 +6416,14 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         }
 
         const solanaNetwork = process.env.SOLANA_NETWORK || 'mainnet-beta';
-        const explorerUrl = transfer.chain === 'ethereum' ? 'https://etherscan.io/tx/' : transfer.chain === 'bsc' ? 'https://bscscan.com/tx/' : `https://solscan.io/tx/?cluster=${solanaNetwork}`;
+        let explorerUrl = '';
+        if (transfer.chain === 'ethereum') {
+          explorerUrl = `https://etherscan.io/tx/${txHash}`;
+        } else if (transfer.chain === 'bsc') {
+          explorerUrl = `https://bscscan.com/tx/${txHash}`;
+        } else {
+          explorerUrl = `https://solscan.io/tx/${txHash}?cluster=${solanaNetwork}`;
+        }
 
         // ✅ STEP 4: Show success
         await ctx.reply(
@@ -6425,7 +6432,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           `💵 Platform fee (1%): ${transfer.feeAmount.toFixed(6)} ${nativeSymbol}\n` +
           `📍 To: \`${transfer.recipientAddress}\`\n` +
           `📝 Hash: \`${txHash.substring(0, 20)}...\`\n\n` +
-          `🔗 [View on Explorer](${explorerUrl}${txHash})`,
+          `🔗 [View on Explorer](${explorerUrl})`,
           { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
         );
 
