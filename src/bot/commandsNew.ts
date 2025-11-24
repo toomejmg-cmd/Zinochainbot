@@ -6758,59 +6758,59 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
     });
   });
 
-// Limit Order Confirmation
-bot.callbackQuery('confirm_limit_order', async (ctx) => {
-  const userId = ctx.from?.id;
-  if (!userId) return;
+  // Limit Order Confirmation
+  bot.callbackQuery('confirm_limit_order', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
-  await ctx.answerCallbackQuery();
-  const state = userStates.get(userId);
-  const limitOrder = state?.pendingLimitOrder;
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+    const limitOrder = state?.pendingLimitOrder;
 
-  if (!limitOrder) {
-    await ctx.reply('❌ Order session expired. Please try again.');
-    return;
-  }
+    if (!limitOrder) {
+      await ctx.reply('❌ Order session expired. Please try again.');
+      return;
+    }
 
-  try {
-    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-    const dbUserId = userResult.rows[0].id;
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
 
-    // Create limit order in database
-    const orderResult = await query(
-      `INSERT INTO orders (user_id, wallet_id, token_address, order_type, amount, target_price, chain, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-       RETURNING id`,
-      [dbUserId, limitOrder.walletId, limitOrder.tokenAddress, limitOrder.type, limitOrder.amount, limitOrder.targetPrice, limitOrder.chain, 'active']
-    );
+      // Create limit order in database
+      const orderResult = await query(
+        `INSERT INTO orders (user_id, wallet_id, token_address, order_type, amount, target_price, chain, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+         RETURNING id`,
+        [dbUserId, limitOrder.walletId, limitOrder.tokenAddress, limitOrder.type, limitOrder.amount, limitOrder.targetPrice, limitOrder.chain, 'active']
+      );
 
-    const orderId = orderResult.rows[0].id;
-    const nativeSymbol = limitOrder.chain === 'ethereum' ? 'ETH' : limitOrder.chain === 'bsc' ? 'BNB' : 'SOL';
+      const orderId = orderResult.rows[0].id;
+      const nativeSymbol = limitOrder.chain === 'ethereum' ? 'ETH' : limitOrder.chain === 'bsc' ? 'BNB' : 'SOL';
 
-    await ctx.reply(
-      `✅ *Limit Order Created!*\n\n` +
-      `📌 Order ID: ${orderId}\n` +
-      `📊 Type: Buy ${limitOrder.tokenSymbol}\n` +
-      `💰 Amount: ${limitOrder.amount} ${nativeSymbol}\n` +
-      `🎯 Target Price: $${limitOrder.targetPrice.toFixed(6)}\n` +
-      `💵 Fee: ${limitOrder.feeAmount.toFixed(6)} ${nativeSymbol}\n\n` +
-      `⏰ Status: Active\n` +
-      `The order will execute automatically when the target price is reached.`,
-      { parse_mode: 'Markdown', reply_markup: getMainMenu() }
-    );
+      await ctx.reply(
+        `✅ *Limit Order Created!*\n\n` +
+        `📌 Order ID: ${orderId}\n` +
+        `📊 Type: Buy ${limitOrder.tokenSymbol}\n` +
+        `💰 Amount: ${limitOrder.amount} ${nativeSymbol}\n` +
+        `🎯 Target Price: $${limitOrder.targetPrice.toFixed(6)}\n` +
+        `💵 Fee: ${limitOrder.feeAmount.toFixed(6)} ${nativeSymbol}\n\n` +
+        `⏰ Status: Active\n` +
+        `The order will execute automatically when the target price is reached.`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
 
-    userStates.delete(userId);
-  } catch (error: any) {
-    console.error('Limit order confirmation error:', error);
-    await ctx.reply(
-      `❌ *Failed to Create Order*\n\n` +
-      `Error: ${error.message}\n\n` +
-      `Please try again.`,
-      { parse_mode: 'Markdown', reply_markup: getMainMenu() }
-    );
-    userStates.delete(userId);
-  }
-});
+      userStates.delete(userId);
+    } catch (error: any) {
+      console.error('Limit order confirmation error:', error);
+      await ctx.reply(
+        `❌ *Failed to Create Order*\n\n` +
+        `Error: ${error.message}\n\n` +
+        `Please try again.`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
+      userStates.delete(userId);
+    }
+  });
 
   console.log('✅ Bot commands and callbacks registered');
 }
