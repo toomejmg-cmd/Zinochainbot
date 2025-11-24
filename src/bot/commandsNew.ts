@@ -1191,13 +1191,10 @@ Choose an action below! 👇
 
       const dbUserId = userResult.rows[0].id;
       
-      // Get wallet with chain info
-      const walletResult = await query(
-        `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND is_active = true ORDER BY id DESC LIMIT 1`,
-        [dbUserId]
-      );
+      // Get SOLANA wallet specifically (like Portfolio does)
+      const wallet = await multiChainWalletService.getWallet(dbUserId, 'solana');
 
-      if (walletResult.rows.length === 0) {
+      if (!wallet) {
         await ctx.editMessageText(
           `💸 *Sell Tokens*\n\n` +
           `❌ No wallet found. Please create a wallet first using /create_wallet`,
@@ -1209,8 +1206,7 @@ Choose an action below! 👇
         return;
       }
 
-      const wallet = walletResult.rows[0];
-      const chain = (wallet.chain || 'solana') as ChainType;
+      const chain = 'solana' as ChainType;
       
       // Get chain adapter for native token info
       const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
@@ -1218,8 +1214,8 @@ Choose an action below! 👇
       // Get token balances (chain-specific method)
       let tokenBalances: any[] = [];
       if (chain === 'solana') {
-        // For Solana: use walletManager portfolio
-        const portfolio = await walletManager.getPortfolio(wallet.public_key);
+        // For Solana: use walletManager portfolio with correct key format
+        const portfolio = await walletManager.getPortfolio(wallet.publicKey);
         tokenBalances = portfolio.tokens || [];
       } else {
         // For Ethereum/BSC: query purchased tokens from transactions table
