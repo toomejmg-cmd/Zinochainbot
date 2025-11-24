@@ -5019,7 +5019,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
     const text = ctx.message.text;
 
     // ===== LIMIT ORDER: Handle amount input for buy limit =====
-    if (state.awaitingLimitPrice && state.limitOrderType === 'buy' && state.currentToken) {
+    if (state.awaitingLimitPrice === true && state.limitOrderType === 'buy' && state.currentToken) {
       const amount = parseFloat(text);
       if (isNaN(amount) || amount <= 0) {
         await ctx.reply('❌ Invalid amount. Please enter a positive number.');
