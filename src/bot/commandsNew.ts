@@ -2821,8 +2821,24 @@ _(Tap to copy)_
         
         for (let i = 0; i < tokenBalances.length && i < 5; i++) {
           const token = tokenBalances[i];
-          const displayName = token.symbol !== 'TOKEN' ? token.symbol : 
-            `${token.tokenAddress.substring(0, 4)}...${token.tokenAddress.substring(token.tokenAddress.length - 4)}`;
+          
+          // Fetch token metadata to get proper symbol
+          let displayName = 'TOKEN';
+          try {
+            const tokenMetadata = await tokenInfoService.getTokenInfo(token.tokenAddress, currentChain);
+            if (tokenMetadata && tokenMetadata.symbol) {
+              displayName = tokenMetadata.symbol;
+            } else if (token.symbol && token.symbol !== 'TOKEN') {
+              displayName = token.symbol;
+            } else {
+              displayName = `${token.tokenAddress.substring(0, 4)}...${token.tokenAddress.substring(token.tokenAddress.length - 4)}`;
+            }
+          } catch (metaError: any) {
+            console.warn('Could not fetch token metadata for P2P menu:', metaError.message);
+            displayName = token.symbol !== 'TOKEN' ? token.symbol : 
+              `${token.tokenAddress.substring(0, 4)}...${token.tokenAddress.substring(token.tokenAddress.length - 4)}`;
+          }
+          
           message += `🪙 ${displayName}: ${parseFloat(token.balance).toFixed(4)}\n`;
           keyboard.text(`📤 Send ${displayName}`, `p2p_token_${currentChain}_${token.tokenAddress}`).row();
         }
