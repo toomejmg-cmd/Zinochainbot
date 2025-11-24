@@ -5000,7 +5000,9 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
           await feeService.recordFee(0, dbUserId, feeAmount, 'transfer', nativeSymbol);
 
-          const explorer = chain === 'ethereum' ? 'https://etherscan.io/tx/' : chain === 'bsc' ? 'https://bscscan.com/tx/' : 'https://solscan.io/tx/?cluster=devnet';
+          const solanaNetwork = process.env.SOLANA_NETWORK || 'mainnet-beta';
+          const explorerUrl = chain === 'ethereum' ? 'https://etherscan.io/tx/' : chain === 'bsc' ? 'https://bscscan.com/tx/' : `https://solscan.io/tx/?cluster=${solanaNetwork}`;
+          const explorer = explorerUrl;
 
           await ctx.reply(
             `✅ *Transfer Successful!*\n\n💸 Amount: ${amount} ${nativeSymbol}\n💵 Fee: ${feeAmount.toFixed(6)} ${nativeSymbol}\n📍 To: \`${recipientAddress}\`\n📝 Hash: \`${txHash}\`\n\n🔗 [View on Explorer](${explorer}${txHash})`,

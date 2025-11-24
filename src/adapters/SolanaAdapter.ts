@@ -125,7 +125,8 @@ export class SolanaAdapter implements IChainAdapter {
   }
 
   getExplorerUrl(txHash: string): string {
-    return `https://solscan.io/tx/${txHash}?cluster=devnet`;
+    const solanaNetwork = process.env.SOLANA_NETWORK || 'mainnet-beta';
+    return `https://solscan.io/tx/${txHash}?cluster=${solanaNetwork}`;
   }
 
   async deriveFromMnemonic(mnemonic: string): Promise<WalletCredentials> {
