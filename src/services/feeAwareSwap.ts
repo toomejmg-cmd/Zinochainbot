@@ -74,15 +74,14 @@ export class FeeAwareSwapService {
       console.log(`   Swap amount: ${swapAmount.toFixed(4)} ${amountDisplayUnit}`);
       console.log(`💼 Fee wallet retrieved: ${feeWallet || 'EMPTY/NULL'}`);
 
-      // Step 1: Deduct SOL fee ONLY for SOL inputs
-      let feeTransferred = false;
+      // Step 1: Deduct SOL fee ONLY for SOL inputs (MANDATORY)
       if (isSolInput && feeWallet && feeAmount > 0) {
         console.log(`💸 Step 1: Transferring ${feeAmount.toFixed(6)} SOL to fee wallet ${feeWallet}...`);
+        console.log(`   🔑 User keypair: ${keypair.publicKey.toString()}`);
+        console.log(`   💰 Fee amount in SOL: ${feeAmount.toFixed(6)}`);
+        console.log(`   📍 Fee destination: ${feeWallet}`);
+        
         try {
-          console.log(`   🔑 User keypair: ${keypair.publicKey.toString()}`);
-          console.log(`   💰 Fee amount in SOL: ${feeAmount.toFixed(6)}`);
-          console.log(`   📍 Fee destination: ${feeWallet}`);
-          
           const feeTxSignature = await this.walletManager.transferSOL(
             keypair,
             feeWallet,
@@ -91,18 +90,18 @@ export class FeeAwareSwapService {
           console.log(`✅ Fee transfer successful!`);
           console.log(`   📝 Signature: ${feeTxSignature}`);
           console.log(`   🔗 Check: https://solscan.io/tx/${feeTxSignature}?cluster=mainnet-beta`);
-          feeTransferred = true;
         } catch (feeError: any) {
-          console.error(`❌ Fee transfer failed!`);
+          console.error(`❌ CRITICAL: Fee transfer FAILED - Aborting swap!`);
           console.error(`   Error: ${feeError?.message || feeError}`);
-          console.log(`⚠️  Fee will still be recorded in database. Continuing with swap...`);
-          // Don't throw - continue with swap and record fee anyway
-          // The fee will still be recorded in database even if transfer fails
+          throw new Error(
+            `Fee payment failed: ${feeError?.message || feeError}. ` +
+            `No swap will be executed. Please check your balance and try again.`
+          );
         }
       } else if (!isSolInput) {
-        console.log(`ℹ️  Fee collection for non-SOL inputs: Will record ${feeAmount.toFixed(4)} ${amountDisplayUnit} as database entry (physical transfer not supported yet)`);
-      } else {
-        console.warn(`⚠️  Fee transfer SKIPPED - Wallet empty: ${!feeWallet}, Amount > 0: ${feeAmount > 0}`);
+        console.log(`ℹ️  Fee collection for non-SOL inputs: Will record ${feeAmount.toFixed(4)} ${amountDisplayUnit} as database entry`);
+      } else if (isSolInput && !feeWallet) {
+        throw new Error(`Fee wallet not configured. Cannot proceed with swap.`);
       }
 
       // Step 2: Execute swap with remaining amount
