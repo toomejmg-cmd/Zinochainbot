@@ -130,6 +130,18 @@ interface UserState {
   };
   awaitingNewPin?: boolean;
   newPinInput?: string;
+  pendingSwap?: {
+    type: 'buy' | 'sell';
+    inputMint: string;
+    outputMint: string;
+    amount: number;
+    amountLamports: number;
+    feeAmount: number;
+    swapAmount: number;
+    walletId: number;
+    tokenSymbol?: string;
+    nativeSymbol?: string;
+  };
 }
 
 interface NavigationHistory {
@@ -5785,6 +5797,82 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
     }
 
     await ctx.answerCallbackQuery();
+  });
+
+  // Swap confirmation handler (Buy & Sell)
+  bot.callbackQuery('confirm_swap_buy', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+    const swap = state?.pendingSwap;
+
+    if (!swap) {
+      await ctx.reply('❌ Swap session expired. Please try again.');
+      return;
+    }
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      
+      const walletResult = await query(
+        `SELECT id FROM wallets WHERE id = $1 AND user_id = $2`,
+        [swap.walletId, dbUserId]
+      );
+
+      if (walletResult.rows.length === 0) {
+        await ctx.reply('❌ Wallet not found.');
+        userStates.delete(userId);
+        return;
+      }
+
+      await ctx.editMessageText(`🔄 Processing purchase...\n\n⏳ Deducting fee + swapping tokens...`, {
+        parse_mode: 'Markdown'
+      });
+
+      const keypair = await walletManager.getKeypair(swap.walletId);
+      const settings = await userSettingsService.getSettings(dbUserId);
+
+      const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
+        keypair,
+        swap.inputMint,
+        swap.outputMint,
+        swap.amountLamports,
+        settings.slippageBps,
+        dbUserId,
+        swap.walletId
+      );
+
+      if (swapResult.transactionId) {
+        await referralService.recordReferralReward(swapResult.transactionId, dbUserId, swapResult.feeAmount);
+      }
+
+      const adapter = new MultiChainWalletService().getChainManager().getAdapter('solana');
+      const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
+
+      await ctx.editMessageText(
+        `✅ *Swap Successful!*\n\n` +
+        `💰 You bought with: ${swap.amount} ${swap.nativeSymbol || 'SOL'}\n` +
+        `💵 Platform fee: ${swapResult.feeAmount.toFixed(6)} SOL\n` +
+        `🔄 Swapped: ${swapResult.swapAmount.toFixed(6)} SOL\n` +
+        `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
+        `🔗 [View on Solscan](${explorerUrl})`,
+        { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
+      );
+
+      userStates.delete(userId);
+    } catch (error: any) {
+      console.error('Swap confirmation error:', error);
+      await ctx.editMessageText(
+        `❌ *Swap Failed*\n\n` +
+        `Error: ${error.message}\n\n` +
+        `Please try again.`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
+      userStates.delete(userId);
+    }
   });
 
   console.log('✅ Bot commands and callbacks registered');
