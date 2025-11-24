@@ -1215,9 +1215,16 @@ Choose an action below! 👇
       // Get chain adapter for native token info
       const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
       
-      // Use walletManager.getPortfolio to get actual token balances
-      const portfolio = await walletManager.getPortfolio(wallet.public_key);
-      const tokenBalances = portfolio.tokens || [];
+      // Get token balances (chain-specific method)
+      let tokenBalances: any[] = [];
+      if (chain === 'solana') {
+        // For Solana: use walletManager portfolio
+        const portfolio = await walletManager.getPortfolio(wallet.public_key);
+        tokenBalances = portfolio.tokens || [];
+      } else {
+        // For Ethereum/BSC: use adapter method
+        tokenBalances = await adapter.getTokenBalances(wallet.public_key);
+      }
 
       // Get chain emoji
       const chainEmoji = chain === 'ethereum' ? '🔷' : chain === 'bsc' ? '🟡' : '⚡';
@@ -1308,9 +1315,15 @@ Choose an action below! 👇
       const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
       const nativeSymbol = adapter.getNativeToken().symbol;
       
-      // Get token balance using portfolio
-      const portfolio = await walletManager.getPortfolio(wallet.public_key);
-      const tokenList = portfolio.tokens || [];
+      // Get token balances (chain-specific method)
+      let tokenList: any[] = [];
+      if (chain === 'solana') {
+        const portfolio = await walletManager.getPortfolio(wallet.public_key);
+        tokenList = portfolio.tokens || [];
+      } else {
+        tokenList = await adapter.getTokenBalances(wallet.public_key);
+      }
+      
       const token = tokenList.find((t: any) => 
         (t.tokenAddress === tokenAddress) || (t.mint === tokenAddress)
       );
@@ -5298,9 +5311,15 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         const wallet = walletResult.rows[0];
 
-        // Get token info using portfolio
-        const portfolio = await walletManager.getPortfolio(wallet.public_key);
-        const tokenList = portfolio.tokens || [];
+        // Get token info (chain-specific method)
+        let tokenList: any[] = [];
+        if (chain === 'solana') {
+          const portfolio = await walletManager.getPortfolio(wallet.public_key);
+          tokenList = portfolio.tokens || [];
+        } else {
+          tokenList = await adapter.getTokenBalances(wallet.public_key);
+        }
+        
         const token = tokenList.find((t: any) => 
           (t.tokenAddress === tokenMint) || (t.mint === tokenMint)
         );
