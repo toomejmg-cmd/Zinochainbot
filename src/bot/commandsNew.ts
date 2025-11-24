@@ -884,20 +884,23 @@ Choose an action below! 👇
       const multiChainWallet = new MultiChainWalletService();
       const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
       
-      // Calculate total needed (amount + 0.5% fee + rent buffer)
+      // Calculate total needed (amount + 0.5% fee)
       const feeAmount = nativeAmount * 0.005; // 0.5% fee
       const swapAmount = nativeAmount - feeAmount;
-      const rentBuffer = 0.001; // ~0.001 SOL for rent
-      const totalNeeded = nativeAmount + rentBuffer;
+      const totalNeeded = nativeAmount + feeAmount;
 
       if (nativeBalance < totalNeeded) {
         await ctx.reply(
           `❌ *Insufficient Balance*\n\n` +
+          `⚠️  *WARNING: YOU MIGHT LOSE FEES!*\n\n` +
           `💰 Total needed: ${totalNeeded.toFixed(6)} SOL\n` +
           `   • Swap: ${nativeAmount.toFixed(4)} SOL\n` +
-          `   • Fee (0.5%): ${feeAmount.toFixed(6)} SOL\n` +
-          `   • Rent buffer: ${rentBuffer} SOL\n\n` +
-          `You have: ${nativeBalance.toFixed(6)} SOL\n\n` +
+          `   • Fee (0.5%): ${feeAmount.toFixed(6)} SOL\n\n` +
+          `You have: ${nativeBalance.toFixed(6)} SOL (Short: ${(totalNeeded - nativeBalance).toFixed(6)} SOL)\n\n` +
+          `If you attempt to swap with insufficient balance:\n` +
+          `• Fee will be transferred FIRST\n` +
+          `• Swap will FAIL\n` +
+          `• You lose the fee! 💔\n\n` +
           `Please top up your wallet and try again.`,
           { parse_mode: 'Markdown' }
         );
@@ -994,20 +997,23 @@ Choose an action below! 👇
       const multiChainWallet = new MultiChainWalletService();
       const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
       
-      // Calculate total needed (amount + 0.5% fee + rent buffer)
+      // Calculate total needed (amount + 0.5% fee)
       const feeAmount = nativeAmount * 0.005; // 0.5% fee
       const swapAmount = nativeAmount - feeAmount;
-      const rentBuffer = 0.001; // ~0.001 SOL for rent
-      const totalNeeded = nativeAmount + rentBuffer;
+      const totalNeeded = nativeAmount + feeAmount;
 
       if (nativeBalance < totalNeeded) {
         await ctx.reply(
           `❌ *Insufficient Balance*\n\n` +
+          `⚠️  *WARNING: YOU MIGHT LOSE FEES!*\n\n` +
           `💰 Total needed: ${totalNeeded.toFixed(6)} SOL\n` +
           `   • Swap: ${nativeAmount.toFixed(4)} SOL\n` +
-          `   • Fee (0.5%): ${feeAmount.toFixed(6)} SOL\n` +
-          `   • Rent buffer: ${rentBuffer} SOL\n\n` +
-          `You have: ${nativeBalance.toFixed(6)} SOL\n\n` +
+          `   • Fee (0.5%): ${feeAmount.toFixed(6)} SOL\n\n` +
+          `You have: ${nativeBalance.toFixed(6)} SOL (Short: ${(totalNeeded - nativeBalance).toFixed(6)} SOL)\n\n` +
+          `If you attempt to swap with insufficient balance:\n` +
+          `• Fee will be transferred FIRST\n` +
+          `• Swap will FAIL\n` +
+          `• You lose the fee! 💔\n\n` +
           `Please top up your wallet and try again.`,
           { parse_mode: 'Markdown' }
         );
@@ -5860,7 +5866,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       // ✅ STEP 1: Check balance (already done at confirmation, but verify again)
       const multiChainWallet = new MultiChainWalletService();
       const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, 'solana'));
-      const totalNeeded = swap.amount + 0.001;
+      const totalNeeded = swap.amount + swap.feeAmount;
 
       if (nativeBalance < totalNeeded) {
         await ctx.editMessageText(
