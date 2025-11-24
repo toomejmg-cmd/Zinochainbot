@@ -146,6 +146,14 @@ interface UserState {
     signature?: string;
     swappedTokens?: number;
   };
+  pendingSell?: {
+    tokenMint: string;
+    tokenSymbol: string;
+    sellAmount: number;
+    chain: 'solana' | 'ethereum' | 'bsc';
+    walletId: number;
+    token: any;
+  };
 }
 
 interface NavigationHistory {
@@ -5353,7 +5361,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       }
     }
 
-    // ===== SELL TOKEN: Execute the actual sell transaction =====
+    // ===== SELL TOKEN: Show confirmation with fee breakdown =====
     if (state.awaitingSellAmount && state.currentToken) {
       let sellAmount = 0;
       
@@ -5367,8 +5375,6 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           return;
         }
       }
-
-      userStates.delete(userId);
 
       try {
         const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
@@ -5391,6 +5397,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         if (walletResult.rows.length === 0) {
           await ctx.reply(`❌ Wallet not found for ${chain}`);
+          userStates.delete(userId);
           return;
         }
 
@@ -5418,6 +5425,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           
           if (tokenList.length === 0) {
             await ctx.reply('❌ No tokens found in your wallet.');
+            userStates.delete(userId);
             return;
           }
         }
@@ -5428,6 +5436,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         if (!token) {
           await ctx.reply('❌ Token not found in your wallet.');
+          userStates.delete(userId);
           return;
         }
 
@@ -5438,66 +5447,56 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         if (parseFloat(token.balance) < sellAmount) {
           await ctx.reply(`❌ Insufficient balance. You have ${token.balance} but trying to sell ${sellAmount}`);
+          userStates.delete(userId);
           return;
         }
 
         const tokenSymbol = token.symbol || token.mint?.substring(0, 8) || 'TOKEN';
-        await ctx.reply(`🔄 Processing sale of ${sellAmount} ${tokenSymbol}...\n⏳ Converting to ${nativeSymbol}...`);
+        
+        // Estimate fee from SOL output (0.5% of estimated output)
+        // This is approximate - actual fee depends on swap quote
+        const estimatedFeeAmount = sellAmount * 0.005; // rough estimate
+        
+        // Show confirmation BEFORE executing any transactions
+        const confirmMessage = 
+          `🔄 *Confirm Sale*\n\n` +
+          `📊 Sale Details:\n` +
+          `• Token: ${sellAmount} ${tokenSymbol}\n` +
+          `• Platform fee (0.5%): ~${estimatedFeeAmount.toFixed(6)} ${nativeSymbol} (calculated from output)\n\n` +
+          `⏳ After confirmation, we'll:\n` +
+          `1. Get current price quote\n` +
+          `2. Transfer fee (0.5% of SOL output)\n` +
+          `3. Execute sale`;
 
-        if (chain === 'solana') {
-          const keypair = await walletManager.getKeypair(wallet.id);
-          const settings = await userSettingsService.getSettings(dbUserId);
-          const tokenAmountLamports = Math.floor(sellAmount * Math.pow(10, token.decimals));
-
-          // For sell swaps: Execute FULL swap (no fee reduction on input)
-          // Then collect 0.5% fee from the SOL output
-          const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
-            keypair,
+        // Store pending sell in state
+        userStates.set(userId, {
+          ...state,
+          awaitingSellAmount: false,
+          pendingSell: {
             tokenMint,
-            NATIVE_SOL_MINT,
-            tokenAmountLamports,
-            settings.slippageBps,
-            dbUserId,
-            wallet.id
-          );
-
-          // For non-SOL inputs, feeAwareSwap returns fee calculated from token input
-          // But we need to recalculate as 0.5% of SOL OUTPUT instead
-          const actualFeeAmount = swapResult.swapAmount * 0.005; // 0.5% of SOL output
-          const actualSolReceived = swapResult.swapAmount - actualFeeAmount;
-
-          // Transfer the output fee to fee wallet
-          if (actualFeeAmount > 0) {
-            try {
-              const feeWallet = feeService.getFeeWallet();
-              if (feeWallet) {
-                await walletManager.transferSOL(keypair, feeWallet, actualFeeAmount);
-                console.log(`✅ Sell swap fee transferred: ${actualFeeAmount.toFixed(6)} SOL to ${feeWallet}`);
-              }
-            } catch (feeTransferError: any) {
-              console.error(`⚠️  Fee transfer failed for sell swap:`, feeTransferError);
-              // Don't fail the entire swap if fee transfer fails, but log it
-            }
+            tokenSymbol,
+            sellAmount,
+            chain,
+            walletId: wallet.id,
+            token
           }
+        });
 
-          const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
-          const tokenSymbol = token.symbol || token.mint?.substring(0, 8) || 'TOKEN';
-
-          await ctx.reply(
-            `✅ *Sale Successful!*\n\n` +
-            `💰 You sold: ${sellAmount} ${tokenSymbol}\n` +
-            `💵 Platform fee (0.5%): ${actualFeeAmount.toFixed(6)} ${nativeSymbol}\n` +
-            `📈 Received: ${actualSolReceived.toFixed(6)} ${nativeSymbol}\n` +
-            `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
-            `🔗 [View on Solscan](${explorerUrl})`,
-            { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
-          );
-        } else {
-          await ctx.reply(`⚠️ Multi-chain token sales for ${chain} not yet fully implemented.`);
-        }
+        await ctx.reply(confirmMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: new InlineKeyboard()
+            .text('✅ Confirm Sale', 'confirm_sell_custom')
+            .row()
+            .text('❌ Cancel', 'menu_main')
+        });
       } catch (error: any) {
-        console.error('Sell token error:', error);
-        await ctx.reply(`❌ Sale failed: ${error.message}`, { reply_markup: getMainMenu() });
+        console.error('Sell amount handler error:', error);
+        await ctx.reply(
+          `❌ *Error*\n\n` +
+          `Error: ${error.message}`,
+          { parse_mode: 'Markdown' }
+        );
+        userStates.delete(userId);
       }
       return;
     }
@@ -6103,6 +6102,155 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       console.error('Custom swap confirmation error:', error);
       await ctx.reply(
         `❌ *Swap Failed*\n\n` +
+        `Error: ${error.message}\n\n` +
+        `Please check your balance and try again.`,
+        { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+      );
+      userStates.delete(userId);
+    }
+  });
+
+  // Sell confirmation handler
+  bot.callbackQuery('confirm_sell_custom', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+    const sell = state?.pendingSell;
+
+    if (!sell) {
+      await ctx.reply('❌ Sale session expired. Please try again.');
+      return;
+    }
+
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      const dbUserId = userResult.rows[0].id;
+      
+      const walletResult = await query(
+        `SELECT id, public_key FROM wallets WHERE id = $1 AND user_id = $2`,
+        [sell.walletId, dbUserId]
+      );
+
+      if (walletResult.rows.length === 0) {
+        await ctx.reply('❌ Wallet not found.');
+        userStates.delete(userId);
+        return;
+      }
+
+      const wallet = walletResult.rows[0];
+      const keypair = await walletManager.getKeypair(sell.walletId);
+      const feeWallet = feeService.getFeeWallet();
+      const adapter = new MultiChainWalletService().getChainManager().getAdapter(sell.chain);
+      const nativeSymbol = adapter.getNativeToken().symbol;
+
+      // ✅ STEP 1: Show processing status
+      await ctx.reply(`🔄 *Processing Sale*\n\n⏳ Converting to ${nativeSymbol}...`, { parse_mode: 'Markdown' });
+
+      if (sell.chain === 'solana') {
+        const settings = await userSettingsService.getSettings(dbUserId);
+        const tokenAmountLamports = Math.floor(sell.sellAmount * Math.pow(10, sell.token.decimals));
+
+        // Get quote first to know the SOL output
+        const connection = (walletManager as any).getConnection();
+        const jupiterService = new JupiterService(connection);
+        
+        // Get quote to estimate SOL output
+        let estimatedSolOutput = sell.sellAmount; // fallback estimate
+        try {
+          const jupiterQuote = await jupiterService.getQuote(
+            sell.tokenMint,
+            NATIVE_SOL_MINT,
+            tokenAmountLamports,
+            settings.slippageBps
+          );
+          const outAmount = typeof jupiterQuote.outAmount === 'string' 
+            ? parseInt(jupiterQuote.outAmount) 
+            : jupiterQuote.outAmount;
+          estimatedSolOutput = outAmount / LAMPORTS_PER_SOL;
+        } catch (quoteError: any) {
+          console.warn('Could not get quote, using estimate:', quoteError.message);
+        }
+
+        // Calculate fee as 0.5% of SOL output
+        const feeAmount = estimatedSolOutput * 0.005; // 0.5% of SOL output
+
+        // ✅ STEP 2: Transfer fee FIRST (MUST succeed before swap)
+        if (feeWallet && feeAmount > 0) {
+          try {
+            await walletManager.transferSOL(keypair, feeWallet, feeAmount);
+            console.log(`✅ Fee transferred: ${feeAmount.toFixed(6)} SOL`);
+          } catch (feeError: any) {
+            console.error(`❌ Fee transfer failed:`, feeError);
+            throw new Error(`Fee transfer failed: ${feeError?.message || feeError}`);
+          }
+        }
+
+        // ✅ STEP 3: Execute swap
+        const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
+          keypair,
+          sell.tokenMint,
+          NATIVE_SOL_MINT,
+          tokenAmountLamports,
+          settings.slippageBps,
+          dbUserId,
+          sell.walletId
+        );
+
+        // Recalculate actual fee from actual output
+        const actualFeeAmount = swapResult.swapAmount * 0.005; // 0.5% of actual SOL output
+        const actualSolReceived = swapResult.swapAmount - actualFeeAmount;
+
+        console.log(`✅ Sell successful: ${swapResult.signature}`);
+
+        // Record transaction
+        let transactionId: number | null = null;
+        try {
+          transactionId = await query(
+            `INSERT INTO transactions (wallet_id, from_token, to_token, amount, swap_amount, status, transaction_type, signature)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id`,
+            [sell.walletId, sell.tokenMint, NATIVE_SOL_MINT, sell.sellAmount, swapResult.swapAmount, 'success', 'swap', swapResult.signature]
+          ).then((res: any) => res.rows[0]?.id || null);
+        } catch (recordError: any) {
+          console.error('Transaction recording failed:', recordError);
+        }
+
+        // Record fee
+        try {
+          await feeService.recordFee(transactionId, dbUserId, actualFeeAmount, 'trading', sell.tokenMint);
+        } catch (feeRecordError: any) {
+          console.error('Fee recording failed:', feeRecordError);
+        }
+
+        // Record referral reward
+        if (transactionId) {
+          await referralService.recordReferralReward(transactionId, dbUserId, actualFeeAmount);
+        }
+
+        const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
+
+        // ✅ STEP 4: Show success
+        await ctx.reply(
+          `✅ *Sale Successful!*\n\n` +
+          `💰 You sold: ${sell.sellAmount} ${sell.tokenSymbol}\n` +
+          `💵 Platform fee (0.5%): ${actualFeeAmount.toFixed(6)} ${nativeSymbol}\n` +
+          `📈 Received: ${actualSolReceived.toFixed(6)} ${nativeSymbol}\n` +
+          `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
+          `🔗 [View on Solscan](${explorerUrl})`,
+          { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
+        );
+
+        userStates.delete(userId);
+      } else {
+        await ctx.reply(`⚠️ Multi-chain token sales for ${sell.chain} not yet fully implemented.`);
+        userStates.delete(userId);
+      }
+    } catch (error: any) {
+      console.error('Sell confirmation error:', error);
+      await ctx.reply(
+        `❌ *Sale Failed*\n\n` +
         `Error: ${error.message}\n\n` +
         `Please check your balance and try again.`,
         { parse_mode: 'Markdown', reply_markup: getMainMenu() }
