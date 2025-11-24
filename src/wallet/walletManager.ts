@@ -170,6 +170,24 @@ export class WalletManager {
     const toPubKey = new PublicKey(toPublicKey);
     const lamports = Math.floor(amountSOL * LAMPORTS_PER_SOL);
     
+    // Get rent exemption minimum
+    const rentMinimum = await this.connection.getMinimumBalanceForRentExemption(0);
+    console.log(`💾 Rent exemption minimum: ${rentMinimum} lamports (${rentMinimum / LAMPORTS_PER_SOL} SOL)`);
+    
+    // Check if destination account exists
+    const destInfo = await this.connection.getAccountInfo(toPubKey);
+    if (!destInfo) {
+      console.log(`📍 Destination account doesn't exist, need to account for rent: ${rentMinimum} lamports`);
+    }
+    
+    // Check sender balance
+    const senderBalance = await this.connection.getBalance(fromKeypair.publicKey);
+    console.log(`💰 Sender balance: ${senderBalance} lamports (${senderBalance / LAMPORTS_PER_SOL} SOL)`);
+    
+    if (senderBalance < lamports + 5000) {  // 5000 lamports for transaction fee
+      throw new Error(`Insufficient balance: need ${(lamports + 5000) / LAMPORTS_PER_SOL} SOL, have ${senderBalance / LAMPORTS_PER_SOL} SOL`);
+    }
+    
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: fromKeypair.publicKey,
@@ -185,6 +203,7 @@ export class WalletManager {
       { commitment: 'confirmed' }
     );
     
+    console.log(`✅ SOL transfer successful: ${amountSOL} SOL to ${toPublicKey}`);
     return signature;
   }
 
