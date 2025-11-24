@@ -5135,6 +5135,18 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
         const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
         
+        // Fetch target token metadata to get symbol
+        let targetTokenSymbol = 'TOKEN';
+        try {
+          const targetTokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
+          if (targetTokenInfo && targetTokenInfo.symbol) {
+            targetTokenSymbol = targetTokenInfo.symbol;
+          }
+        } catch (metaError: any) {
+          console.warn('Could not fetch target token metadata:', metaError.message);
+          targetTokenSymbol = tokenAddress.substring(0, 8);
+        }
+        
         // Calculate fee and total needed
         const feeAmount = nativeAmount * 0.005; // 0.5% fee
         const swapAmount = nativeAmount - feeAmount;
@@ -5164,6 +5176,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           `🔄 *Confirm Swap*\n\n` +
           `📊 Swap Details:\n` +
           `• Input: ${nativeAmount} ${nativeSymbol}\n` +
+          `• Target: ${targetTokenSymbol}\n` +
           `• Platform fee (0.5%): ${feeAmount.toFixed(6)} ${nativeSymbol}\n` +
           `• Swap amount: ${swapAmount.toFixed(6)} ${nativeSymbol}\n\n` +
           `💰 Your balance: ${nativeBalance.toFixed(6)} ${nativeSymbol}\n` +
@@ -5182,7 +5195,9 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
             swapAmount,
             feeAmount,
             signature: '',
-            swappedTokens: 0
+            swappedTokens: 0,
+            nativeSymbol,
+            tokenSymbol: targetTokenSymbol
           }
         });
 
@@ -5451,7 +5466,21 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           return;
         }
 
-        const tokenSymbol = token.symbol || token.mint?.substring(0, 8) || 'TOKEN';
+        // Fetch token metadata to get proper symbol
+        let tokenSymbol = 'TOKEN';
+        try {
+          const tokenMetadata = await tokenInfoService.getTokenInfo(tokenMint, chain);
+          if (tokenMetadata && tokenMetadata.symbol) {
+            tokenSymbol = tokenMetadata.symbol;
+          } else if (token.symbol) {
+            tokenSymbol = token.symbol;
+          } else {
+            tokenSymbol = tokenMint.substring(0, 8);
+          }
+        } catch (metaError: any) {
+          console.warn('Could not fetch token metadata:', metaError.message);
+          tokenSymbol = token.symbol || tokenMint.substring(0, 8) || 'TOKEN';
+        }
         
         // Estimate fee from SOL output (0.5% of estimated output)
         // This is approximate - actual fee depends on swap quote
@@ -6091,7 +6120,9 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       // ✅ STEP 5: Show success
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
-        `💰 You bought with: ${swap.amount} ${nativeSymbol}\n` +
+        `💰 You bought: ${swap.tokenSymbol || 'TOKEN'}\n` +
+        `💵 Spent: ${swap.amount} ${nativeSymbol}\n` +
+        `🎯 Received: ${swapResult.swapAmount.toFixed(6)}\n` +
         `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
         `🔗 [View on Solscan](${explorerUrl})`,
         { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
