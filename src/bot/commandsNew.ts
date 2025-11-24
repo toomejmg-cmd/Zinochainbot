@@ -1264,11 +1264,20 @@ Choose an action below! 👇
       for (let i = 0; i < tokenBalances.length && i < 10; i++) {
         const token = tokenBalances[i];
         const tokenAddress = token.tokenAddress || token.mint || '';
-        const shortAddress = tokenAddress.length > 12 
-          ? `${tokenAddress.substring(0, 4)}...${tokenAddress.substring(tokenAddress.length - 4)}`
-          : tokenAddress;
-        const displayName = token.symbol !== 'TOKEN' ? token.symbol : shortAddress;
-        const buttonText = `🪙 ${displayName} (${parseFloat(token.balance).toFixed(4)})`;
+        
+        // Fetch token metadata to get symbol/name
+        let displaySymbol = 'TOKEN';
+        try {
+          const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
+          if (tokenInfo?.symbol) {
+            displaySymbol = tokenInfo.symbol.toUpperCase();
+          }
+        } catch (err) {
+          // If metadata fetch fails, use shortened address
+          displaySymbol = `${tokenAddress.substring(0, 4)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
+        }
+        
+        const buttonText = `🪙 ${displaySymbol} (${parseFloat(token.balance).toFixed(4)})`;
         keyboard.text(buttonText, `sell_token_${chain}_${tokenAddress}`).row();
       }
 
