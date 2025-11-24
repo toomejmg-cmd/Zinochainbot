@@ -1261,21 +1261,30 @@ Choose an action below! 👇
 
       const keyboard = new InlineKeyboard();
       
+      // Fetch token symbols in parallel but with timeout
+      const tokenSymbols: Record<string, string> = {};
+      const symbolPromises = tokenBalances.slice(0, 10).map(async (token) => {
+        const tokenAddress = token.tokenAddress || token.mint || '';
+        try {
+          const tokenInfo = (await Promise.race([
+            tokenInfoService.getTokenInfo(tokenAddress, chain),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+          ])) as TokenInfo | null;
+          if (tokenInfo?.symbol) {
+            tokenSymbols[tokenAddress] = tokenInfo.symbol.toUpperCase();
+          }
+        } catch (err) {
+          // Silently fail - will use fallback below
+        }
+      });
+      
+      await Promise.all(symbolPromises);
+      
       for (let i = 0; i < tokenBalances.length && i < 10; i++) {
         const token = tokenBalances[i];
         const tokenAddress = token.tokenAddress || token.mint || '';
         
-        // Fetch token metadata to get symbol/name
-        let displaySymbol = 'TOKEN';
-        try {
-          const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
-          if (tokenInfo?.symbol) {
-            displaySymbol = tokenInfo.symbol.toUpperCase();
-          }
-        } catch (err) {
-          // If metadata fetch fails, use shortened address
-          displaySymbol = `${tokenAddress.substring(0, 4)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
-        }
+        let displaySymbol = tokenSymbols[tokenAddress] || `${tokenAddress.substring(0, 4)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
         
         const buttonText = `🪙 ${displaySymbol} (${parseFloat(token.balance).toFixed(4)})`;
         keyboard.text(buttonText, `sell_token_${chain}_${tokenAddress}`).row();
@@ -1369,8 +1378,17 @@ Choose an action below! 👇
       }
 
       const chainEmoji = chain === 'ethereum' ? '🔷' : chain === 'bsc' ? '🟡' : '⚡';
-      const displayName = token.symbol !== 'TOKEN' ? token.symbol : 
-        `${tokenAddress.substring(0, 6)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
+      
+      // Fetch token metadata to get proper symbol/name
+      let displayName = `${tokenAddress.substring(0, 6)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
+      try {
+        const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain);
+        if (tokenInfo?.symbol) {
+          displayName = tokenInfo.symbol.toUpperCase();
+        }
+      } catch (err) {
+        // Silently fail - will use fallback address
+      }
 
       await ctx.editMessageText(
         `💸 *Sell Token* ${chainEmoji}\n\n` +
