@@ -41,6 +41,10 @@ async function main() {
     const adminService = new AdminService();
     const feeWallet = process.env.FEE_WALLET || '';
     const tradingFeeBps = parseInt(process.env.TRADING_FEE_BPS || '50');
+    
+    console.log(`🔧 DEBUG: FEE_WALLET env var = "${feeWallet}"`);
+    console.log(`🔧 DEBUG: TRADING_FEE_BPS env var = ${tradingFeeBps}`);
+    
     const feeService = new FeeService({ 
       tradingFeeBps, 
       feeWallet,
@@ -52,6 +56,7 @@ async function main() {
     
     await feeService.loadSettingsFromDatabase();
     console.log('⚙️  Bot settings loaded from database');
+    console.log(`🔧 DEBUG: Fee wallet after DB load = "${feeService.getFeeWallet()}"`);
     
     // Initialize Jupiter token sync (fetches and caches all tokens from Jupiter)
     console.log('🚀 Initializing Jupiter token sync...');
