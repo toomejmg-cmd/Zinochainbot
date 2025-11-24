@@ -59,23 +59,34 @@ export class FeeAwareSwapService {
       console.log(`   Total: ${amountInSol.toFixed(4)} SOL`);
       console.log(`   Fee (${this.feeService.getFeePercentage()}%): ${feeAmount.toFixed(4)} SOL`);
       console.log(`   Swap amount: ${swapAmount.toFixed(4)} SOL`);
+      console.log(`💼 Fee wallet retrieved: ${feeWallet || 'EMPTY/NULL'}`);
 
       // Step 1: Deduct fee from user's wallet
       if (feeWallet && feeAmount > 0) {
-        console.log(`💸 Step 1: Transferring fee to ${feeWallet}...`);
+        console.log(`💸 Step 1: Transferring ${feeAmount.toFixed(6)} SOL to fee wallet ${feeWallet}...`);
         try {
+          console.log(`   🔑 User keypair: ${keypair.publicKey.toString()}`);
+          console.log(`   💰 Fee amount in SOL: ${feeAmount.toFixed(6)}`);
+          console.log(`   📍 Fee destination: ${feeWallet}`);
+          
           const feeTxSignature = await this.walletManager.transferSOL(
             keypair,
             feeWallet,
             feeAmount
           );
-          console.log(`✅ Fee transfer successful: ${feeTxSignature}`);
+          console.log(`✅ Fee transfer successful!`);
+          console.log(`   📝 Signature: ${feeTxSignature}`);
+          console.log(`   🔗 Check: https://solscan.io/tx/${feeTxSignature}?cluster=mainnet-beta`);
         } catch (feeError: any) {
-          console.error(`❌ Fee transfer failed:`, feeError?.message || feeError);
+          console.error(`❌ CRITICAL: Fee transfer failed!`);
+          console.error(`   Error: ${feeError?.message || feeError}`);
+          console.error(`   Stack: ${feeError?.stack || 'N/A'}`);
           // Don't throw - continue with swap and record fee anyway
           // The fee will still be recorded in database even if transfer fails
           console.log(`⚠️  Fee will be recorded in database. Continuing with swap...`);
         }
+      } else {
+        console.warn(`⚠️  Fee transfer SKIPPED - Wallet empty: ${!feeWallet}, Amount > 0: ${feeAmount > 0}`);
       }
 
       // Step 2: Execute swap with remaining amount
