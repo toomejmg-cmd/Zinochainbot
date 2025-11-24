@@ -168,31 +168,52 @@ export class WalletManager {
     } = await import('@solana/web3.js');
     
     const toPubKey = new PublicKey(toPublicKey);
-    const lamports = Math.floor(amountSOL * LAMPORTS_PER_SOL);
+    const feeAmountLamports = Math.floor(amountSOL * LAMPORTS_PER_SOL);
     
-    // Get rent exemption minimum
+    // Get rent exemption minimum (needed for destination account)
     const rentMinimum = await this.connection.getMinimumBalanceForRentExemption(0);
-    console.log(`💾 Rent exemption minimum: ${rentMinimum} lamports (${rentMinimum / LAMPORTS_PER_SOL} SOL)`);
+    console.log(`💾 Rent exemption minimum: ${rentMinimum} lamports (${(rentMinimum / LAMPORTS_PER_SOL).toFixed(6)} SOL)`);
     
-    // Check if destination account exists
-    const destInfo = await this.connection.getAccountInfo(toPubKey);
-    if (!destInfo) {
-      console.log(`📍 Destination account doesn't exist, need to account for rent: ${rentMinimum} lamports`);
+    // Check destination account current balance
+    let destBalance = 0;
+    let destExists = false;
+    try {
+      destBalance = await this.connection.getBalance(toPubKey);
+      destExists = destBalance > 0;
+      console.log(`📍 Destination account exists: ${destExists} (current balance: ${destBalance} lamports)`);
+    } catch (err) {
+      console.log(`📍 Destination account check: ${err}`);
+    }
+    
+    // Calculate total amount needed to send
+    // If destination doesn't have rent minimum, ensure we send enough for that
+    let totalLamportsToSend = feeAmountLamports;
+    if (destBalance < rentMinimum) {
+      const shortfall = rentMinimum - destBalance;
+      totalLamportsToSend = feeAmountLamports + shortfall;
+      console.log(`⚠️  Destination needs rent exemption. Sending extra: ${shortfall} lamports to cover rent`);
     }
     
     // Check sender balance
     const senderBalance = await this.connection.getBalance(fromKeypair.publicKey);
-    console.log(`💰 Sender balance: ${senderBalance} lamports (${senderBalance / LAMPORTS_PER_SOL} SOL)`);
+    console.log(`💰 Sender balance: ${senderBalance} lamports (${(senderBalance / LAMPORTS_PER_SOL).toFixed(6)} SOL)`);
     
-    if (senderBalance < lamports + 5000) {  // 5000 lamports for transaction fee
-      throw new Error(`Insufficient balance: need ${(lamports + 5000) / LAMPORTS_PER_SOL} SOL, have ${senderBalance / LAMPORTS_PER_SOL} SOL`);
+    const totalNeeded = totalLamportsToSend + 5000; // 5000 lamports for transaction fee
+    if (senderBalance < totalNeeded) {
+      throw new Error(
+        `Insufficient balance for fee transfer. ` +
+        `Need: ${(totalNeeded / LAMPORTS_PER_SOL).toFixed(6)} SOL (${feeAmountLamports / LAMPORTS_PER_SOL} fee + ${Math.max(0, rentMinimum - destBalance) / LAMPORTS_PER_SOL} rent buffer), ` +
+        `Have: ${(senderBalance / LAMPORTS_PER_SOL).toFixed(6)} SOL`
+      );
     }
+    
+    console.log(`💸 Sending ${(totalLamportsToSend / LAMPORTS_PER_SOL).toFixed(6)} SOL total to fee wallet`);
     
     const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: fromKeypair.publicKey,
         toPubkey: toPubKey,
-        lamports
+        lamports: totalLamportsToSend
       })
     );
     
@@ -203,7 +224,9 @@ export class WalletManager {
       { commitment: 'confirmed' }
     );
     
-    console.log(`✅ SOL transfer successful: ${amountSOL} SOL to ${toPublicKey}`);
+    console.log(`✅ SOL transfer successful!`);
+    console.log(`   📝 Signature: ${signature}`);
+    console.log(`   💰 Amount sent: ${(totalLamportsToSend / LAMPORTS_PER_SOL).toFixed(6)} SOL`);
     return signature;
   }
 
