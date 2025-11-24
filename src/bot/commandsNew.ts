@@ -164,6 +164,19 @@ interface UserState {
     chain: 'solana' | 'ethereum' | 'bsc';
     walletId: number;
   };
+  awaitingLimitPrice?: boolean;
+  limitOrderType?: 'buy' | 'sell';
+  limitOrderAmount?: number;
+  pendingLimitOrder?: {
+    type: 'buy' | 'sell';
+    tokenAddress: string;
+    tokenSymbol: string;
+    amount: number;
+    targetPrice: number;
+    chain: 'solana' | 'ethereum' | 'bsc';
+    walletId: number;
+    feeAmount: number;
+  };
 }
 
 interface NavigationHistory {
@@ -5005,6 +5018,236 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
     const text = ctx.message.text;
 
+    // ===== LIMIT ORDER: Handle amount input for buy limit =====
+    if (state.awaitingLimitPrice && state.limitOrderType === 'buy' && state.currentToken) {
+      const amount = parseFloat(text);
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
+        return;
+      }
+
+      const chain = state.currentChain || 'solana';
+      const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
+      const currentPrice = parseFloat(state.currentTokenInfo?.priceUsd || '0');
+      
+      await ctx.reply(
+        `⏰ *Set Target Price*\n\n` +
+        `📊 Token: ${state.currentTokenInfo?.symbol || 'TOKEN'}\n` +
+        `💰 Spend Amount: ${amount} ${nativeSymbol}\n` +
+        `📈 Current Price: $${currentPrice.toFixed(6)}\n\n` +
+        `Step 2: Enter the target price in USD:\n\n` +
+        `*Example:* \`0.000001\` (lower = buy when price drops)\n\n` +
+        `Platform fee: 0.5% will be applied`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        limitOrderAmount: amount,
+        awaitingLimitPrice: 'target_price' as any
+      });
+      return;
+    }
+
+    // ===== LIMIT ORDER: Handle target price input for BUY =====
+    if (state.limitOrderType === 'buy' && (state.awaitingLimitPrice === 'target_price' as any) && state.currentToken && state.limitOrderAmount) {
+      const targetPrice = parseFloat(text);
+      if (isNaN(targetPrice) || targetPrice <= 0) {
+        await ctx.reply('❌ Invalid price. Please enter a positive number.');
+        return;
+      }
+
+      try {
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const chain = state.currentChain || 'solana';
+        const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
+        const feeAmount = state.limitOrderAmount * 0.005;
+
+        const multiChainWallet = new MultiChainWalletService();
+        const wallet = await multiChainWallet.getWallet(dbUserId, chain as ChainType);
+
+        if (!wallet) {
+          await ctx.reply(`❌ No ${chain} wallet found.`);
+          userStates.delete(userId);
+          return;
+        }
+
+        const confirmMessage = 
+          `✅ *Confirm Limit Order*\n\n` +
+          `📊 Limit Buy Order\n` +
+          `• Token: ${state.currentTokenInfo?.symbol || 'TOKEN'}\n` +
+          `• Amount: ${state.limitOrderAmount} ${nativeSymbol}\n` +
+          `• Target Price: $${targetPrice.toFixed(6)}\n` +
+          `• Platform fee (0.5%): ${feeAmount.toFixed(6)} ${nativeSymbol}\n\n` +
+          `This order will execute when ${state.currentTokenInfo?.symbol || 'TOKEN'} price reaches $${targetPrice.toFixed(6)}`;
+
+        userStates.set(userId, {
+          ...state,
+          awaitingLimitPrice: false,
+          pendingLimitOrder: {
+            type: 'buy',
+            tokenAddress: state.currentToken,
+            tokenSymbol: state.currentTokenInfo?.symbol || 'TOKEN',
+            amount: state.limitOrderAmount,
+            targetPrice,
+            chain: chain as ChainType,
+            walletId: wallet.id,
+            feeAmount
+          }
+        });
+
+        await ctx.reply(confirmMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: new InlineKeyboard()
+            .text('✅ Create Limit Order', 'confirm_limit_order')
+            .row()
+            .text('❌ Cancel', 'menu_main')
+        });
+      } catch (error: any) {
+        console.error('Limit order processing error:', error);
+        await ctx.reply('❌ Error processing limit order.');
+        userStates.delete(userId);
+      }
+      return;
+    }
+
+    // ===== LIMIT ORDER SELL: Handle token address input =====
+    if (state.awaitingSellToken && state.limitOrderType === 'sell') {
+      const tokenAddress = text.trim();
+      if (!tokenAddress || tokenAddress.length < 20) {
+        await ctx.reply('❌ Invalid token address. Please enter a valid address.');
+        return;
+      }
+
+      try {
+        const chain = state.currentChain || 'solana';
+        const tokenInfoService = new TokenInfoService();
+        const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain as ChainType);
+
+        if (!tokenInfo) {
+          await ctx.reply('❌ Token not found on this chain. Please check the address.');
+          return;
+        }
+
+        const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
+
+        await ctx.reply(
+          `⏰ *Sell Limit Order - Amount*\n\n` +
+          `📊 Token: ${tokenInfo.symbol}\n\n` +
+          `Step 2: Enter the amount of ${tokenInfo.symbol} to sell:\n\n` +
+          `*Example:* \`100\` or \`1000.50\``,
+          { parse_mode: 'Markdown' }
+        );
+
+        userStates.set(userId, {
+          ...state,
+          awaitingSellToken: false,
+          limitOrderType: 'sell',
+          currentToken: tokenAddress,
+          currentTokenInfo: tokenInfo,
+          currentChain: chain as ChainType,
+          awaitingLimitPrice: 'sell_amount' as any
+        });
+      } catch (error: any) {
+        console.error('Sell token resolution error:', error);
+        await ctx.reply('❌ Error fetching token info.');
+      }
+      return;
+    }
+
+    // ===== LIMIT ORDER SELL: Handle amount input =====
+    if (state.limitOrderType === 'sell' && (state.awaitingLimitPrice === 'sell_amount' as any) && state.currentToken) {
+      const amount = parseFloat(text);
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply('❌ Invalid amount. Please enter a positive number.');
+        return;
+      }
+
+      const chain = state.currentChain || 'solana';
+      const currentPrice = parseFloat(state.currentTokenInfo?.priceUsd || '0');
+
+      await ctx.reply(
+        `⏰ *Sell Limit Order - Target Price*\n\n` +
+        `📊 Token: ${state.currentTokenInfo?.symbol || 'TOKEN'}\n` +
+        `💰 Sell Amount: ${amount} ${state.currentTokenInfo?.symbol || 'TOKEN'}\n` +
+        `📈 Current Price: $${currentPrice.toFixed(6)}\n\n` +
+        `Step 3: Enter the target price in USD:\n\n` +
+        `*Example:* \`0.000005\` (higher = sell when price rises)\n\n` +
+        `Platform fee: 0.5% will be applied`,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        limitOrderAmount: amount,
+        awaitingLimitPrice: 'sell_target_price' as any
+      });
+      return;
+    }
+
+    // ===== LIMIT ORDER SELL: Handle target price input =====
+    if (state.limitOrderType === 'sell' && (state.awaitingLimitPrice === 'sell_target_price' as any) && state.currentToken && state.limitOrderAmount) {
+      const targetPrice = parseFloat(text);
+      if (isNaN(targetPrice) || targetPrice <= 0) {
+        await ctx.reply('❌ Invalid price. Please enter a positive number.');
+        return;
+      }
+
+      try {
+        const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+        const dbUserId = userResult.rows[0].id;
+        const chain = state.currentChain || 'solana';
+        const feeAmount = state.limitOrderAmount * 0.005;
+
+        const multiChainWallet = new MultiChainWalletService();
+        const wallet = await multiChainWallet.getWallet(dbUserId, chain as ChainType);
+
+        if (!wallet) {
+          await ctx.reply(`❌ No ${chain} wallet found.`);
+          userStates.delete(userId);
+          return;
+        }
+
+        const confirmMessage = 
+          `✅ *Confirm Limit Order*\n\n` +
+          `📊 Limit Sell Order\n` +
+          `• Token: ${state.currentTokenInfo?.symbol || 'TOKEN'}\n` +
+          `• Amount: ${state.limitOrderAmount} ${state.currentTokenInfo?.symbol || 'TOKEN'}\n` +
+          `• Target Price: $${targetPrice.toFixed(6)}\n` +
+          `• Platform fee (0.5%): ${feeAmount.toFixed(6)} ${state.currentTokenInfo?.symbol || 'TOKEN'}\n\n` +
+          `This order will execute when ${state.currentTokenInfo?.symbol || 'TOKEN'} price reaches $${targetPrice.toFixed(6)}`;
+
+        userStates.set(userId, {
+          ...state,
+          awaitingLimitPrice: false,
+          pendingLimitOrder: {
+            type: 'sell',
+            tokenAddress: state.currentToken,
+            tokenSymbol: state.currentTokenInfo?.symbol || 'TOKEN',
+            amount: state.limitOrderAmount,
+            targetPrice,
+            chain: chain as ChainType,
+            walletId: wallet.id,
+            feeAmount
+          }
+        });
+
+        await ctx.reply(confirmMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: new InlineKeyboard()
+            .text('✅ Create Limit Order', 'confirm_limit_order')
+            .row()
+            .text('❌ Cancel', 'menu_main')
+        });
+      } catch (error: any) {
+        console.error('Sell limit order processing error:', error);
+        await ctx.reply('❌ Error processing limit order.');
+        userStates.delete(userId);
+      }
+      return;
+    }
+
     // ===== P2P TRANSFER: Handle transfer amount input FIRST =====
     if (state.awaitingTransferAmount && state.transferAddress) {
       const amount = parseFloat(text);
@@ -5395,9 +5638,9 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         }
 
         const buyKeyboard = new InlineKeyboard()
-          .text('DCA', `menu_dca`)
+          .text('⏰ Limit Order', `create_limit_buy`)
           .text('✅ Swap', `execute_swap_custom`)
-          .text('Limit', `menu_limit`)
+          .text('DCA', `menu_dca`)
           .row()
           .text(`Buy 1.0 ${nativeSymbol}`, `buy_preset_1.0`)
           .text(`Buy 5.0 ${nativeSymbol}`, `buy_preset_5.0`)
@@ -6453,6 +6696,121 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       userStates.delete(userId);
     }
   });
+
+  // Limit Order Creation - Buy
+  bot.callbackQuery('create_limit_buy', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId);
+    
+    if (!state?.currentToken || !state?.currentChain) {
+      await ctx.reply('❌ Token information not found. Please search for a token again.');
+      return;
+    }
+
+    // Ask for amount first
+    const chainName = state.currentChain === 'ethereum' ? 'Ethereum' : state.currentChain === 'bsc' ? 'BSC' : 'Solana';
+    const nativeSymbol = state.currentChain === 'ethereum' ? 'ETH' : state.currentChain === 'bsc' ? 'BNB' : 'SOL';
+
+    await ctx.reply(
+      `⏰ *Create Buy Limit Order*\n\n` +
+      `📊 Token: ${state.currentTokenInfo?.symbol || 'TOKEN'}\n` +
+      `🔗 Chain: ${chainName}\n\n` +
+      `Current Price: $${parseFloat(state.currentTokenInfo?.priceUsd || '0').toFixed(6)}\n\n` +
+      `Step 1: Enter the amount of ${nativeSymbol} to spend:\n\n` +
+      `*Example:* \`1.0\` or \`5.25\``,
+      { parse_mode: 'Markdown' }
+    );
+
+    userStates.set(userId, {
+      ...state,
+      limitOrderType: 'buy',
+      awaitingLimitPrice: true
+    });
+  });
+
+  // Limit Order Creation - Sell (similar flow, search token first)
+  bot.callbackQuery('create_limit_sell', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId) || {};
+
+    // Ensure we have a chain selected for sell limit orders
+    const chain = state.currentChain || 'solana';
+    const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
+
+    await ctx.reply(
+      `⏰ *Create Sell Limit Order* (${chainName})\n\n` +
+      `Step 1: Enter the token address to set a sell order:\n\n` +
+      `*Example:* \`EPjFWoQb...D1v\` or paste URL from pump.fun, DEX Screener, etc.`,
+      { parse_mode: 'Markdown' }
+    );
+
+    userStates.set(userId, {
+      ...state,
+      awaitingSellToken: true,
+      limitOrderType: 'sell',
+      currentChain: chain as ChainType
+    });
+  });
+
+// Limit Order Confirmation
+bot.callbackQuery('confirm_limit_order', async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  await ctx.answerCallbackQuery();
+  const state = userStates.get(userId);
+  const limitOrder = state?.pendingLimitOrder;
+
+  if (!limitOrder) {
+    await ctx.reply('❌ Order session expired. Please try again.');
+    return;
+  }
+
+  try {
+    const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+    const dbUserId = userResult.rows[0].id;
+
+    // Create limit order in database
+    const orderResult = await query(
+      `INSERT INTO orders (user_id, wallet_id, token_address, order_type, amount, target_price, chain, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       RETURNING id`,
+      [dbUserId, limitOrder.walletId, limitOrder.tokenAddress, limitOrder.type, limitOrder.amount, limitOrder.targetPrice, limitOrder.chain, 'active']
+    );
+
+    const orderId = orderResult.rows[0].id;
+    const nativeSymbol = limitOrder.chain === 'ethereum' ? 'ETH' : limitOrder.chain === 'bsc' ? 'BNB' : 'SOL';
+
+    await ctx.reply(
+      `✅ *Limit Order Created!*\n\n` +
+      `📌 Order ID: ${orderId}\n` +
+      `📊 Type: Buy ${limitOrder.tokenSymbol}\n` +
+      `💰 Amount: ${limitOrder.amount} ${nativeSymbol}\n` +
+      `🎯 Target Price: $${limitOrder.targetPrice.toFixed(6)}\n` +
+      `💵 Fee: ${limitOrder.feeAmount.toFixed(6)} ${nativeSymbol}\n\n` +
+      `⏰ Status: Active\n` +
+      `The order will execute automatically when the target price is reached.`,
+      { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+    );
+
+    userStates.delete(userId);
+  } catch (error: any) {
+    console.error('Limit order confirmation error:', error);
+    await ctx.reply(
+      `❌ *Failed to Create Order*\n\n` +
+      `Error: ${error.message}\n\n` +
+      `Please try again.`,
+      { parse_mode: 'Markdown', reply_markup: getMainMenu() }
+    );
+    userStates.delete(userId);
+  }
+});
 
   console.log('✅ Bot commands and callbacks registered');
 }
