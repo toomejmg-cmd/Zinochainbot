@@ -26,10 +26,15 @@ export class FeeService {
       
       if (result.rows.length > 0) {
         const settings = result.rows[0];
+        const dbFeeWallet = settings.fee_wallet_address_solana || settings.fee_wallet_address || '';
+        
+        // Prioritize environment variable FEE_WALLET over database
+        const effectiveFeeWallet = this.config.feeWallet || dbFeeWallet;
+        
         this.config = {
           tradingFeeBps: Math.floor(parseFloat(settings.fee_percentage) * 100),
-          feeWallet: settings.fee_wallet_address_solana || settings.fee_wallet_address || '',
-          feeWalletSolana: settings.fee_wallet_address_solana,
+          feeWallet: effectiveFeeWallet,
+          feeWalletSolana: settings.fee_wallet_address_solana || effectiveFeeWallet,
           feeWalletEthereum: settings.fee_wallet_address_ethereum,
           feeWalletBsc: settings.fee_wallet_address_bsc,
           referralPercentage: parseFloat(settings.referral_percentage),
@@ -38,6 +43,8 @@ export class FeeService {
           enabled: settings.enabled,
           maintenanceMode: settings.maintenance_mode
         };
+        
+        console.log(`🔧 DEBUG: Effective fee wallet after DB load = "${effectiveFeeWallet}"`);
       }
     } catch (error) {
       console.error('Error loading fee settings from database:', error);
