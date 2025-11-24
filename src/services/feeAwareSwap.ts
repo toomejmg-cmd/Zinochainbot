@@ -99,7 +99,7 @@ export class FeeAwareSwapService {
           );
         }
       } else if (!isSolInput) {
-        console.log(`ℹ️  Fee collection for non-SOL inputs: Will record ${feeAmount.toFixed(4)} ${amountDisplayUnit} as database entry`);
+        console.log(`ℹ️  Fee collection for non-SOL inputs (output): Will transfer ${feeAmount.toFixed(6)} SOL AFTER swap completes`);
       } else if (isSolInput && !feeWallet) {
         throw new Error(`Fee wallet not configured. Cannot proceed with swap.`);
       }

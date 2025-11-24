@@ -5423,13 +5423,16 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           return;
         }
 
-        await ctx.reply(`🔄 Processing sale of ${sellAmount} ${token.symbol}...\n⏳ Converting to ${nativeSymbol}...`);
+        const tokenSymbol = token.symbol || token.mint?.substring(0, 8) || 'TOKEN';
+        await ctx.reply(`🔄 Processing sale of ${sellAmount} ${tokenSymbol}...\n⏳ Converting to ${nativeSymbol}...`);
 
         if (chain === 'solana') {
           const keypair = await walletManager.getKeypair(wallet.id);
           const settings = await userSettingsService.getSettings(dbUserId);
           const tokenAmountLamports = Math.floor(sellAmount * Math.pow(10, token.decimals));
 
+          // For sell swaps: Execute FULL swap (no fee reduction on input)
+          // Then collect 0.5% fee from the SOL output
           const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
             keypair,
             tokenMint,
@@ -5440,13 +5443,33 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
             wallet.id
           );
 
+          // For non-SOL inputs, feeAwareSwap returns fee calculated from token input
+          // But we need to recalculate as 0.5% of SOL OUTPUT instead
+          const actualFeeAmount = swapResult.swapAmount * 0.005; // 0.5% of SOL output
+          const actualSolReceived = swapResult.swapAmount - actualFeeAmount;
+
+          // Transfer the output fee to fee wallet
+          if (actualFeeAmount > 0) {
+            try {
+              const feeWallet = feeService.getFeeWallet();
+              if (feeWallet) {
+                await walletManager.transferSOL(keypair, feeWallet, actualFeeAmount);
+                console.log(`✅ Sell swap fee transferred: ${actualFeeAmount.toFixed(6)} SOL to ${feeWallet}`);
+              }
+            } catch (feeTransferError: any) {
+              console.error(`⚠️  Fee transfer failed for sell swap:`, feeTransferError);
+              // Don't fail the entire swap if fee transfer fails, but log it
+            }
+          }
+
           const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
+          const tokenSymbol = token.symbol || token.mint?.substring(0, 8) || 'TOKEN';
 
           await ctx.reply(
             `✅ *Sale Successful!*\n\n` +
-            `💰 You sold: ${sellAmount} ${token.symbol}\n` +
-            `💵 Platform fee: ${swapResult.feeAmount.toFixed(4)} ${nativeSymbol}\n` +
-            `📈 Received: ${swapResult.swapAmount.toFixed(4)} ${nativeSymbol}\n` +
+            `💰 You sold: ${sellAmount} ${tokenSymbol}\n` +
+            `💵 Platform fee (0.5%): ${actualFeeAmount.toFixed(6)} ${nativeSymbol}\n` +
+            `📈 Received: ${actualSolReceived.toFixed(6)} ${nativeSymbol}\n` +
             `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
             `🔗 [View on Solscan](${explorerUrl})`,
             { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
