@@ -1225,8 +1225,7 @@ Choose an action below! 👇
         // For Ethereum/BSC: query purchased tokens from transactions table
         const tokenTxResult = await query(
           `SELECT DISTINCT to_token FROM transactions 
-           WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''
-           ORDER BY created_at DESC`,
+           WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
           [wallet.id]
         );
         
@@ -1348,6 +1347,11 @@ Choose an action below! 👇
           balance: '0',
           decimals: 18
         }));
+        
+        if (tokenList.length === 0) {
+          await ctx.reply('❌ No tokens found in your wallet.');
+          return;
+        }
       }
       
       const token = tokenList.find((t: any) => 
@@ -5356,6 +5360,11 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
             balance: '0',
             decimals: 18
           }));
+          
+          if (tokenList.length === 0) {
+            await ctx.reply('❌ No tokens found in your wallet.');
+            return;
+          }
         }
         
         const token = tokenList.find((t: any) => 
