@@ -141,6 +141,16 @@ export class FeeAwareSwapService {
     feeAmount: number
   ): Promise<number | null> {
     try {
+      console.log(`📝 Recording transaction:`, {
+        signature,
+        walletId,
+        userId,
+        inputMint,
+        outputMint,
+        totalAmount,
+        feeAmount
+      });
+
       const txResult = await query(
         `INSERT INTO transactions (wallet_id, user_id, transaction_type, signature, from_token, to_token, from_amount, fee_amount, status)
          VALUES ($1, $2, 'swap', $3, $4, $5, $6, $7, 'confirmed')
@@ -148,18 +158,27 @@ export class FeeAwareSwapService {
         [walletId, userId, signature, inputMint, outputMint, totalAmount, feeAmount]
       );
 
+      console.log(`✅ Transaction insert result:`, txResult.rows);
+
       // Record fee
       if (txResult.rows.length > 0) {
         const txId = txResult.rows[0].id;
+        console.log(`💾 Recording fee for transaction ${txId}...`);
         await this.feeService.recordFee(txId, userId, feeAmount, 'trading', inputMint);
-        console.log(`📝 Transaction recorded: ${signature}`);
+        console.log(`✅ Transaction recorded successfully: ${signature} (ID: ${txId})`);
         return txId;
       }
 
-      console.log(`📝 Transaction recorded: ${signature}`);
+      console.log(`⚠️  No rows returned from INSERT: ${signature}`);
       return null;
-    } catch (error) {
-      console.error(`⚠️  Failed to record transaction:`, error);
+    } catch (error: any) {
+      console.error(`❌ CRITICAL: Failed to record transaction:`, {
+        signature,
+        walletId,
+        userId,
+        error: error.message,
+        stack: error.stack
+      });
       return null;
       // Don't throw - transaction already happened, just log the error
     }
