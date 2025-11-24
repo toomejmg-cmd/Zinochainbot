@@ -45,24 +45,38 @@ export class FeeAwareSwapService {
     walletId: number
   ): Promise<{ signature: string; feeAmount: number; swapAmount: number; transactionId: number | null }> {
     try {
-      const amountInSol = amountInLamports / LAMPORTS_PER_SOL;
+      // Check if this is a SOL-based swap or token swap
+      const isSolInput = inputMint === NATIVE_SOL_MINT;
       
-      console.log(`💰 Fee-aware swap initiated: ${amountInSol} SOL → ${outputMint}`);
+      let amountInTokenUnits: number;
+      let amountDisplayUnit: string;
+      
+      if (isSolInput) {
+        amountInTokenUnits = amountInLamports / LAMPORTS_PER_SOL;
+        amountDisplayUnit = 'SOL';
+      } else {
+        // For non-SOL inputs, amount is already in token units (e.g., USDC)
+        amountInTokenUnits = amountInLamports;
+        amountDisplayUnit = 'tokens';
+      }
+      
+      console.log(`💰 Fee-aware swap initiated: ${amountInTokenUnits} ${amountDisplayUnit} → ${outputMint}`);
       console.log(`🔹 Input mint: ${inputMint}`);
 
-      // Calculate fee
-      const feeAmount = this.feeService.calculateFee(amountInSol);
-      const swapAmount = amountInSol - feeAmount;
+      // Calculate fee (always 0.5% of input amount)
+      const feeAmount = this.feeService.calculateFee(amountInTokenUnits);
+      const swapAmount = amountInTokenUnits - feeAmount;
       const feeWallet = this.feeService.getFeeWallet();
 
       console.log(`📊 Fee breakdown:`);
-      console.log(`   Total: ${amountInSol.toFixed(4)} SOL`);
-      console.log(`   Fee (${this.feeService.getFeePercentage()}%): ${feeAmount.toFixed(4)} SOL`);
-      console.log(`   Swap amount: ${swapAmount.toFixed(4)} SOL`);
+      console.log(`   Total: ${amountInTokenUnits.toFixed(4)} ${amountDisplayUnit}`);
+      console.log(`   Fee (${this.feeService.getFeePercentage()}%): ${feeAmount.toFixed(4)} ${amountDisplayUnit}`);
+      console.log(`   Swap amount: ${swapAmount.toFixed(4)} ${amountDisplayUnit}`);
       console.log(`💼 Fee wallet retrieved: ${feeWallet || 'EMPTY/NULL'}`);
 
-      // Step 1: Deduct fee from user's wallet
-      if (feeWallet && feeAmount > 0) {
+      // Step 1: Deduct SOL fee ONLY for SOL inputs
+      let feeTransferred = false;
+      if (isSolInput && feeWallet && feeAmount > 0) {
         console.log(`💸 Step 1: Transferring ${feeAmount.toFixed(6)} SOL to fee wallet ${feeWallet}...`);
         try {
           console.log(`   🔑 User keypair: ${keypair.publicKey.toString()}`);
@@ -77,27 +91,36 @@ export class FeeAwareSwapService {
           console.log(`✅ Fee transfer successful!`);
           console.log(`   📝 Signature: ${feeTxSignature}`);
           console.log(`   🔗 Check: https://solscan.io/tx/${feeTxSignature}?cluster=mainnet-beta`);
+          feeTransferred = true;
         } catch (feeError: any) {
-          console.error(`❌ CRITICAL: Fee transfer failed!`);
+          console.error(`❌ Fee transfer failed!`);
           console.error(`   Error: ${feeError?.message || feeError}`);
-          console.error(`   Stack: ${feeError?.stack || 'N/A'}`);
+          console.log(`⚠️  Fee will still be recorded in database. Continuing with swap...`);
           // Don't throw - continue with swap and record fee anyway
           // The fee will still be recorded in database even if transfer fails
-          console.log(`⚠️  Fee will be recorded in database. Continuing with swap...`);
         }
+      } else if (!isSolInput) {
+        console.log(`ℹ️  Fee collection for non-SOL inputs: Will record ${feeAmount.toFixed(4)} ${amountDisplayUnit} as database entry (physical transfer not supported yet)`);
       } else {
         console.warn(`⚠️  Fee transfer SKIPPED - Wallet empty: ${!feeWallet}, Amount > 0: ${feeAmount > 0}`);
       }
 
       // Step 2: Execute swap with remaining amount
-      console.log(`🔄 Step 2: Executing swap with ${swapAmount.toFixed(4)} SOL...`);
-      const swapAmountLamports = Math.floor(swapAmount * LAMPORTS_PER_SOL);
+      console.log(`🔄 Step 2: Executing swap with ${swapAmount.toFixed(4)} ${amountDisplayUnit}...`);
+      
+      // Convert swap amount based on input type
+      let swapAmountInSmallestUnit: number;
+      if (isSolInput) {
+        swapAmountInSmallestUnit = Math.floor(swapAmount * LAMPORTS_PER_SOL);
+      } else {
+        swapAmountInSmallestUnit = Math.floor(swapAmount);
+      }
       
       const signature = await this.jupiterService.swap(
         keypair,
         inputMint,
         outputMint,
-        swapAmountLamports,
+        swapAmountInSmallestUnit,
         slippageBps
       );
 
@@ -105,6 +128,7 @@ export class FeeAwareSwapService {
 
       // Step 3: Record transaction AND fees
       let transactionId: number | null = null;
+      let feeRecorded = false;
       
       try {
         transactionId = await this.recordSwapTransaction(
@@ -113,18 +137,28 @@ export class FeeAwareSwapService {
           userId,
           inputMint,
           outputMint,
-          amountInSol,
+          amountInTokenUnits,
           feeAmount
         );
+        feeRecorded = transactionId !== null;
       } catch (recordError: any) {
         console.error(`⚠️  Transaction recording failed:`, recordError);
-        // Even if transaction recording fails, ensure fees are recorded
+      }
+      
+      // Always ensure fee is recorded, even if transaction recording fails
+      if (!feeRecorded && feeAmount > 0) {
+        console.log(`📝 Fee recording - attempting fallback...`);
         try {
           await this.feeService.recordFee(null, userId, feeAmount, 'trading', inputMint);
-          console.log(`✅ Fee recorded directly (${feeAmount.toFixed(6)} SOL)`);
+          console.log(`✅ Fee recorded in fallback (${feeAmount.toFixed(6)} SOL, tx: ${signature})`);
+          feeRecorded = true;
         } catch (feeRecordError: any) {
-          console.error(`❌ Failed to record fee:`, feeRecordError);
+          console.error(`❌ Failed to record fee in fallback:`, feeRecordError);
         }
+      }
+      
+      if (!feeRecorded && feeAmount > 0) {
+        console.warn(`⚠️  WARNING: Fee was NOT recorded in database! Tx: ${signature}, Fee: ${feeAmount.toFixed(6)} SOL`);
       }
 
       return {
