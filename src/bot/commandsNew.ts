@@ -23,7 +23,6 @@ import {
   getBackToMainMenu,
   getWalletMenu,
   getBuyMenu,
-  getSellMenu,
   getSettingsMenu,
   getAdminMenu,
   getWithdrawMenu,
@@ -1267,26 +1266,32 @@ Choose an action below! 👇
       
       // Get token balances (chain-specific method)
       let tokenBalances: any[] = [];
-      if (chain === 'solana') {
-        // For Solana: use walletManager portfolio with correct key format
-        const portfolio = await walletManager.getPortfolio(wallet.publicKey);
-        tokenBalances = portfolio.tokens || [];
-      } else {
-        // For Ethereum/BSC: query purchased tokens from transactions table
-        const tokenTxResult = await query(
-          `SELECT DISTINCT to_token FROM transactions 
-           WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
-          [wallet.id]
-        );
-        
-        // Convert to TokenBalance format with placeholder names
-        tokenBalances = tokenTxResult.rows.map((row: any) => ({
-          tokenAddress: row.to_token,
-          symbol: `${row.to_token.substring(0, 6)}...`,
-          name: 'Token',
-          balance: '0',  // Placeholder - would need contract calls to get real balance
-          decimals: 18
-        }));
+      try {
+        if (chain === 'solana') {
+          // For Solana: use walletManager portfolio with correct key format
+          const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+          tokenBalances = portfolio.tokens || [];
+          console.log(`[SELL_MENU] Got portfolio for ${wallet.publicKey}, tokens count: ${tokenBalances.length}`);
+        } else {
+          // For Ethereum/BSC: query purchased tokens from transactions table
+          const tokenTxResult = await query(
+            `SELECT DISTINCT to_token FROM transactions 
+             WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
+            [wallet.id]
+          );
+          
+          // Convert to TokenBalance format with placeholder names
+          tokenBalances = tokenTxResult.rows.map((row: any) => ({
+            tokenAddress: row.to_token,
+            symbol: `${row.to_token.substring(0, 6)}...`,
+            name: 'Token',
+            balance: '0',  // Placeholder - would need contract calls to get real balance
+            decimals: 18
+          }));
+        }
+      } catch (portfolioError: any) {
+        console.error('[SELL_MENU] Portfolio fetch error:', portfolioError);
+        tokenBalances = [];
       }
 
       // Get chain emoji
