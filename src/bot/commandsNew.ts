@@ -2372,10 +2372,105 @@ _(Tap to copy)_
         );
       },
       sell: async () => {
-        await ctx.editMessageText(
-          `💸 *Sell Tokens*\n\nChoose which token you want to sell:`,
-          { parse_mode: 'Markdown', reply_markup: getSellMenu() }
-        );
+        // Show dynamic sell menu with user's actual tokens from portfolio
+        const userId = ctx.from?.id;
+        if (!userId) return;
+
+        await ctx.answerCallbackQuery('Loading your tokens...');
+
+        try {
+          const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+          if (userResult.rows.length === 0) {
+            await ctx.reply('Please use /start first.');
+            return;
+          }
+
+          const dbUserId = userResult.rows[0].id;
+          const wallet = await multiChainWalletService.getWallet(dbUserId, 'solana');
+
+          if (!wallet) {
+            await ctx.editMessageText(
+              `💸 *Sell Tokens*\n\n` +
+              `❌ No wallet found. Please create a wallet first using /create_wallet`,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: getBackToMainMenu()
+              }
+            );
+            return;
+          }
+
+          const chain = 'solana' as ChainType;
+          const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
+          const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+          const tokenBalances = portfolio.tokens || [];
+          const chainEmoji = '⚡';
+          const chainName = 'Solana';
+          const nativeSymbol = adapter.getNativeToken().symbol;
+
+          if (tokenBalances.length === 0) {
+            await ctx.editMessageText(
+              `💸 *Sell Tokens* ${chainEmoji}\n\n` +
+              `You do not have any tokens yet. Start trading in the Buy menu.`,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: new InlineKeyboard()
+                  .text('🔙 Back', 'back')
+                  .text('🔄 Refresh', 'menu_sell')
+              }
+            );
+            pushNavigation(userId, 'sell');
+            return;
+          }
+
+          let message = `💸 *Sell Tokens* ${chainEmoji} ${chainName}\n\n`;
+          message += `Select a token to sell for ${nativeSymbol}:\n\n`;
+          message += `Current fee: ${feeService.getFeePercentage()}%\n\n`;
+
+          const keyboard = new InlineKeyboard();
+          
+          const tokenSymbols: Record<string, string> = {};
+          const symbolPromises = tokenBalances.slice(0, 10).map(async (token: any) => {
+            const tokenAddress = token.tokenAddress || token.mint || '';
+            try {
+              const tokenInfo = (await Promise.race([
+                tokenInfoService.getTokenInfo(tokenAddress, chain),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+              ])) as TokenInfo | null;
+              if (tokenInfo?.symbol) {
+                tokenSymbols[tokenAddress] = tokenInfo.symbol.toUpperCase();
+              }
+            } catch (err) {
+              // Silently fail
+            }
+          });
+          
+          await Promise.all(symbolPromises);
+          
+          for (let i = 0; i < tokenBalances.length && i < 10; i++) {
+            const token = tokenBalances[i];
+            const tokenAddress = token.tokenAddress || token.mint || '';
+            let displaySymbol = tokenSymbols[tokenAddress] || `${tokenAddress.substring(0, 4)}...${tokenAddress.substring(tokenAddress.length - 4)}`;
+            const buttonText = `🪙 ${displaySymbol} (${parseFloat(token.balance).toFixed(4)})`;
+            keyboard.text(buttonText, `sell_token_solana_${tokenAddress}`).row();
+          }
+
+          if (tokenBalances.length > 10) {
+            message += `\n_Showing first 10 tokens only_\n`;
+          }
+
+          keyboard.text('🔙 Back', 'back').text('❌ Close', 'close_menu');
+
+          await ctx.editMessageText(message, {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard
+          });
+
+          pushNavigation(userId, 'sell');
+        } catch (error: any) {
+          console.error('Sell menu error:', error);
+          await ctx.reply('❌ Error loading tokens. Please try again.');
+        }
       },
       settings: async () => {
         await ctx.editMessageText(
