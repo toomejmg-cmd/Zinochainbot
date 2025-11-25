@@ -100,7 +100,6 @@ interface UserState {
   awaitingBuyAmount?: boolean;
   awaitingBuyToken?: boolean;
   awaitingSellAmount?: boolean;
-  awaitingSellToken?: boolean;
   awaitingWithdrawAddress?: boolean;
   awaitingWithdrawAmount?: boolean;
   awaitingReferralCode?: boolean;
@@ -1400,7 +1399,7 @@ Choose an action below! 👇
       // Get token balances (chain-specific method)
       let tokenList: any[] = [];
       if (chain === 'solana') {
-        const portfolio = await walletManager.getPortfolio(wallet.public_key);
+        const portfolio = await walletManager.getPortfolio(wallet.publicKey);
         tokenList = portfolio.tokens || [];
       } else {
         // For Ethereum/BSC: query from transactions table
@@ -1482,7 +1481,7 @@ Choose an action below! 👇
       { parse_mode: 'Markdown' }
     );
 
-    userStates.set(userId, { awaitingSellToken: true });
+    userStates.set(userId, { awaitingSellAmount: true });
   });
 
   bot.callbackQuery('menu_portfolio', async (ctx) => {
@@ -2511,7 +2510,7 @@ _(Tap to copy)_
         return;
       }
 
-      const portfolio = await walletManager.getPortfolio(wallet.public_key);
+      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
 
       if (portfolio.tokens.length === 0) {
         await ctx.editMessageText(
@@ -5112,49 +5111,6 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       return;
     }
 
-    // ===== LIMIT ORDER SELL: Handle token address input =====
-    if (state.awaitingSellToken && state.limitOrderType === 'sell') {
-      const tokenAddress = text.trim();
-      if (!tokenAddress || tokenAddress.length < 20) {
-        await ctx.reply('❌ Invalid token address. Please enter a valid address.');
-        return;
-      }
-
-      try {
-        const chain = state.currentChain || 'solana';
-        const tokenInfoService = new TokenInfoService();
-        const tokenInfo = await tokenInfoService.getTokenInfo(tokenAddress, chain as ChainType);
-
-        if (!tokenInfo) {
-          await ctx.reply('❌ Token not found on this chain. Please check the address.');
-          return;
-        }
-
-        const nativeSymbol = chain === 'ethereum' ? 'ETH' : chain === 'bsc' ? 'BNB' : 'SOL';
-
-        await ctx.reply(
-          `⏰ *Sell Limit Order - Amount*\n\n` +
-          `📊 Token: ${tokenInfo.symbol}\n\n` +
-          `Step 2: Enter the amount of ${tokenInfo.symbol} to sell:\n\n` +
-          `*Example:* \`100\` or \`1000.50\``,
-          { parse_mode: 'Markdown' }
-        );
-
-        userStates.set(userId, {
-          ...state,
-          awaitingSellToken: false,
-          limitOrderType: 'sell',
-          currentToken: tokenAddress,
-          currentTokenInfo: tokenInfo,
-          currentChain: chain as ChainType,
-          awaitingLimitPrice: 'sell_amount' as any
-        });
-      } catch (error: any) {
-        console.error('Sell token resolution error:', error);
-        await ctx.reply('❌ Error fetching token info.');
-      }
-      return;
-    }
 
     // ===== LIMIT ORDER SELL: Handle amount input =====
     if (state.limitOrderType === 'sell' && (state.awaitingLimitPrice === 'sell_amount' as any) && state.currentToken) {
@@ -5708,7 +5664,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         // Get token info (chain-specific method)
         let tokenList: any[] = [];
         if (chain === 'solana') {
-          const portfolio = await walletManager.getPortfolio(wallet.public_key);
+          const portfolio = await walletManager.getPortfolio(wallet.publicKey);
           tokenList = portfolio.tokens || [];
         } else {
           // For Ethereum/BSC: query from transactions table
@@ -6731,31 +6687,105 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
     });
   });
 
-  // Limit Order Creation - Sell (similar flow, search token first)
+  // Limit Order Creation - Sell (show owned tokens)
   bot.callbackQuery('create_limit_sell', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
     await ctx.answerCallbackQuery();
     const state = userStates.get(userId) || {};
-
-    // Ensure we have a chain selected for sell limit orders
     const chain = state.currentChain || 'solana';
     const chainName = chain === 'ethereum' ? 'Ethereum' : chain === 'bsc' ? 'BSC' : 'Solana';
 
-    await ctx.reply(
-      `⏰ *Create Sell Limit Order* (${chainName})\n\n` +
-      `Step 1: Enter the token address to set a sell order:\n\n` +
-      `*Example:* \`EPjFWoQb...D1v\` or paste URL from pump.fun, DEX Screener, etc.`,
-      { parse_mode: 'Markdown' }
-    );
+    try {
+      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
+      if (!userResult.rows[0]) {
+        await ctx.reply('❌ User not found.');
+        return;
+      }
 
-    userStates.set(userId, {
-      ...state,
-      awaitingSellToken: true,
-      limitOrderType: 'sell',
-      currentChain: chain as ChainType
-    });
+      const dbUserId = userResult.rows[0].id;
+      const multiChainWallet = new MultiChainWalletService();
+      const wallet = await multiChainWallet.getWallet(dbUserId, chain as ChainType);
+
+      if (!wallet) {
+        await ctx.reply(`❌ No ${chain} wallet found.`);
+        return;
+      }
+
+      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+      const tokens = portfolio.tokens || [];
+
+      if (tokens.length === 0) {
+        await ctx.reply(`❌ You have no tokens to sell on ${chainName}.`);
+        return;
+      }
+
+      const keyboard = new InlineKeyboard();
+      for (const token of tokens.slice(0, 10)) {
+        const tokenInfo = await tokenInfoService.getTokenInfo(token.mint, chain as ChainType);
+        const symbol = tokenInfo?.symbol || token.mint.slice(0, 8);
+        const balance = token.balance.toFixed(2);
+        keyboard.text(`${symbol} (${balance})`, `select_sell_token_${token.mint}`).row();
+      }
+
+      keyboard.text('❌ Cancel', 'menu_main');
+
+      await ctx.reply(
+        `⏰ *Create Sell Limit Order* (${chainName})\n\n` +
+        `Step 1: Select a token to sell:\n`,
+        { parse_mode: 'Markdown', reply_markup: keyboard }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        limitOrderType: 'sell',
+        currentChain: chain as ChainType
+      });
+    } catch (error: any) {
+      console.error('Error loading portfolio:', error);
+      await ctx.reply('❌ Error loading your portfolio.');
+    }
+  });
+
+  // Handle sell token selection
+  bot.callbackQuery(/^select_sell_token_/, async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const tokenMint = ctx.callbackQuery.data.replace('select_sell_token_', '');
+    await ctx.answerCallbackQuery();
+    const state = userStates.get(userId) || {};
+    const chain = state.currentChain || 'solana';
+
+    try {
+      const tokenInfo = await tokenInfoService.getTokenInfo(tokenMint, chain as ChainType);
+      if (!tokenInfo) {
+        await ctx.reply('❌ Token not found.');
+        return;
+      }
+
+      const symbol = tokenInfo.symbol || 'TOKEN';
+      await ctx.reply(
+        `⏰ *Sell Limit Order - Amount*\n\n` +
+        `📊 Token: ${symbol}\n\n` +
+        `Step 2: Enter the amount of ${symbol} to sell:\n\n` +
+        `*Example:* \`100\` or \`1000.50\``,
+        { parse_mode: 'Markdown' }
+      );
+
+      userStates.set(userId, {
+        ...state,
+        limitOrderType: 'sell',
+        currentToken: tokenMint,
+        currentTokenInfo: tokenInfo,
+        currentChain: chain as ChainType,
+        awaitingLimitPrice: 'sell_amount' as any
+      });
+    } catch (error: any) {
+      console.error('Token info error:', error);
+      await ctx.reply('❌ Error fetching token info.');
+    }
   });
 
   // Limit Order Confirmation
