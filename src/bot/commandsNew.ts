@@ -2396,9 +2396,14 @@ _(Tap to copy)_
           }
 
           const dbUserId = userResult.rows[0].id;
-          const wallet = await multiChainWalletService.getWallet(dbUserId, 'solana');
+          
+          // Query database directly for wallet public_key
+          const walletResult = await query(
+            `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
+            [dbUserId, 'solana']
+          );
 
-          if (!wallet) {
+          if (walletResult.rows.length === 0) {
             await ctx.editMessageText(
               `💸 *Sell Tokens*\n\n` +
               `❌ No wallet found. Please create a wallet first using /create_wallet`,
@@ -2410,9 +2415,11 @@ _(Tap to copy)_
             return;
           }
 
+          const walletPublicKey = walletResult.rows[0].public_key;
+          const walletId = walletResult.rows[0].id;
           const chain = 'solana' as ChainType;
           const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
-          const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+          const portfolio = await walletManager.getPortfolio(walletPublicKey);
           const tokenBalances = portfolio.tokens || [];
           const chainEmoji = '⚡';
           const chainName = 'Solana';
