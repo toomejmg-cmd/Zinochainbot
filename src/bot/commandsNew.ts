@@ -6777,11 +6777,14 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const dbUserId = userResult.rows[0].id;
 
       // Create limit order in database
+      // For BUY orders: to_token is what we're buying
+      // For SELL orders: from_token is what we're selling
+      const isBuy = limitOrder.type === 'buy';
       const orderResult = await query(
-        `INSERT INTO orders (user_id, wallet_id, token_address, order_type, amount, target_price, chain, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        `INSERT INTO orders (user_id, wallet_id, ${isBuy ? 'to_token' : 'from_token'}, order_type, amount, target_price, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
          RETURNING id`,
-        [dbUserId, limitOrder.walletId, limitOrder.tokenAddress, limitOrder.type, limitOrder.amount, limitOrder.targetPrice, limitOrder.chain, 'active']
+        [dbUserId, limitOrder.walletId, limitOrder.tokenAddress, limitOrder.type, limitOrder.amount, limitOrder.targetPrice, 'active']
       );
 
       const orderId = orderResult.rows[0].id;
