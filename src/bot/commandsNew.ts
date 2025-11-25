@@ -1379,6 +1379,7 @@ Choose an action below! 👇
 
     const chain = ctx.match[1] as ChainType;
     const tokenAddress = ctx.match[2];
+    console.log(`[SELL_TOKEN_HANDLER] Chain: ${chain}, TokenAddress: ${tokenAddress}`);
     await ctx.answerCallbackQuery();
 
     try {
@@ -1401,21 +1402,23 @@ Choose an action below! 👇
         return;
       }
 
-      const wallet = walletResult.rows[0];
+      const walletPublicKey = walletResult.rows[0].public_key;
+      const walletId = walletResult.rows[0].id;
       const adapter = multiChainWalletService.getChainManager().getAdapter(chain);
       const nativeSymbol = adapter.getNativeToken().symbol;
       
       // Get token balances (chain-specific method)
       let tokenList: any[] = [];
       if (chain === 'solana') {
-        const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+        const portfolio = await walletManager.getPortfolio(walletPublicKey);
         tokenList = portfolio.tokens || [];
+        console.log(`[SELL_TOKEN_HANDLER] Portfolio tokens:`, JSON.stringify(tokenList));
       } else {
         // For Ethereum/BSC: query from transactions table
         const tokenTxResult = await query(
           `SELECT DISTINCT to_token FROM transactions 
            WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
-          [wallet.id]
+          [walletId]
         );
         tokenList = tokenTxResult.rows.map((row: any) => ({
           tokenAddress: row.to_token,
@@ -1431,11 +1434,17 @@ Choose an action below! 👇
         }
       }
       
-      const token = tokenList.find((t: any) => 
-        (t.tokenAddress === tokenAddress) || (t.mint === tokenAddress)
-      );
+      console.log(`[SELL_TOKEN_HANDLER] Looking for token - searching for: ${tokenAddress}`);
+      console.log(`[SELL_TOKEN_HANDLER] Available tokens:`, tokenList.map((t: any) => ({ mint: t.mint, tokenAddress: t.tokenAddress })));
+      
+      const token = tokenList.find((t: any) => {
+        const match = (t.tokenAddress === tokenAddress) || (t.mint === tokenAddress);
+        if (match) console.log(`[SELL_TOKEN_HANDLER] ✅ Token FOUND:`, t);
+        return match;
+      });
 
       if (!token) {
+        console.log(`[SELL_TOKEN_HANDLER] ❌ Token NOT FOUND - tokenAddress: ${tokenAddress}, tokenList:`, tokenList);
         await ctx.reply('❌ Token not found in your wallet.');
         return;
       }
@@ -1511,17 +1520,22 @@ Choose an action below! 👇
       }
 
       const dbUserId = userResult.rows[0].id;
-      // Use multiChainWalletService to get the SOLANA wallet specifically
-      const wallet = await multiChainWalletService.getWallet(dbUserId, 'solana');
+      
+      // Query database directly for wallet public_key
+      const walletResult = await query(
+        `SELECT id, public_key FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
+        [dbUserId, 'solana']
+      );
 
-      if (!wallet) {
+      if (walletResult.rows.length === 0) {
         await ctx.reply('❌ No Solana wallet found. Use /create_wallet first.', {
           reply_markup: getBackToMainMenu()
         });
         return;
       }
 
-      const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+      const walletPublicKey = walletResult.rows[0].public_key;
+      const portfolio = await walletManager.getPortfolio(walletPublicKey);
       const solPrice = await coinGeckoService.getSolanaPrice();
 
       let message = `💼 *Portfolio*\n\n`;
