@@ -1348,7 +1348,6 @@ Choose an action below! 👇
         message += `\n_Showing first 10 tokens only_\n`;
       }
 
-      keyboard.text('📝 Custom Token Address', 'sell_custom').row();
       keyboard.text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 
       await ctx.editMessageText(message, {
