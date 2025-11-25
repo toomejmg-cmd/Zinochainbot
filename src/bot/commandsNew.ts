@@ -1244,10 +1244,13 @@ Choose an action below! 👇
 
       const dbUserId = userResult.rows[0].id;
       
-      // Get SOLANA wallet specifically (like Portfolio does)
-      const wallet = await multiChainWalletService.getWallet(dbUserId, 'solana');
+      // Query database directly for wallet public_key
+      const walletResult = await query(
+        `SELECT id, public_key, chain FROM wallets WHERE user_id = $1 AND chain = $2 AND is_active = true LIMIT 1`,
+        [dbUserId, 'solana']
+      );
 
-      if (!wallet) {
+      if (walletResult.rows.length === 0) {
         await ctx.editMessageText(
           `💸 *Sell Tokens*\n\n` +
           `❌ No wallet found. Please create a wallet first using /create_wallet`,
@@ -1259,6 +1262,8 @@ Choose an action below! 👇
         return;
       }
 
+      const walletPublicKey = walletResult.rows[0].public_key;
+      const walletId = walletResult.rows[0].id;
       const chain = 'solana' as ChainType;
       
       // Get chain adapter for native token info
@@ -1269,15 +1274,15 @@ Choose an action below! 👇
       try {
         if (chain === 'solana') {
           // For Solana: use walletManager portfolio with correct key format
-          const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+          const portfolio = await walletManager.getPortfolio(walletPublicKey);
           tokenBalances = portfolio.tokens || [];
-          console.log(`[SELL_MENU] Got portfolio for ${wallet.publicKey}, tokens count: ${tokenBalances.length}`);
+          console.log(`[SELL_MENU] Got portfolio for ${walletPublicKey}, tokens count: ${tokenBalances.length}`);
         } else {
           // For Ethereum/BSC: query purchased tokens from transactions table
           const tokenTxResult = await query(
             `SELECT DISTINCT to_token FROM transactions 
              WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
-            [wallet.id]
+            [walletId]
           );
           
           // Convert to TokenBalance format with placeholder names
