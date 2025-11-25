@@ -76,8 +76,6 @@ export function getSellMenu(): InlineKeyboard {
   return new InlineKeyboard()
     .text('💵 Sell USDC', 'sell_usdc')
     .row()
-    .text('📝 Custom Token', 'sell_custom')
-    .row()
     .text('🔙 Back', 'back').text('❌ Close', 'close_menu');
 }
 
