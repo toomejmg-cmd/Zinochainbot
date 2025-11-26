@@ -6467,22 +6467,38 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         }
       }
 
-      // ✅ STEP 4: Execute swap WITHOUT fee deduction (fee already sent)
+      // ✅ STEP 4: Get FRESH quote right before swap (prevents stale quote errors)
       const settings = await userSettingsService.getSettings(dbUserId);
-      const amountLamports = Math.floor(swap.swapAmount * LAMPORTS_PER_SOL);
+      const connection = (walletManager as any).getConnection();
+      const jupiterService = new JupiterService(connection);
       const tokenAddress = swap.tokenAddress || '';
+      const amountInLamports = Math.floor(swap.swapAmount * LAMPORTS_PER_SOL);
+      
+      console.log(`🔄 Getting fresh quote before swap execution...`);
+      let freshQuote;
+      try {
+        freshQuote = await jupiterService.getQuote(
+          NATIVE_SOL_MINT,
+          tokenAddress,
+          amountInLamports,
+          settings.slippageBps
+        );
+        console.log(`✅ Fresh quote obtained: ${freshQuote.outAmount} output`);
+      } catch (quoteError: any) {
+        console.error(`❌ Failed to get fresh quote:`, quoteError);
+        throw new Error(`Failed to get swap quote: ${quoteError?.message || quoteError}`);
+      }
 
-      const swapResult = await feeAwareSwapService.swapWithFeeDeduction(
-        keypair,
-        NATIVE_SOL_MINT,
-        tokenAddress,
-        amountLamports,
-        settings.slippageBps,
-        dbUserId,
-        swap.walletId
-      );
+      // ✅ STEP 5: Execute swap with fresh quote
+      let swapSignature: string;
+      try {
+        swapSignature = await jupiterService.executeSwap(keypair, freshQuote);
+      } catch (swapError: any) {
+        console.error(`❌ Swap execution failed:`, swapError);
+        throw new Error(`Swap execution failed: ${swapError?.message || swapError}`);
+      }
 
-      console.log(`✅ Swap successful: ${swapResult.signature}`);
+      console.log(`✅ Swap successful: ${swapSignature}`);
 
       // Record transaction
       let transactionId: number | null = null;
@@ -6491,7 +6507,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           `INSERT INTO transactions (wallet_id, from_token, to_token, amount, swap_amount, status, transaction_type, signature)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING id`,
-          [swap.walletId, NATIVE_SOL_MINT, swap.tokenAddress, swap.amount, swap.swapAmount, 'success', 'swap', swapResult.signature]
+          [swap.walletId, NATIVE_SOL_MINT, swap.tokenAddress, swap.amount, swap.swapAmount, 'success', 'swap', swapSignature]
         ).then((res: any) => res.rows[0]?.id || null);
       } catch (recordError: any) {
         console.error('Transaction recording failed:', recordError);
@@ -6510,15 +6526,15 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       }
 
       const adapter = multiChainWallet.getChainManager().getAdapter(chain);
-      const explorerUrl = adapter.getExplorerUrl(swapResult.signature);
+      const explorerUrl = adapter.getExplorerUrl(swapSignature);
 
       // ✅ STEP 5: Show success
       await ctx.reply(
         `✅ *Swap Successful!*\n\n` +
         `💰 You bought: ${swap.tokenSymbol || 'TOKEN'}\n` +
         `💵 Spent: ${swap.amount} ${nativeSymbol}\n` +
-        `🎯 Received: ${swapResult.swapAmount.toFixed(6)}\n` +
-        `📝 TX: \`${swapResult.signature.substring(0, 20)}...\`\n\n` +
+        `🎯 Received: ${swap.swapAmount.toFixed(6)}\n` +
+        `📝 TX: \`${swapSignature.substring(0, 20)}...\`\n\n` +
         `🔗 [View on Solscan](${explorerUrl})`,
         { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
       );
