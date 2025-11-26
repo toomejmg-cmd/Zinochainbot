@@ -5777,19 +5777,20 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
           return;
         }
 
-        const wallet = walletResult.rows[0];
+        const walletPublicKey = walletResult.rows[0].public_key;
+        const walletId = walletResult.rows[0].id;
 
         // Get token info (chain-specific method)
         let tokenList: any[] = [];
         if (chain === 'solana') {
-          const portfolio = await walletManager.getPortfolio(wallet.publicKey);
+          const portfolio = await walletManager.getPortfolio(walletPublicKey);
           tokenList = portfolio.tokens || [];
         } else {
           // For Ethereum/BSC: query from transactions table
           const tokenTxResult = await query(
             `SELECT DISTINCT to_token FROM transactions 
              WHERE wallet_id = $1 AND transaction_type = 'swap' AND status = 'success' AND to_token IS NOT NULL AND to_token != ''`,
-            [wallet.id]
+            [walletId]
           );
           tokenList = tokenTxResult.rows.map((row: any) => ({
             tokenAddress: row.to_token,
@@ -5867,7 +5868,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
             tokenSymbol,
             sellAmount,
             chain,
-            walletId: wallet.id,
+            walletId: walletId,
             token
           }
         });
