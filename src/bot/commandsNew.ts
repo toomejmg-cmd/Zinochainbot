@@ -1,6 +1,6 @@
 import { Bot, Context, InlineKeyboard, InputFile } from 'grammy';
 import { WalletManager } from '../wallet/walletManager';
-import { ZinochainService, NATIVE_SOL_MINT, USDC_MINT } from '../services/jupiter';
+import { JupiterService, NATIVE_SOL_MINT, USDC_MINT } from '../services/jupiter';
 import { FeeAwareSwapService } from '../services/feeAwareSwap';
 import { CoinGeckoService } from '../services/coingecko';
 import { AdminService } from '../services/admin';
@@ -255,7 +255,7 @@ function getHelpContent(): { message: string; keyboard: InlineKeyboard } {
 export function registerCommands(
   bot: Bot,
   walletManager: WalletManager,
-  jupiterService: ZinochainService,
+  jupiterService: JupiterService,
   coinGeckoService: CoinGeckoService,
   adminService: AdminService,
   feeService: FeeService,
@@ -6318,7 +6318,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       // ✅ STEP 5: Execute swap WITHOUT fee deduction (fee already sent)
       const settings = await userSettingsService.getSettings(dbUserId);
       const connection = (walletManager as any).getConnection();
-      const jupiterService = new ZinochainService(connection);
+      const jupiterService = new JupiterService(connection);
       const inputMint = swap.inputMint || NATIVE_SOL_MINT;
       const outputMint = swap.outputMint || '';
       const swapSignature = await jupiterService.swap(
@@ -6564,7 +6564,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         // Get quote first to know the SOL output
         const connection = (walletManager as any).getConnection();
-        const jupiterService = new ZinochainService(connection);
+        const jupiterService = new JupiterService(connection);
         
         // Get quote to estimate SOL output
         let estimatedSolOutput = sell.sellAmount; // fallback estimate

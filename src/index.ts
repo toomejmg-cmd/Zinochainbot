@@ -2,7 +2,7 @@ import { Bot, InputFile } from 'grammy';
 import dotenv from 'dotenv';
 import * as path from 'path';
 import { WalletManager } from './wallet/walletManager';
-import { ZinochainService } from './services/jupiter';
+import { JupiterService } from './services/jupiter';
 import { CoinGeckoService } from './services/coingecko';
 import { AdminService } from './services/admin';
 import { FeeService } from './services/fees';
@@ -35,7 +35,7 @@ async function main() {
     const bot = new Bot(botToken);
 
     const walletManager = new WalletManager(rpcUrl);
-    const jupiterService = new ZinochainService(walletManager.getConnection());
+    const jupiterService = new JupiterService(walletManager.getConnection());
     const coinGeckoService = new CoinGeckoService(process.env.COINGECKO_API_KEY);
     
     const adminService = new AdminService();
