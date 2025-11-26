@@ -6313,21 +6313,37 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         }
       }
 
-      // ✅ STEP 4: Execute swap (already showed updating status)
-
-      // ✅ STEP 5: Execute swap WITHOUT fee deduction (fee already sent)
+      // ✅ STEP 4: Get FRESH quote right before swap (prevents stale quote errors)
       const settings = await userSettingsService.getSettings(dbUserId);
       const connection = (walletManager as any).getConnection();
       const jupiterService = new JupiterService(connection);
       const inputMint = swap.inputMint || NATIVE_SOL_MINT;
       const outputMint = swap.outputMint || '';
-      const swapSignature = await jupiterService.swap(
-        keypair,
-        inputMint,
-        outputMint,
-        Math.floor(swap.swapAmount * LAMPORTS_PER_SOL), // Use swap amount (already deducted fee)
-        settings.slippageBps
-      );
+      const amountInLamports = Math.floor(swap.swapAmount * LAMPORTS_PER_SOL);
+      
+      console.log(`🔄 Getting fresh quote before swap execution...`);
+      let freshQuote;
+      try {
+        freshQuote = await jupiterService.getQuote(
+          inputMint,
+          outputMint,
+          amountInLamports,
+          settings.slippageBps
+        );
+        console.log(`✅ Fresh quote obtained: ${freshQuote.outAmount} output`);
+      } catch (quoteError: any) {
+        console.error(`❌ Failed to get fresh quote:`, quoteError);
+        throw new Error(`Failed to get swap quote: ${quoteError?.message || quoteError}`);
+      }
+
+      // ✅ STEP 5: Execute swap with fresh quote
+      let swapSignature: string;
+      try {
+        swapSignature = await jupiterService.executeSwap(keypair, freshQuote);
+      } catch (swapError: any) {
+        console.error(`❌ Swap execution failed:`, swapError);
+        throw new Error(`Swap execution failed: ${swapError?.message || swapError}`);
+      }
 
       console.log(`✅ Swap successful: ${swapSignature}`);
 
