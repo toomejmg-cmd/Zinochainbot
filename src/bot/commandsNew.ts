@@ -1373,13 +1373,13 @@ Choose an action below! 👇
   });
 
   // Handle selling a specific token from the list
-  bot.callbackQuery(/^sell_token_(.+)_(.+)$/, async (ctx) => {
+  // Fixed regex: [^_]+ matches chain (stops at first underscore), .+ matches token address
+  bot.callbackQuery(/^sell_token_([^_]+)_(.+)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
     const chain = ctx.match[1] as ChainType;
     const tokenAddress = ctx.match[2];
-    console.log(`[SELL_TOKEN_HANDLER] Chain: ${chain}, TokenAddress: ${tokenAddress}`);
     await ctx.answerCallbackQuery();
 
     try {
@@ -1412,7 +1412,6 @@ Choose an action below! 👇
       if (chain === 'solana') {
         const portfolio = await walletManager.getPortfolio(walletPublicKey);
         tokenList = portfolio.tokens || [];
-        console.log(`[SELL_TOKEN_HANDLER] Portfolio tokens:`, JSON.stringify(tokenList));
       } else {
         // For Ethereum/BSC: query from transactions table
         const tokenTxResult = await query(
@@ -1434,17 +1433,11 @@ Choose an action below! 👇
         }
       }
       
-      console.log(`[SELL_TOKEN_HANDLER] Looking for token - searching for: ${tokenAddress}`);
-      console.log(`[SELL_TOKEN_HANDLER] Available tokens:`, tokenList.map((t: any) => ({ mint: t.mint, tokenAddress: t.tokenAddress })));
-      
-      const token = tokenList.find((t: any) => {
-        const match = (t.tokenAddress === tokenAddress) || (t.mint === tokenAddress);
-        if (match) console.log(`[SELL_TOKEN_HANDLER] ✅ Token FOUND:`, t);
-        return match;
-      });
+      const token = tokenList.find((t: any) => 
+        (t.tokenAddress === tokenAddress) || (t.mint === tokenAddress)
+      );
 
       if (!token) {
-        console.log(`[SELL_TOKEN_HANDLER] ❌ Token NOT FOUND - tokenAddress: ${tokenAddress}, tokenList:`, tokenList);
         await ctx.reply('❌ Token not found in your wallet.');
         return;
       }
