@@ -1,5 +1,5 @@
 import { Keypair, SystemProgram, Transaction, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
-import { JupiterService, NATIVE_SOL_MINT } from './jupiter';
+import { ZinochainService, NATIVE_SOL_MINT } from './jupiter';
 import { WalletManager } from '../wallet/walletManager';
 import { FeeService } from './fees';
 import { query } from '../database/db';
@@ -19,7 +19,7 @@ import { query } from '../database/db';
  */
 export class FeeAwareSwapService {
   constructor(
-    private jupiterService: JupiterService,
+    private jupiterService: ZinochainService,
     private walletManager: WalletManager,
     private feeService: FeeService
   ) {}

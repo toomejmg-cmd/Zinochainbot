@@ -3,7 +3,7 @@ import { getAssociatedTokenAddress, getAccount, getMint } from '@solana/spl-toke
 import bs58 from 'bs58';
 import * as bip39 from 'bip39';
 import { derivePath } from 'ed25519-hd-key';
-import { JupiterService } from '../services/jupiter';
+import { ZinochainService } from '../services/jupiter';
 import {
   ChainType,
   IChainAdapter,
@@ -16,11 +16,11 @@ import {
 export class SolanaAdapter implements IChainAdapter {
   chainType: ChainType = 'solana';
   private connection: Connection;
-  private jupiterService: JupiterService;
+  private jupiterService: ZinochainService;
 
   constructor(rpcUrl: string) {
     this.connection = new Connection(rpcUrl, 'confirmed');
-    this.jupiterService = new JupiterService(this.connection);
+    this.jupiterService = new ZinochainService(this.connection);
   }
 
   async createWallet(): Promise<WalletCredentials> {

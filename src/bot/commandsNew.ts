@@ -1,6 +1,6 @@
 import { Bot, Context, InlineKeyboard, InputFile } from 'grammy';
 import { WalletManager } from '../wallet/walletManager';
-import { JupiterService, NATIVE_SOL_MINT, USDC_MINT } from '../services/jupiter';
+import { ZinochainService, NATIVE_SOL_MINT, USDC_MINT } from '../services/jupiter';
 import { FeeAwareSwapService } from '../services/feeAwareSwap';
 import { CoinGeckoService } from '../services/coingecko';
 import { AdminService } from '../services/admin';
@@ -214,7 +214,8 @@ function getErrorMessage(error: any): string {
   if (errorStr.includes('InstructionError') || errorStr.includes('Custom')) return '⚠️ Transaction failed. Your balance might be too low or the network is congested. Please try again.';
   if (errorStr.includes('blockhash') || errorStr.includes('expired')) return '⏱️ Transaction expired. Please try again.';
   if (errorStr.includes('already in use')) return '⏳ Another transaction is in progress. Please wait a moment and try again.';
-  if (errorStr.includes('Failed to execute swap') || errorStr.includes('swap failed')) return '⚠️ Swap failed. Check balance or try with higher slippage. Please try again.';
+  if (errorStr.includes('status code 429') || errorStr.includes('Rate limited')) return '⏳ Zinochain swap service is temporarily busy. Retrying automatically... Please wait a moment.';
+  if (errorStr.includes('Failed to get quote') || errorStr.includes('Failed to execute swap') || errorStr.includes('swap failed')) return '⚠️ Swap failed. Check balance or try with higher slippage. Please try again.';
   if (errorStr.includes('Fee transfer failed')) return '💸 Fee transfer failed. Ensure you have enough SOL for the transaction and platform fee.';
   return '⚠️ Transaction failed. Please check your balance and try again.';
 }
@@ -254,7 +255,7 @@ function getHelpContent(): { message: string; keyboard: InlineKeyboard } {
 export function registerCommands(
   bot: Bot,
   walletManager: WalletManager,
-  jupiterService: JupiterService,
+  jupiterService: ZinochainService,
   coinGeckoService: CoinGeckoService,
   adminService: AdminService,
   feeService: FeeService,
@@ -6317,7 +6318,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       // ✅ STEP 5: Execute swap WITHOUT fee deduction (fee already sent)
       const settings = await userSettingsService.getSettings(dbUserId);
       const connection = (walletManager as any).getConnection();
-      const jupiterService = new JupiterService(connection);
+      const jupiterService = new ZinochainService(connection);
       const inputMint = swap.inputMint || NATIVE_SOL_MINT;
       const outputMint = swap.outputMint || '';
       const swapSignature = await jupiterService.swap(
@@ -6563,7 +6564,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         // Get quote first to know the SOL output
         const connection = (walletManager as any).getConnection();
-        const jupiterService = new JupiterService(connection);
+        const jupiterService = new ZinochainService(connection);
         
         // Get quote to estimate SOL output
         let estimatedSolOutput = sell.sellAmount; // fallback estimate
