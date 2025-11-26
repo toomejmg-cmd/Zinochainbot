@@ -962,7 +962,7 @@ Choose an action below! 👇
         `• Platform fee (0.5%): ${feeAmount.toFixed(6)} SOL\n` +
         `• Swap amount: ${swapAmount.toFixed(4)} SOL\n\n` +
         `💰 Your balance: ${nativeBalance.toFixed(6)} SOL\n` +
-        `✅ After swap: ${(nativeBalance - nativeAmount).toFixed(6)} SOL\n\n` +
+        `✅ After swap: ${(nativeBalance - nativeAmount - feeAmount).toFixed(6)} SOL\n\n` +
         `⚠️  Fee will only be deducted if swap succeeds.\n\n` +
         `Tap "Confirm" to execute this swap or "Cancel" to abort.`;
       
@@ -1075,7 +1075,7 @@ Choose an action below! 👇
         `• Platform fee (0.5%): ${feeAmount.toFixed(6)} SOL\n` +
         `• Swap amount: ${swapAmount.toFixed(4)} SOL\n\n` +
         `💰 Your balance: ${nativeBalance.toFixed(6)} SOL\n` +
-        `✅ After swap: ${(nativeBalance - nativeAmount).toFixed(6)} SOL\n\n` +
+        `✅ After swap: ${(nativeBalance - nativeAmount - feeAmount).toFixed(6)} SOL\n\n` +
         `⚠️  Fee will only be deducted if swap succeeds.\n\n` +
         `Tap "Confirm" to execute this swap or "Cancel" to abort.`;
       
@@ -6358,12 +6358,15 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const adapter = new MultiChainWalletService().getChainManager().getAdapter('solana');
       const explorerUrl = adapter.getExplorerUrl(swapSignature);
 
-      // ✅ STEP 6: Show success
-      await ctx.editMessageText(
-        `✅ *Swap Successful!*\n\n` +
-        `💰 You swapped: ${swap.amount} ${swap.nativeSymbol || 'SOL'}\n` +
+      // ✅ STEP 6: Show success with token info
+      let successMessage = `✅ *Swap Successful!*\n\n` +
+        `💰 You spent: ${swap.amount} ${swap.nativeSymbol || 'SOL'}\n` +
         `📝 TX: \`${swapSignature.substring(0, 20)}...\`\n\n` +
-        `🔗 [View on Solscan](${explorerUrl})`,
+        `🔗 [View on Solscan](${explorerUrl})\n\n` +
+        `✨ Your token will appear in portfolio shortly.`;
+      
+      await ctx.editMessageText(
+        successMessage,
         { parse_mode: 'Markdown', link_preview_options: { is_disabled: true }, reply_markup: getMainMenu() }
       );
 
