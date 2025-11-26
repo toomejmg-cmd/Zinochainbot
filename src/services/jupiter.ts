@@ -28,117 +28,163 @@ export class JupiterService {
     inputMint: string,
     outputMint: string,
     amount: number,
-    slippageBps: number = 50
+    slippageBps: number = 50,
+    retries: number = 3
   ): Promise<QuoteResponse> {
     console.log(`🔍 Getting quote: ${inputMint} → ${outputMint}, amount: ${amount}, slippage: ${slippageBps}bps`);
     
-    try {
-      const quoteUrl = `${JUPITER_LITE_API}/quote`;
-      console.log(`📡 Calling Jupiter Lite API (FREE, no auth needed): ${quoteUrl}`);
-      
-      const response = await axios.get(quoteUrl, {
-        params: {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const quoteUrl = `${JUPITER_LITE_API}/quote`;
+        console.log(`📡 Calling swap service (attempt ${attempt}/${retries}): ${quoteUrl}`);
+        
+        const response = await axios.get(quoteUrl, {
+          params: {
+            inputMint,
+            outputMint,
+            amount: amount.toString(),
+            slippageBps,
+            onlyDirectRoutes: false,
+            maxAccounts: 64
+          },
+          timeout: 15000,
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'ZinochainBot/1.0'
+          }
+        });
+
+        if (!response.data) {
+          throw new Error('No quote received from swap service');
+        }
+
+        console.log(`✅ Quote received: ${response.data.outAmount} output tokens`);
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.response?.status;
+        
+        // 429 = Rate Limited, 503 = Service Unavailable - retry with backoff
+        if ((status === 429 || status === 503) && attempt < retries) {
+          const delay = Math.pow(2, attempt - 1) * 1000; // Exponential backoff: 1s, 2s, 4s
+          console.log(`⏳ Rate limited or service unavailable. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        const errorDetails = {
+          message: error?.message,
+          code: error?.code,
+          status: status,
           inputMint,
           outputMint,
-          amount: amount.toString(),
-          slippageBps,
-          onlyDirectRoutes: false,
-          maxAccounts: 64
-        },
-        timeout: 15000,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'ZinochainBot/1.0'
+          amount,
+          attempt
+        };
+        console.error(`❌ Swap quote error (attempt ${attempt}/${retries}):`, JSON.stringify(errorDetails, null, 2));
+        
+        // If it's the last attempt, throw
+        if (attempt === retries) {
+          throw error;
         }
-      });
-
-      if (!response.data) {
-        throw new Error('No quote received from Jupiter');
       }
-
-      console.log(`✅ Quote received: ${response.data.outAmount} output tokens`);
-      return response.data;
-    } catch (error: any) {
-      const errorDetails = {
-        message: error?.message,
-        code: error?.code,
-        status: error?.response?.status,
-        inputMint,
-        outputMint,
-        amount
-      };
-      console.error('❌ Jupiter quote error:', JSON.stringify(errorDetails, null, 2));
-      throw new Error(`Failed to get quote from Jupiter: ${error?.message || error}`);
     }
+    
+    throw new Error(`Failed to get quote after ${retries} attempts: ${lastError?.message || lastError}`);
   }
 
   async executeSwap(
     keypair: Keypair,
     quoteResponse: QuoteResponse,
-    prioritizationFeeLamports: number = 10000
+    prioritizationFeeLamports: number = 100000,
+    retries: number = 3
   ): Promise<string> {
-    try {
-      console.log(`💫 Executing swap: ${quoteResponse.inAmount} → ${quoteResponse.outAmount}`);
-      
-      const swapUrl = `${JUPITER_LITE_API}/swap`;
-      console.log(`📡 Calling Jupiter Lite swap API: ${swapUrl}`);
-      
-      const swapResponse = await axios.post(swapUrl, {
-        quoteResponse,
-        userPublicKey: keypair.publicKey.toString(),
-        wrapAndUnwrapSol: true,
-        prioritizationFeeLamports
-      }, {
-        timeout: 30000,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'ZinochainBot/1.0'
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`💫 Executing swap (attempt ${attempt}/${retries}): ${quoteResponse.inAmount} → ${quoteResponse.outAmount}`);
+        
+        const swapUrl = `${JUPITER_LITE_API}/swap`;
+        console.log(`📡 Calling swap service: ${swapUrl}`);
+        
+        const swapResponse = await axios.post(swapUrl, {
+          quoteResponse,
+          userPublicKey: keypair.publicKey.toString(),
+          wrapAndUnwrapSol: true,
+          prioritizationFeeLamports: prioritizationFeeLamports
+        }, {
+          timeout: 30000,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'ZinochainBot/1.0'
+          }
+        });
+
+        if (!swapResponse?.data?.swapTransaction) {
+          throw new Error('No swap transaction received from service');
         }
-      });
 
-      if (!swapResponse?.data?.swapTransaction) {
-        throw new Error('No swap transaction received from Jupiter');
+        console.log(`✅ Swap transaction created`);
+        const swapTransactionBuf = Buffer.from(swapResponse.data.swapTransaction, 'base64');
+        const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+
+        transaction.sign([keypair]);
+
+        const latestBlockHash = await this.connection.getLatestBlockhash();
+        
+        const rawTransaction = transaction.serialize();
+        const txid = await this.connection.sendRawTransaction(rawTransaction, {
+          skipPreflight: true,
+          maxRetries: 3
+        });
+
+        console.log(`📝 Transaction sent: ${txid}`);
+
+        const confirmation = await this.connection.confirmTransaction({
+          blockhash: latestBlockHash.blockhash,
+          lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+          signature: txid
+        }, 'confirmed');
+
+        if (confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+
+        console.log(`✅ Swap confirmed!`);
+        return txid;
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.response?.status;
+
+        // 429 = Rate Limited, 503 = Service Unavailable - retry with backoff
+        if ((status === 429 || status === 503) && attempt < retries) {
+          const delay = Math.pow(2, attempt - 1) * 1000; // Exponential backoff: 1s, 2s, 4s
+          console.log(`⏳ Rate limited or service unavailable. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        const errorDetails = {
+          status: status,
+          data: error?.response?.data,
+          message: error?.message,
+          code: error?.code,
+          attempt
+        };
+        console.error(`❌ Swap execution error (attempt ${attempt}/${retries}):`, JSON.stringify(errorDetails, null, 2));
+
+        // If it's the last attempt, throw
+        if (attempt === retries) {
+          throw error;
+        }
       }
-
-      console.log(`✅ Swap transaction created`);
-      const swapTransactionBuf = Buffer.from(swapResponse.data.swapTransaction, 'base64');
-      const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
-
-      transaction.sign([keypair]);
-
-      const latestBlockHash = await this.connection.getLatestBlockhash();
-      
-      const rawTransaction = transaction.serialize();
-      const txid = await this.connection.sendRawTransaction(rawTransaction, {
-        skipPreflight: true,
-        maxRetries: 3
-      });
-
-      console.log(`📝 Transaction sent: ${txid}`);
-
-      const confirmation = await this.connection.confirmTransaction({
-        blockhash: latestBlockHash.blockhash,
-        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-        signature: txid
-      }, 'confirmed');
-
-      if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-      }
-
-      console.log(`✅ Swap confirmed!`);
-      return txid;
-    } catch (error: any) {
-      const errorDetails = {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        code: error.code
-      };
-      console.error('❌ Jupiter swap error:', JSON.stringify(errorDetails, null, 2));
-      throw new Error(`Failed to execute swap: ${error.message}`);
     }
+    
+    throw new Error(`Failed to execute swap after ${retries} attempts: ${lastError?.message || lastError}`);
   }
 
   async swap(
@@ -148,8 +194,12 @@ export class JupiterService {
     amount: number,
     slippageBps: number = 50
   ): Promise<string> {
-    const quote = await this.getQuote(inputMint, outputMint, amount, slippageBps);
-    const signature = await this.executeSwap(keypair, quote);
+    // Increase slippage for reliability
+    const effectiveSlippage = Math.max(slippageBps, 200);
+    console.log(`🔧 Using effective slippage: ${effectiveSlippage}bps (requested: ${slippageBps}bps)`);
+    
+    const quote = await this.getQuote(inputMint, outputMint, amount, effectiveSlippage);
+    const signature = await this.executeSwap(keypair, quote, 100000);
     return signature;
   }
 
