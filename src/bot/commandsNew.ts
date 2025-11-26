@@ -206,6 +206,19 @@ function getLastNavigation(userId: number): NavigationHistory | undefined {
   return history[history.length - 1];
 }
 
+// Helper function to convert error messages to user-friendly format
+function getErrorMessage(error: any): string {
+  const errorStr = error?.message || error?.toString() || 'Unknown error';
+  if (errorStr.includes('Insufficient lamports') || errorStr.includes('insufficient lamports')) return '💰 Your SOL balance is too low. Please deposit more SOL to your wallet.';
+  if (errorStr.includes('insufficient balance') || errorStr.includes('Insufficient balance')) return '💰 Your balance is insufficient for this transaction.';
+  if (errorStr.includes('InstructionError') || errorStr.includes('Custom')) return '⚠️ Transaction failed. Your balance might be too low or the network is congested. Please try again.';
+  if (errorStr.includes('blockhash') || errorStr.includes('expired')) return '⏱️ Transaction expired. Please try again.';
+  if (errorStr.includes('already in use')) return '⏳ Another transaction is in progress. Please wait a moment and try again.';
+  if (errorStr.includes('Failed to execute swap') || errorStr.includes('swap failed')) return '⚠️ Swap failed. Check balance or try with higher slippage. Please try again.';
+  if (errorStr.includes('Fee transfer failed')) return '💸 Fee transfer failed. Ensure you have enough SOL for the transaction and platform fee.';
+  return '⚠️ Transaction failed. Please check your balance and try again.';
+}
+
 // Helper function to get help message and keyboard
 function getHelpContent(): { message: string; keyboard: InlineKeyboard } {
   const message = `❓ *Help and Support*\n\n` +
@@ -980,7 +993,7 @@ Choose an action below! 👇
       console.error('Preset buy error:', error);
       await ctx.reply(
         `❌ *Error*\n\n` +
-        `Error: ${error.message}`,
+        `${getErrorMessage(error)}`,
         { parse_mode: 'Markdown' }
       );
       userStates.delete(userId);
@@ -1093,7 +1106,7 @@ Choose an action below! 👇
       console.error('Preset buy error:', error);
       await ctx.reply(
         `❌ *Error*\n\n` +
-        `Error: ${error.message}`,
+        `${getErrorMessage(error)}`,
         { parse_mode: 'Markdown' }
       );
       userStates.delete(userId);
@@ -5573,7 +5586,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         console.error('Buy custom amount error:', error);
         await ctx.reply(
           `❌ *Error*\n\n` +
-          `Error: ${error.message}`,
+          `${getErrorMessage(error)}`,
           { parse_mode: 'Markdown' }
         );
         userStates.delete(userId);
@@ -5884,7 +5897,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         console.error('Sell amount handler error:', error);
         await ctx.reply(
           `❌ *Error*\n\n` +
-          `Error: ${error.message}`,
+          `${getErrorMessage(error)}`,
           { parse_mode: 'Markdown' }
         );
         userStates.delete(userId);
