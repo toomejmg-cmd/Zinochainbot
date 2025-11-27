@@ -28,7 +28,7 @@ export class JupiterService {
     inputMint: string,
     outputMint: string,
     amount: number,
-    slippageBps: number = 50,
+    slippageBps: number = 200,
     retries: number = 3
   ): Promise<QuoteResponse> {
     console.log(`🔍 Getting quote: ${inputMint} → ${outputMint}, amount: ${amount}, slippage: ${slippageBps}bps`);
@@ -113,7 +113,7 @@ export class JupiterService {
         const swapResponse = await axios.post(swapUrl, {
           quoteResponse,
           userPublicKey: keypair.publicKey.toString(),
-          wrapAndUnwrapSol: false,
+          wrapAndUnwrapSol: true,
           prioritizationFeeLamports: prioritizationFeeLamports
         }, {
           timeout: 30000,
