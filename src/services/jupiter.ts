@@ -114,6 +114,7 @@ export class JupiterService {
           quoteResponse,
           userPublicKey: keypair.publicKey.toString(),
           wrapAndUnwrapSol: false,
+          autoCreateUserAssociatedTokenAccount: true,
           prioritizationFeeLamports: prioritizationFeeLamports
         }, {
           timeout: 30000,
