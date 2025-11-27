@@ -6277,15 +6277,31 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const keypair = await walletManager.getKeypair(swap.walletId);
       const feeWallet = feeService.getFeeWallet();
 
-      // ✅ STEP 1: Check balance (already done at confirmation, but verify again)
+      // ✅ STEP 1: Check balance - COMPREHENSIVE calculation
       const multiChainWallet = new MultiChainWalletService();
       const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, 'solana'));
-      const totalNeeded = swap.amount + swap.feeAmount;
+      
+      // Calculate ALL costs:
+      // - Fee (0.5%)
+      // - Swap amount
+      // - Rent exemption (~0.000891 SOL for token account)
+      // - Transaction fees (buffer: 0.00005 SOL)
+      const RENT_EXEMPTION_SOL = 0.000891;
+      const TX_FEE_BUFFER_SOL = 0.00005;
+      const totalCostsInSOL = swap.feeAmount + swap.swapAmount + RENT_EXEMPTION_SOL + TX_FEE_BUFFER_SOL;
 
-      if (nativeBalance < totalNeeded) {
+      console.log(`💰 Balance check: have ${nativeBalance.toFixed(6)} SOL`);
+      console.log(`   Fee: ${swap.feeAmount.toFixed(6)} SOL`);
+      console.log(`   Swap: ${swap.swapAmount.toFixed(6)} SOL`);
+      console.log(`   Rent: ${RENT_EXEMPTION_SOL.toFixed(6)} SOL`);
+      console.log(`   TX fees: ${TX_FEE_BUFFER_SOL.toFixed(6)} SOL`);
+      console.log(`   TOTAL NEEDED: ${totalCostsInSOL.toFixed(6)} SOL`);
+
+      if (nativeBalance < totalCostsInSOL) {
         await ctx.editMessageText(
           `❌ *Insufficient Balance*\n\n` +
-          `Your balance changed. You need ${totalNeeded.toFixed(6)} SOL but have ${nativeBalance.toFixed(6)} SOL`,
+          `Your balance changed. You need ${totalCostsInSOL.toFixed(6)} SOL but have ${nativeBalance.toFixed(6)} SOL\n\n` +
+          `💔 No fees or swaps were made.`,
           { parse_mode: 'Markdown', reply_markup: getMainMenu() }
         );
         userStates.delete(userId);
@@ -6298,7 +6314,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         { parse_mode: 'Markdown' }
       );
 
-      // ✅ STEP 3: Transfer fee to fee wallet (MUST succeed before swap)
+      // ✅ STEP 3: Transfer fee FIRST (only if balance check passed)
       if (feeWallet && swap.feeAmount > 0) {
         try {
           await walletManager.transferSOL(
@@ -6432,17 +6448,33 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const keypair = await walletManager.getKeypair(swap.walletId);
       const feeWallet = feeService.getFeeWallet();
 
-      // ✅ STEP 1: Check balance (already done at confirmation, but verify again)
+      // ✅ STEP 1: Check balance - COMPREHENSIVE calculation
       const multiChainWallet = new MultiChainWalletService();
       const chain = (swap.chain || 'solana') as ChainType;
       const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
       const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
-      const totalNeeded = swap.amount + swap.feeAmount;
+      
+      // Calculate ALL costs:
+      // - Fee (0.5%)
+      // - Swap amount
+      // - Rent exemption (~0.000891 SOL for token account)
+      // - Transaction fees (buffer: 0.00005 SOL)
+      const RENT_EXEMPTION_SOL = 0.000891;
+      const TX_FEE_BUFFER_SOL = 0.00005;
+      const totalCostsInSOL = swap.feeAmount + swap.swapAmount + RENT_EXEMPTION_SOL + TX_FEE_BUFFER_SOL;
 
-      if (nativeBalance < totalNeeded) {
+      console.log(`💰 Balance check: have ${nativeBalance.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   Fee: ${swap.feeAmount.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   Swap: ${swap.swapAmount.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   Rent: ${RENT_EXEMPTION_SOL.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   TX fees: ${TX_FEE_BUFFER_SOL.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   TOTAL NEEDED: ${totalCostsInSOL.toFixed(6)} ${nativeSymbol}`);
+
+      if (nativeBalance < totalCostsInSOL) {
         await ctx.reply(
           `❌ *Insufficient Balance*\n\n` +
-          `Your balance changed. You need ${totalNeeded.toFixed(6)} ${nativeSymbol} but have ${nativeBalance.toFixed(6)} ${nativeSymbol}`,
+          `Your balance changed. You need ${totalCostsInSOL.toFixed(6)} ${nativeSymbol} but have ${nativeBalance.toFixed(6)} ${nativeSymbol}\n\n` +
+          `💔 No fees or swaps were made.`,
           { parse_mode: 'Markdown', reply_markup: getMainMenu() }
         );
         userStates.delete(userId);
@@ -6452,7 +6484,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       // ✅ STEP 2: Show "Swapping" status
       await ctx.reply(`🔄 *Processing Swap*\n\n⏳ Swapping tokens...`, { parse_mode: 'Markdown' });
 
-      // ✅ STEP 3: Transfer fee to fee wallet (MUST succeed before swap)
+      // ✅ STEP 3: Transfer fee FIRST (only if balance check passed)
       if (feeWallet && swap.feeAmount > 0) {
         try {
           await walletManager.transferSOL(
@@ -6460,7 +6492,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
             feeWallet,
             swap.feeAmount
           );
-          console.log(`✅ Fee transferred: ${swap.feeAmount.toFixed(6)} SOL`);
+          console.log(`✅ Fee transferred: ${swap.feeAmount.toFixed(6)} ${nativeSymbol}`);
         } catch (feeError: any) {
           console.error(`❌ Fee transfer failed:`, feeError);
           throw new Error(`Fee transfer failed: ${feeError?.message || feeError}`);
