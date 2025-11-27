@@ -98,7 +98,7 @@ export class JupiterService {
   async executeSwap(
     keypair: Keypair,
     quoteResponse: QuoteResponse,
-    prioritizationFeeLamports: number = 100000,
+    prioritizationFeeLamports: number = 50000,
     retries: number = 3
   ): Promise<string> {
     let lastError: any;
@@ -113,7 +113,7 @@ export class JupiterService {
         const swapResponse = await axios.post(swapUrl, {
           quoteResponse,
           userPublicKey: keypair.publicKey.toString(),
-          wrapAndUnwrapSol: true,
+          wrapAndUnwrapSol: false,
           prioritizationFeeLamports: prioritizationFeeLamports
         }, {
           timeout: 30000,
