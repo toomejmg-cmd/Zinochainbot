@@ -6277,31 +6277,31 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const keypair = await walletManager.getKeypair(swap.walletId);
       const feeWallet = feeService.getFeeWallet();
 
-      // ✅ STEP 1: Check balance - COMPREHENSIVE calculation
+      // ✅ STEP 1: Check balance - COMPREHENSIVE calculation (optimized for small trades)
       const multiChainWallet = new MultiChainWalletService();
       const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, 'solana'));
       
-      // Calculate ALL costs:
+      // Calculate ALL costs with adaptive buffers for small trades:
       // - Fee (0.5%)
       // - Swap amount
-      // - Rent exemption (~0.000891 SOL for token account)
-      // - Transaction fees (buffer: 0.00005 SOL)
+      // - Rent exemption for new token account (~0.000891 SOL) - only if new account needed
+      // - Transaction fees (adaptive: 0.00025 SOL for larger trades, 0.00005 for small)
       const RENT_EXEMPTION_SOL = 0.000891;
-      const TX_FEE_BUFFER_SOL = 0.00005;
-      const totalCostsInSOL = swap.feeAmount + swap.swapAmount + RENT_EXEMPTION_SOL + TX_FEE_BUFFER_SOL;
+      const TX_FEE_BUFFER = swap.swapAmount < 0.01 ? 0.00005 : 0.00025; // Smaller buffer for small trades
+      const totalCostsInSOL = swap.feeAmount + swap.swapAmount + RENT_EXEMPTION_SOL + TX_FEE_BUFFER;
 
       console.log(`💰 Balance check: have ${nativeBalance.toFixed(6)} SOL`);
-      console.log(`   Fee: ${swap.feeAmount.toFixed(6)} SOL`);
-      console.log(`   Swap: ${swap.swapAmount.toFixed(6)} SOL`);
-      console.log(`   Rent: ${RENT_EXEMPTION_SOL.toFixed(6)} SOL`);
-      console.log(`   TX fees: ${TX_FEE_BUFFER_SOL.toFixed(6)} SOL`);
+      console.log(`   Fee (0.5%): ${swap.feeAmount.toFixed(6)} SOL`);
+      console.log(`   Swap amount: ${swap.swapAmount.toFixed(6)} SOL`);
+      console.log(`   Rent exemption: ${RENT_EXEMPTION_SOL.toFixed(6)} SOL`);
+      console.log(`   TX buffer: ${TX_FEE_BUFFER.toFixed(6)} SOL`);
       console.log(`   TOTAL NEEDED: ${totalCostsInSOL.toFixed(6)} SOL`);
 
       if (nativeBalance < totalCostsInSOL) {
         await ctx.editMessageText(
           `❌ *Insufficient Balance*\n\n` +
-          `Your balance changed. You need ${totalCostsInSOL.toFixed(6)} SOL but have ${nativeBalance.toFixed(6)} SOL\n\n` +
-          `💔 No fees or swaps were made.`,
+          `You need ${totalCostsInSOL.toFixed(6)} SOL but have ${nativeBalance.toFixed(6)} SOL\n\n` +
+          `💔 No transaction made.`,
           { parse_mode: 'Markdown', reply_markup: getMainMenu() }
         );
         userStates.delete(userId);
@@ -6314,22 +6314,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         { parse_mode: 'Markdown' }
       );
 
-      // ✅ STEP 3: Transfer fee FIRST (only if balance check passed)
-      if (feeWallet && swap.feeAmount > 0) {
-        try {
-          await walletManager.transferSOL(
-            keypair,
-            feeWallet,
-            swap.feeAmount
-          );
-          console.log(`✅ Fee transferred: ${swap.feeAmount.toFixed(6)} SOL`);
-        } catch (feeError: any) {
-          console.error(`❌ Fee transfer failed:`, feeError);
-          throw new Error(`Fee transfer failed: ${feeError?.message || feeError}`);
-        }
-      }
-
-      // ✅ STEP 4: Get FRESH quote right before swap (prevents stale quote errors)
+      // ✅ STEP 3: Get FRESH quote right before swap (prevents stale quote errors)
       const settings = await userSettingsService.getSettings(dbUserId);
       const connection = (walletManager as any).getConnection();
       const jupiterService = new JupiterService(connection);
@@ -6352,7 +6337,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         throw new Error(`Failed to get swap quote: ${quoteError?.message || quoteError}`);
       }
 
-      // ✅ STEP 5: Execute swap with fresh quote
+      // ✅ STEP 4: Execute swap with fresh quote (using FULL balance)
       let swapSignature: string;
       try {
         swapSignature = await jupiterService.executeSwap(keypair, freshQuote);
@@ -6362,6 +6347,21 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       }
 
       console.log(`✅ Swap successful: ${swapSignature}`);
+
+      // ✅ STEP 5: Transfer fee AFTER swap succeeds (only collect if swap worked)
+      if (feeWallet && swap.feeAmount > 0) {
+        try {
+          await walletManager.transferSOL(
+            keypair,
+            feeWallet,
+            swap.feeAmount
+          );
+          console.log(`✅ Fee transferred: ${swap.feeAmount.toFixed(6)} SOL`);
+        } catch (feeError: any) {
+          console.error(`⚠️  Fee transfer failed after swap:`, feeError);
+          // Don't fail - swap already succeeded
+        }
+      }
 
       // Record transaction
       let transactionId: number | null = null;
@@ -6448,33 +6448,33 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       const keypair = await walletManager.getKeypair(swap.walletId);
       const feeWallet = feeService.getFeeWallet();
 
-      // ✅ STEP 1: Check balance - COMPREHENSIVE calculation
+      // ✅ STEP 1: Check balance - COMPREHENSIVE calculation (optimized for small trades)
       const multiChainWallet = new MultiChainWalletService();
       const chain = (swap.chain || 'solana') as ChainType;
       const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, chain));
       const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain).getNativeToken().symbol;
       
-      // Calculate ALL costs:
+      // Calculate ALL costs with adaptive buffers for small trades:
       // - Fee (0.5%)
       // - Swap amount
-      // - Rent exemption (~0.000891 SOL for token account)
-      // - Transaction fees (buffer: 0.00005 SOL)
+      // - Rent exemption for new token account (~0.000891 SOL) - only if new account needed
+      // - Transaction fees (adaptive: 0.00025 SOL for larger trades, 0.00005 for small)
       const RENT_EXEMPTION_SOL = 0.000891;
-      const TX_FEE_BUFFER_SOL = 0.00005;
-      const totalCostsInSOL = swap.feeAmount + swap.swapAmount + RENT_EXEMPTION_SOL + TX_FEE_BUFFER_SOL;
+      const TX_FEE_BUFFER = swap.swapAmount < 0.01 ? 0.00005 : 0.00025; // Smaller buffer for small trades
+      const totalCostsInSOL = swap.feeAmount + swap.swapAmount + RENT_EXEMPTION_SOL + TX_FEE_BUFFER;
 
       console.log(`💰 Balance check: have ${nativeBalance.toFixed(6)} ${nativeSymbol}`);
-      console.log(`   Fee: ${swap.feeAmount.toFixed(6)} ${nativeSymbol}`);
-      console.log(`   Swap: ${swap.swapAmount.toFixed(6)} ${nativeSymbol}`);
-      console.log(`   Rent: ${RENT_EXEMPTION_SOL.toFixed(6)} ${nativeSymbol}`);
-      console.log(`   TX fees: ${TX_FEE_BUFFER_SOL.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   Fee (0.5%): ${swap.feeAmount.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   Swap amount: ${swap.swapAmount.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   Rent exemption: ${RENT_EXEMPTION_SOL.toFixed(6)} ${nativeSymbol}`);
+      console.log(`   TX buffer: ${TX_FEE_BUFFER.toFixed(6)} ${nativeSymbol}`);
       console.log(`   TOTAL NEEDED: ${totalCostsInSOL.toFixed(6)} ${nativeSymbol}`);
 
       if (nativeBalance < totalCostsInSOL) {
         await ctx.reply(
           `❌ *Insufficient Balance*\n\n` +
-          `Your balance changed. You need ${totalCostsInSOL.toFixed(6)} ${nativeSymbol} but have ${nativeBalance.toFixed(6)} ${nativeSymbol}\n\n` +
-          `💔 No fees or swaps were made.`,
+          `You need ${totalCostsInSOL.toFixed(6)} ${nativeSymbol} but have ${nativeBalance.toFixed(6)} ${nativeSymbol}\n\n` +
+          `💔 No transaction made.`,
           { parse_mode: 'Markdown', reply_markup: getMainMenu() }
         );
         userStates.delete(userId);
@@ -6484,22 +6484,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       // ✅ STEP 2: Show "Swapping" status
       await ctx.reply(`🔄 *Processing Swap*\n\n⏳ Swapping tokens...`, { parse_mode: 'Markdown' });
 
-      // ✅ STEP 3: Transfer fee FIRST (only if balance check passed)
-      if (feeWallet && swap.feeAmount > 0) {
-        try {
-          await walletManager.transferSOL(
-            keypair,
-            feeWallet,
-            swap.feeAmount
-          );
-          console.log(`✅ Fee transferred: ${swap.feeAmount.toFixed(6)} ${nativeSymbol}`);
-        } catch (feeError: any) {
-          console.error(`❌ Fee transfer failed:`, feeError);
-          throw new Error(`Fee transfer failed: ${feeError?.message || feeError}`);
-        }
-      }
-
-      // ✅ STEP 4: Get FRESH quote right before swap (prevents stale quote errors)
+      // ✅ STEP 3: Get FRESH quote right before swap (prevents stale quote errors)
       const settings = await userSettingsService.getSettings(dbUserId);
       const connection = (walletManager as any).getConnection();
       const jupiterService = new JupiterService(connection);
@@ -6521,7 +6506,7 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         throw new Error(`Failed to get swap quote: ${quoteError?.message || quoteError}`);
       }
 
-      // ✅ STEP 5: Execute swap with fresh quote
+      // ✅ STEP 4: Execute swap with fresh quote (using FULL balance)
       let swapSignature: string;
       try {
         swapSignature = await jupiterService.executeSwap(keypair, freshQuote);
@@ -6531,6 +6516,21 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
       }
 
       console.log(`✅ Swap successful: ${swapSignature}`);
+
+      // ✅ STEP 5: Transfer fee AFTER swap succeeds (only collect if swap worked)
+      if (feeWallet && swap.feeAmount > 0) {
+        try {
+          await walletManager.transferSOL(
+            keypair,
+            feeWallet,
+            swap.feeAmount
+          );
+          console.log(`✅ Fee transferred: ${swap.feeAmount.toFixed(6)} ${nativeSymbol}`);
+        } catch (feeError: any) {
+          console.error(`⚠️  Fee transfer failed after swap:`, feeError);
+          // Don't fail - swap already succeeded
+        }
+      }
 
       // Record transaction
       let transactionId: number | null = null;
