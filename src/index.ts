@@ -49,7 +49,7 @@ async function main() {
       tradingFeeBps, 
       feeWallet,
       referralPercentage: 0.5,
-      minTradeAmount: 0.01,
+      minTradeAmount: 0.002,
       enabled: true,
       maintenanceMode: false
     });

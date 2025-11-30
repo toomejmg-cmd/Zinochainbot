@@ -113,7 +113,7 @@ export class JupiterService {
         const swapResponse = await axios.post(swapUrl, {
           quoteResponse,
           userPublicKey: keypair.publicKey.toString(),
-          wrapAndUnwrapSol: false,
+          wrapAndUnwrapSol: true,
           autoCreateUserAssociatedTokenAccount: true,
           prioritizationFeeLamports: prioritizationFeeLamports
         }, {

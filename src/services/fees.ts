@@ -64,7 +64,7 @@ export class FeeService {
   }
 
   getMinTradeAmount(): number {
-    return this.config.minTradeAmount || 0.01;
+    return this.config.minTradeAmount || 0.002;
   }
 
   getMaxTradeAmount(): number | undefined {
