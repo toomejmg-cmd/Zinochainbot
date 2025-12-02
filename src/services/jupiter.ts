@@ -40,12 +40,18 @@ export class JupiterService {
         const quoteUrl = `${JUPITER_LITE_API}/quote`;
         console.log(`📡 Calling swap service (attempt ${attempt}/${retries}): ${quoteUrl}`);
         
+        // Increase slippage on retry for less liquid tokens
+        const effectiveSlippage = attempt > 1 ? Math.min(500, slippageBps * 2) : slippageBps;
+        if (attempt > 1) {
+          console.log(`🔧 Retrying with increased slippage: ${effectiveSlippage}bps (was ${slippageBps}bps)`);
+        }
+        
         const response = await axios.get(quoteUrl, {
           params: {
             inputMint,
             outputMint,
             amount: amount.toString(),
-            slippageBps,
+            slippageBps: effectiveSlippage,
             onlyDirectRoutes: false,
             maxAccounts: 64
           },
@@ -60,7 +66,7 @@ export class JupiterService {
           throw new Error('No quote received from swap service');
         }
 
-        console.log(`✅ Quote received: ${response.data.outAmount} output tokens`);
+        console.log(`✅ Quote received: ${response.data.outAmount} output tokens from route with ${response.data.routePlan?.length || 0} hops`);
         return response.data;
       } catch (error: any) {
         lastError = error;

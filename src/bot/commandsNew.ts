@@ -6404,7 +6404,8 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         console.log(`✅ Fresh quote obtained: ${freshQuote.outAmount} output`);
       } catch (quoteError: any) {
         console.error(`❌ Failed to get fresh quote:`, quoteError);
-        throw new Error(`Failed to get swap quote: ${quoteError?.message || quoteError}`);
+        const errorMsg = quoteError?.response?.data?.error || quoteError?.message || 'Unknown error';
+        throw new Error(`⚠️ Cannot trade this token: ${errorMsg}\n\nThis token might not have liquidity on Jupiter. Try a different token or increase slippage in settings.`);
       }
 
       // ✅ STEP 4: Execute swap with fresh quote (using FULL balance)
@@ -6573,7 +6574,8 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
         console.log(`✅ Fresh quote obtained: ${freshQuote.outAmount} output`);
       } catch (quoteError: any) {
         console.error(`❌ Failed to get fresh quote:`, quoteError);
-        throw new Error(`Failed to get swap quote: ${quoteError?.message || quoteError}`);
+        const errorMsg = quoteError?.response?.data?.error || quoteError?.message || 'Unknown error';
+        throw new Error(`⚠️ Cannot trade this token: ${errorMsg}\n\nThis token might not have liquidity on Jupiter. Try a different token or increase slippage in settings.`);
       }
 
       // ✅ STEP 4: Execute swap with fresh quote (using FULL balance)
