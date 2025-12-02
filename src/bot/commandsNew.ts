@@ -3346,6 +3346,76 @@ _(Tap to copy)_
     pushNavigation(userId, 'rewards');
   });
 
+  // Airdrop Menu
+  bot.callbackQuery('menu_airdrop', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.answerCallbackQuery();
+
+    try {
+      const message = `🎁 *Airdrop Campaign*\n\n` +
+        `Stay tuned for upcoming airdrop campaigns!\n\n` +
+        `*How it works:*\n` +
+        `• Participate in trading volume challenges\n` +
+        `• Complete referral milestones\n` +
+        `• Earn exclusive airdrop tokens\n\n` +
+        `*Current Status:*\n` +
+        `Campaign is under development. You'll receive notifications when airdrops are live.\n\n` +
+        `Follow us for announcements:\n` +
+        `🐦 Twitter: @zinochain\n` +
+        `📱 Telegram: @zinochainbot`;
+
+      const keyboard = new InlineKeyboard()
+        .text('🔔 Enable Notifications', 'airdrop_enable_notifications').row()
+        .text('📊 My Participation', 'airdrop_view_participation').row()
+        .text('🔙 Back', 'back_button')
+        .text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+      pushNavigation(userId, 'airdrop');
+    } catch (error: any) {
+      console.error('Airdrop menu error:', error);
+      await ctx.reply('❌ Error loading airdrop menu.');
+    }
+  });
+
+  // Airdrop sub-menu handlers
+  bot.callbackQuery('airdrop_enable_notifications', async (ctx) => {
+    await ctx.answerCallbackQuery('✅ Notifications enabled for airdrops!');
+  });
+
+  bot.callbackQuery('airdrop_view_participation', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    try {
+      const message = `📊 *Your Airdrop Participation*\n\n` +
+        `*Trading Volume:*\n` +
+        `• Total 24h volume: Pending\n` +
+        `• Total 7d volume: Pending\n\n` +
+        `*Referral Milestones:*\n` +
+        `• Direct referrals: Pending\n` +
+        `• Tier 1 rewards: Pending\n\n` +
+        `Airdrop details will be available when campaigns launch!`;
+
+      const keyboard = new InlineKeyboard()
+        .text('🔙 Back', 'menu_airdrop')
+        .text('❌ Close', 'close_menu');
+
+      await ctx.editMessageText(message, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+    } catch (error: any) {
+      console.error('Airdrop participation error:', error);
+    }
+  });
+
   // Sub-menu handlers for Limit Orders
   bot.callbackQuery('limit_view_all', async (ctx) => {
     await ctx.answerCallbackQuery('Viewing all limit orders...');
