@@ -868,62 +868,24 @@ Choose an action below! 👇
     if (!userId) return;
 
     await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `💰 *Buy Tokens*\n\n` +
+      `Enter one of the following:\n\n` +
+      `1️⃣ Token address (e.g., \`${USDC_MINT}\`)\n` +
+      `2️⃣ Token ticker/symbol (e.g., \`ZCXT\`)\n` +
+      `3️⃣ URL from:\n` +
+      `   • pump.fun\n` +
+      `   • Birdeye\n` +
+      `   • DEX Screener\n` +
+      `   • Moonshot\n\n` +
+      `📎 *Example URLs:*\n` +
+      `\`https://pump.fun/coin/3wppuw...\`\n` +
+      `\`https://dexscreener.com/solana/abc...\`\n\n` +
+      `I'll show you the token details before you buy! 🚀`,
+      { parse_mode: 'Markdown' }
+    );
 
-    try {
-      // Check minimum 1 SOL balance requirement
-      const userResult = await query(`SELECT id FROM users WHERE telegram_id = $1`, [userId]);
-      if (userResult.rows.length === 0) {
-        await ctx.reply('Please use /start first.');
-        return;
-      }
-
-      const dbUserId = userResult.rows[0].id;
-      const multiChainWallet = new MultiChainWalletService();
-      const nativeBalance = parseFloat(await multiChainWallet.getBalance(dbUserId, 'solana'));
-      
-      // Get minimum deposit from bot settings
-      const settingsResult = await query(`SELECT minimum_deposit_sol FROM bot_settings ORDER BY id DESC LIMIT 1`);
-      const minimumDeposit = settingsResult.rows[0]?.minimum_deposit_sol || 1.0;
-
-      if (nativeBalance < minimumDeposit) {
-        const walletAddress = (await multiChainWallet.getWallet(dbUserId, 'solana'))?.publicKey;
-        await ctx.reply(
-          `❌ *Minimum Balance Required*\n\n` +
-          `You need at least *${minimumDeposit} SOL* to start trading.\n\n` +
-          `💰 *Your current balance:* ${nativeBalance.toFixed(4)} SOL\n` +
-          `📥 *Deposit needed:* ${(minimumDeposit - nativeBalance).toFixed(4)} SOL\n\n` +
-          `💡 *How to Deposit:*\n` +
-          `1️⃣ Click "💰 Buy" → "💳 Buy with Card (Moonpay)"\n` +
-          `2️⃣ Or send SOL directly to:\n` +
-          `\`${walletAddress}\`\n\n` +
-          `Once you have ${minimumDeposit} SOL, you can trade any token! 🚀`,
-          { parse_mode: 'Markdown' }
-        );
-        return;
-      }
-
-      await ctx.reply(
-        `💰 *Buy Tokens*\n\n` +
-        `Enter one of the following:\n\n` +
-        `1️⃣ Token address (e.g., \`${USDC_MINT}\`)\n` +
-        `2️⃣ Token ticker/symbol (e.g., \`ZCXT\`)\n` +
-        `3️⃣ URL from:\n` +
-        `   • pump.fun\n` +
-        `   • Birdeye\n` +
-        `   • DEX Screener\n` +
-        `   • Moonshot\n\n` +
-        `📎 *Example URLs:*\n` +
-        `\`https://pump.fun/coin/3wppuw...\`\n` +
-        `\`https://dexscreener.com/solana/abc...\`\n\n` +
-        `I'll show you the token details before you buy! 🚀`,
-        { parse_mode: 'Markdown' }
-      );
-
-      userStates.set(userId, { awaitingBuyToken: true });
-    } catch (error: any) {
-      console.error('Buy menu balance check error:', error);
-      await ctx.reply('❌ Error checking balance. Please try again.');
-    }
+    userStates.set(userId, { awaitingBuyToken: true });
   });
 
   // State-based preset buy handlers (1.0 SOL) - SHOW CONFIRMATION FIRST
@@ -5806,6 +5768,28 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         const nativeBalance = await multiChainWallet.getBalance(dbUserId, chain as ChainType);
         const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain as ChainType).getNativeToken().symbol;
+        
+        // Check minimum deposit requirement
+        const settingsResult = await query(`SELECT minimum_deposit_sol FROM bot_settings ORDER BY id DESC LIMIT 1`);
+        const minimumDeposit = settingsResult.rows[0]?.minimum_deposit_sol || 1.0;
+        const nativeBalanceNum = parseFloat(nativeBalance);
+        
+        if (nativeBalanceNum < minimumDeposit && chain === 'solana') {
+          await ctx.reply(
+            `❌ *Minimum Balance Required*\n\n` +
+            `You need at least *${minimumDeposit} SOL* to start trading.\n\n` +
+            `💰 *Your current balance:* ${nativeBalanceNum.toFixed(4)} SOL\n` +
+            `📥 *Deposit needed:* ${(minimumDeposit - nativeBalanceNum).toFixed(4)} SOL\n\n` +
+            `💡 *How to Deposit:*\n` +
+            `1️⃣ Click "💰 Buy" → "💳 Buy with Card (Moonpay)"\n` +
+            `2️⃣ Or send SOL directly to:\n` +
+            `\`${wallet?.publicKey}\`\n\n` +
+            `Once you have ${minimumDeposit} SOL, you can trade any token! 🚀`,
+            { parse_mode: 'Markdown' }
+          );
+          userStates.delete(userId);
+          return;
+        }
         
         const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
 
