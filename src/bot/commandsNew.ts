@@ -4169,51 +4169,18 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
     }
 
     await ctx.answerCallbackQuery();
-    
-    // Get current settings
-    const settingsResult = await query(`SELECT fee_percentage, minimum_deposit_sol FROM bot_settings ORDER BY id DESC LIMIT 1`);
-    const settings = settingsResult.rows[0] || { fee_percentage: 0.5, minimum_deposit_sol: 1.0 };
-    
     await ctx.editMessageText(
-      `⚙️ *Trading Settings*\n\n` +
-      `💵 *Trading Fee:* ${feeService.getFeePercentage()}%\n` +
-      `/setfee <percentage>\n` +
-      `Example: /setfee 0.75\n\n` +
-      `💰 *Minimum Deposit:* ${settings.minimum_deposit_sol} SOL\n` +
-      `/setmindep <amount>\n` +
-      `Example: /setmindep 0.5`,
+      `💵 *Set Trading Fee*\n\n` +
+      `Current fee: ${feeService.getFeePercentage()}%\n\n` +
+      `To change the fee, use the command:\n` +
+      `/setfee <percentage>\n\n` +
+      `Example: /setfee 0.75\n` +
+      `(This sets the fee to 0.75%)`,
       {
         parse_mode: 'Markdown',
         reply_markup: getBackToMainMenu()
       }
     );
-  });
-  
-  bot.command('setmindep', async (ctx) => {
-    const userId = ctx.from?.id;
-    if (!userId || !(await adminService.isAdmin(userId))) {
-      await ctx.reply('⛔ Admin access required.');
-      return;
-    }
-
-    const args = ctx.message?.text?.split(' ');
-    if (!args || args.length !== 2) {
-      await ctx.reply('Usage: /setmindep <amount_in_sol>\nExample: /setmindep 0.5');
-      return;
-    }
-
-    const minDeposit = parseFloat(args[1]);
-    if (isNaN(minDeposit) || minDeposit < 0) {
-      await ctx.reply('❌ Minimum deposit must be a valid positive number');
-      return;
-    }
-
-    await query(
-      `UPDATE bot_settings SET minimum_deposit_sol = $1, updated_at = CURRENT_TIMESTAMP WHERE id = (SELECT id FROM bot_settings ORDER BY id DESC LIMIT 1)`,
-      [minDeposit]
-    );
-    
-    await ctx.reply(`✅ Minimum deposit amount updated to ${minDeposit} SOL`);
   });
 
   bot.callbackQuery('admin_manage', async (ctx) => {
@@ -5768,28 +5735,6 @@ Hide tokens to clean up your portfolio, and burn rugged tokens to speed up ${cha
 
         const nativeBalance = await multiChainWallet.getBalance(dbUserId, chain as ChainType);
         const nativeSymbol = multiChainWallet.getChainManager().getAdapter(chain as ChainType).getNativeToken().symbol;
-        
-        // Check minimum deposit requirement
-        const settingsResult = await query(`SELECT minimum_deposit_sol FROM bot_settings ORDER BY id DESC LIMIT 1`);
-        const minimumDeposit = settingsResult.rows[0]?.minimum_deposit_sol || 1.0;
-        const nativeBalanceNum = parseFloat(nativeBalance);
-        
-        if (nativeBalanceNum < minimumDeposit && chain === 'solana') {
-          await ctx.reply(
-            `❌ *Minimum Balance Required*\n\n` +
-            `You need at least *${minimumDeposit} SOL* to start trading.\n\n` +
-            `💰 *Your current balance:* ${nativeBalanceNum.toFixed(4)} SOL\n` +
-            `📥 *Deposit needed:* ${(minimumDeposit - nativeBalanceNum).toFixed(4)} SOL\n\n` +
-            `💡 *How to Deposit:*\n` +
-            `1️⃣ Click "💰 Buy" → "💳 Buy with Card (Moonpay)"\n` +
-            `2️⃣ Or send SOL directly to:\n` +
-            `\`${wallet?.publicKey}\`\n\n` +
-            `Once you have ${minimumDeposit} SOL, you can trade any token! 🚀`,
-            { parse_mode: 'Markdown' }
-          );
-          userStates.delete(userId);
-          return;
-        }
         
         const priceImpact5 = tokenInfoService.calculatePriceImpact(tokenInfo, 5.0);
 
